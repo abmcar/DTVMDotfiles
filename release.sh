@@ -57,5 +57,18 @@ for item in "${RELEASE_ITEMS[@]}"; do
     fi
 done
 
+# Mirror .claude/commands into the parent .codex/prompts so both tools share the same files
+CLAUDE_COMMANDS_DIR="$DOTFILES_DIR/.claude/commands"
+CODEX_PROMPTS_DIR="$PARENT_DIR/.codex/prompts"
+
+if [ -d "$CLAUDE_COMMANDS_DIR" ]; then
+    echo "  Releasing synced prompts: .claude/commands → .codex/prompts"
+    mkdir -p "$(dirname "$CODEX_PROMPTS_DIR")"
+    rm -rf "$CODEX_PROMPTS_DIR"
+    cp -r "$CLAUDE_COMMANDS_DIR" "$CODEX_PROMPTS_DIR"
+else
+    echo "Warning: .claude/commands not found in $CLAUDE_COMMANDS_DIR"
+fi
+
 echo ""
 echo "✓ Release operation complete"
