@@ -19,6 +19,8 @@ fi
 # Array of (source in dotfiles, destination in parent) pairs
 RELEASE_ITEMS=(
     "dotfiles/.claude:.claude"
+    "dotfiles/.claude/settings.local.json:.claude/settings.local.json"
+    "dotfiles/.git/info/exclude:.git/info/exclude"
     "dotfiles/qa.md:qa.md"
     "dotfiles/init.sh:init.sh"
     "dotfiles/CLAUDE.md:CLAUDE.md"
