@@ -19,7 +19,6 @@ fi
 # Array of (source in dotfiles, destination in parent) pairs
 RELEASE_ITEMS=(
     "dotfiles/.claude:.claude"
-    "dotfiles/.git/info/exclude:.git/info/exclude"
     "dotfiles/qa.md:qa.md"
     "dotfiles/init.sh:init.sh"
     "dotfiles/CLAUDE.md:CLAUDE.md"

@@ -15,7 +15,6 @@ PARENT_DIR="$(dirname "$SCRIPT_DIR")"
 # Array of (source in parent, destination in dotfiles) pairs
 SYNC_ITEMS=(
     ".claude:dotfiles/.claude"
-    ".git/info/exclude:dotfiles/.git/info/exclude"
     "qa.md:dotfiles/qa.md"
     "init.sh:dotfiles/init.sh"
     "CLAUDE.md:dotfiles/CLAUDE.md"
