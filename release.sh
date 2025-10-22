@@ -59,7 +59,7 @@ done
 
 # Mirror .claude/commands into the parent .codex/prompts so both tools share the same files
 CLAUDE_COMMANDS_DIR="$DOTFILES_DIR/.claude/commands"
-CODEX_PROMPTS_DIR="$PARENT_DIR/.codex/prompts"
+CODEX_PROMPTS_DIR=~/.codex/prompts
 
 if [ -d "$CLAUDE_COMMANDS_DIR" ]; then
     echo "  Releasing synced prompts: .claude/commands → .codex/prompts"
