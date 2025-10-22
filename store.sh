@@ -16,7 +16,7 @@ PARENT_DIR="$(dirname "$SCRIPT_DIR")"
 SYNC_ITEMS=(
     ".claude:dotfiles/.claude"
     ".claude/settings.local.json:dotfiles/.claude/settings.local.json"
-    ".git/info/exclude:dotfiles/.git/info/exclude"
+    ".git/info/exclude:dotfiles/exclude"
     "qa.md:dotfiles/qa.md"
     "init.sh:dotfiles/init.sh"
     "CLAUDE.md:dotfiles/CLAUDE.md"
