@@ -1,7 +1,7 @@
 #! /bin/bash
 sudo apt update
 curl -fsSL https://deb.nodesource.com/setup_22.x | sudo -E bash -
-sudo apt install -y nodejs
+sudo apt install -y nodejs gh
 npm install -g @anthropic-ai/claude-code
 npm i -g @openai/codex
 git submodule update --init
