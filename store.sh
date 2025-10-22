@@ -53,19 +53,6 @@ for item in "${SYNC_ITEMS[@]}"; do
     fi
 done
 
-# Ensure .codex/prompts mirrors .claude/commands so both tools share the same files
-CLAUDE_COMMANDS_DIR="$DOTFILES_DIR/.claude/commands"
-CODEX_PROMPTS_DIR="$DOTFILES_DIR/.codex/prompts"
-
-if [ -d "$CLAUDE_COMMANDS_DIR" ]; then
-    echo "  Mirroring .claude/commands → .codex/prompts"
-    mkdir -p "$(dirname "$CODEX_PROMPTS_DIR")"
-    rm -rf "$CODEX_PROMPTS_DIR"
-    cp -r "$CLAUDE_COMMANDS_DIR" "$CODEX_PROMPTS_DIR"
-else
-    echo "Warning: .claude/commands not found in $CLAUDE_COMMANDS_DIR"
-fi
-
 echo ""
 echo "✓ Store operation complete"
 echo "Files have been synced to dotfiles folder"
