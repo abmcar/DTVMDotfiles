@@ -38,7 +38,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 About build, you can read .vscode/tasks.json, this is my personal tasks.
 ### Build
 ```bash
-cmake -B build -DCMAKE_BUILD_TYPE=Debug -DZEN_ENABLE_MULTIPASS_JIT=ON -DZEN_ENABLE_SPEC_TEST=ON -G Ninja
+cmake -B build -DCMAKE_BUILD_TYPE=Debug -DZEN_ENABLE_MULTIPASS_JIT=ON -DZEN_ENABLE_SINGLEPASS_JIT=OFF -DZEN_ENABLE_SPEC_TEST=ON -G Ninja
 cmake --build build -j
 ```
 
