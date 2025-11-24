@@ -25,6 +25,7 @@ RELEASE_ITEMS=(
     "dotfiles/init.sh:init.sh"
     "dotfiles/CLAUDE.md:CLAUDE.md"
     "dotfiles/CLAUDE.md:AGENTS.md"
+    "dotfiles/CLAUDE.md:GEMINI.md"
 )
 
 echo "Release script - Releasing files from DTVMDotfiles to $PARENT_DIR"
