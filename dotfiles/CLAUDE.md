@@ -4,6 +4,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## Development Focus
 目前我们在实现 EVM JIT 的质量检测方案，具体可见 [qa.md](qa.md)，我们是华师大侧，需要负责异常处理、Gas 计量、安全漏洞、Fuzz 测试、性能检测部分。
+目前主要在做JIT的状态测试部分。
 
 ### Code Style Guidelines (Important)
 1. Only include essential comments—avoid excessive documentation. All comments must be written in English
@@ -30,7 +31,6 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
   - **`mir/`** - Middle Intermediate Representation core
   - **`cgir/`** - Code generation IR and optimization passes
 - **`src/evm/`** - EVM interpreter and opcode handlers
-- **`src/host/`** - Host interface implementations (EVM, WASI, spectest)
 - **`src/common/`** - Shared utilities, error handling, type definitions
 
 ## Build Commands
@@ -38,53 +38,26 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 About build, you can read .vscode/tasks.json, this is my personal tasks.
 ### Build
 ```bash
-cmake -B build -DCMAKE_BUILD_TYPE=Debug -DZEN_ENABLE_MULTIPASS_JIT=ON -DZEN_ENABLE_SINGLEPASS_JIT=OFF -DZEN_ENABLE_SPEC_TEST=ON -G Ninja
+cmake -B build -DCMAKE_BUILD_TYPE=Debug -DZEN_ENABLE_MULTIPASS_JIT=ON -DZEN_ENABLE_SINGLEPASS_JIT=OFF -DZEN_ENABLE_EVM=ON -DZEN_ENABLE_SPEC_TEST=ON -G Ninja
 cmake --build build -j
 ```
-
-### Essential CMake Options
-- `ZEN_ENABLE_SINGLEPASS_JIT=ON` - Enable singlepass JIT
-- `ZEN_ENABLE_MULTIPASS_JIT=ON` - Enable multipass JIT with LLVM backend
-- `ZEN_ENABLE_SPEC_TEST=ON` - Enable WebAssembly spec tests
 
 ## Testing
 
 ### EVM Tests
 
-#### EVM Interpreter Tests
-(现在基本用不到，主要在测试 JIT 部分)
+#### EVM Tests
 ```bash
-# Run EVM interpreter tests
-./build/evmInterpTests
-# Run Solidity contract tests
-./build/solidityContractTests
-# Run EVM State tests
+# Run EVM State tests (Important)
 ./build/evmStateTests
 ```
 
-#### EVM mir Tests
-for evm mir, successful build is all you need, you don't need test them
-
 ### TestCase Structure
 
-#### EVM Test Cases (`tests/evm_asm/`)
-Each test consists of three files:
-- `<test_name>.easm` - EVM assembly source code
-- `<test_name>.evm.hex` - Compiled bytecode (you can generate them by running `./tools/easm2bytecode.sh tests/evm_asm/ tests/evm_asm`)
-- `<test_name>.expected` - Expected execution result
-
-#### Solidity Contract Tests (`tests/evm_solidity/`)
-There have many directories, each directory represent a testcase
-Each contract testcase contains:
-- `<contract_name>.sol` - Solidity source
-- `<contract_name>.json` - Compiled ABI + bytecode(You can generate them by running `./tools/solc_batch_compile.sh tests/evm_solidity`.This will generate compiled JSON files in all subdirectories)
-- `test_cases.json` - Test cases with function calls and expected results(You need write them manually, please think hard)
+#### EVM State Test (`tests/evm_spec_test/state_tests`)
+其中有json和py文件，json是测试样例文件，是状态测试真正执行的文件，py文件是生产测试样例的文件，其中有具体的测试逻辑，你可以通过查看json文件对应的python文件来获取相应测试样例的测试逻辑。
 
 ## Development Tools
-- `tools/function_selector.py` - Run it to calculate function selector(example:`python3 tools/function_selector.py 'add(uint256,uint256)'`, it may be used when writing testcases writing for `solidityContractTests`)
-- `/tools/solc_batch_compile.sh` - Run it to compile sol files(example:`./tools/solc_batch_compile.sh tests/evm_solidity`, it may be used before running `solidityContractTests` to compile latest sol files)
-- `compare_mpt.sh` - Run it to check whether the C++ MPT implementation is correct.(example:`./compare_mpt.sh test.json`, `test.json` store the accounts, you can refer the `pre` part in evmStateTest testcases(you can find them in `tests/evm_spec_test/state_tests`))
 - `tools/format.sh check`  - Run clang-check to check code format, it should be run before you finish task
 - `tools/format.sh format` - Run clang-format to format code after you modify code
 
-# Test modification from store script

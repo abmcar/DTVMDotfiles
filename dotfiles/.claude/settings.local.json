@@ -1,8 +1,20 @@
 {
   "permissions": {
     "allow": [
-      "Bash(git log:*)",
-      "Bash(*)"
+      "Bash(./build/evmStateTests:*)",
+      "Bash(python3:*)",
+      "Bash(cmake --build:*)",
+      "Bash(find:*)",
+      "Bash(cat:*)",
+      "Bash(1)",
+      "Bash(git add:*)",
+      "Bash(./tools/format.sh:*)",
+      "Bash(ldconfig:*)",
+      "Bash(apt-cache search:*)",
+      "Bash(sudo apt-get install:*)",
+      "Bash(nm build/_deps/intx-build/libintx.a)",
+      "Bash(g++:*)",
+      "Bash(./test_modexp)"
     ],
     "deny": [],
     "ask": []
