@@ -15,3 +15,8 @@ AGENTS.md
 tmp.sh
 DTVMDotfiles/
 openspec/
+fib.evm.hex
+fibr.evm.hex
+perf.data
+perf.data.old
+out.perf
