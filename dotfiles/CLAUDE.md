@@ -66,7 +66,7 @@ cmake --build build -j
 
 ```bash
 # Record callgraph for ERC20 workload (default: interpreter)
-./perf/run_erc20_perf.sh [multipass|interpreter]
+./perf/record_erc20_perf.sh [multipass|interpreter]
 
 # Record callgraph for fibr workload (default: interpreter)
 ./perf/record_fibr_perf.sh [multipass|interpreter]
