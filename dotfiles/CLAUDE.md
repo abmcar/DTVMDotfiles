@@ -3,8 +3,7 @@
 This file provides guidance to Claude Code (claude.ai/code) when working with code in this repository.
 
 ## Development Focus
-目前我们在实现 EVM JIT 的质量检测方案，具体可见 [qa.md](qa.md)，我们是华师大侧，需要负责异常处理、Gas 计量、安全漏洞、Fuzz 测试、性能检测部分。
-目前主要在做JIT的状态测试部分。
+目前我们在实现 EVM JIT 的质量检测方案，具体可见 [qa.md](qa.md)，我们是华师大侧，需要负责异常处理、Gas 计量、安全漏洞、Fuzz 测试、性能优化部分。
 
 ### Code Style Guidelines (Important)
 1. Only include essential comments—avoid excessive documentation. All comments must be written in English
@@ -61,3 +60,14 @@ cmake --build build -j
 - `tools/format.sh check`  - Run clang-check to check code format, it should be run before you finish task
 - `tools/format.sh format` - Run clang-format to format code after you modify code
 
+## Performance Profiling
+
+`perf/` 目录下包含常用的性能测试/采样脚本：
+
+```bash
+# Record callgraph for ERC20 workload (default: interpreter)
+./perf/run_erc20_perf.sh [multipass|interpreter]
+
+# Record callgraph for fibr workload (default: interpreter)
+./perf/record_fibr_perf.sh [multipass|interpreter]
+```

@@ -19,4 +19,8 @@ fib.evm.hex
 fibr.evm.hex
 perf.data
 perf.data.old
+perf.data.old.*
 out.perf
+*.dump
+erc20.evm.hex
+perf
