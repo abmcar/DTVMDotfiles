@@ -12,6 +12,8 @@
 - `qa.md` - QA 文档
 - `init.sh` - 初始化脚本
 - `CLAUDE.md` - Claude 开发指南
+- `perf/record_erc20_perf.sh` - ERC20 workload perf record 脚本
+- `perf/record_fibr_perf.sh` - fibr workload perf record 脚本
 
 ## 安装
 
@@ -99,6 +101,8 @@ SYNC_ITEMS=(
     "qa.md:dotfiles/qa.md"
     "init.sh:dotfiles/init.sh"
     "CLAUDE.md:dotfiles/CLAUDE.md"
+    "perf/record_erc20_perf.sh:dotfiles/perf/record_erc20_perf.sh"
+    "perf/record_fibr_perf.sh:dotfiles/perf/record_fibr_perf.sh"
     # 添加更多项目...
 )
 ```

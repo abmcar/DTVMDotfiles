@@ -20,6 +20,8 @@ SYNC_ITEMS=(
     "qa.md:dotfiles/qa.md"
     "init.sh:dotfiles/init.sh"
     "CLAUDE.md:dotfiles/CLAUDE.md"
+    "perf/record_erc20_perf.sh:dotfiles/perf/record_erc20_perf.sh"
+    "perf/record_fibr_perf.sh:dotfiles/perf/record_fibr_perf.sh"
 )
 
 echo "Store script - Syncing files from $PARENT_DIR to $DOTFILES_DIR"

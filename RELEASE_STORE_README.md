@@ -45,6 +45,8 @@ cd DTVMDotfiles
 | `qa.md` | QA 文档 |
 | `init.sh` | 初始化脚本 |
 | `CLAUDE.md` | 开发指南 |
+| `perf/record_erc20_perf.sh` | ERC20 workload perf record 脚本 |
+| `perf/record_fibr_perf.sh` | fibr workload perf record 脚本 |
 
 ## 使用场景
 

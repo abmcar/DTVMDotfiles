@@ -26,6 +26,8 @@ RELEASE_ITEMS=(
     "dotfiles/CLAUDE.md:CLAUDE.md"
     "dotfiles/CLAUDE.md:AGENTS.md"
     "dotfiles/CLAUDE.md:GEMINI.md"
+    "dotfiles/perf/record_erc20_perf.sh:perf/record_erc20_perf.sh"
+    "dotfiles/perf/record_fibr_perf.sh:perf/record_fibr_perf.sh"
 )
 
 echo "Release script - Releasing files from DTVMDotfiles to $PARENT_DIR"
