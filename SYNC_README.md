@@ -9,7 +9,6 @@
 同步以下文件和目录：
 - `.claude/` - Claude Code 配置和命令
 - `.git/exclude` - Git 排除规则
-- `qa.md` - QA 文档
 - `init.sh` - 初始化脚本
 - `CLAUDE.md` - Claude 开发指南
 - `perf/record_erc20_perf.sh` - ERC20 workload perf record 脚本
@@ -45,7 +44,7 @@
 ## 工作流程
 
 ### 本地开发流程
-1. 在 DTVM 中修改 `.claude/`、`qa.md` 等文件
+1. 在 DTVM 中修改 `.claude/`、`CLAUDE.md` 等文件
 2. 运行 `./sync_dotfiles.sh to-dotfiles` 同步到 DTVMDotfiles
 3. 提交更改到 DTVMDotfiles 仓库
 
@@ -63,7 +62,6 @@ DTVM/
 │       ├── .claude/      # Claude Code 配置
 │       ├── .git/
 │       │   └── exclude   # Git 排除规则
-│       ├── qa.md         # QA 文档
 │       ├── init.sh       # 初始化脚本
 │       └── CLAUDE.md     # 开发指南
 ├── sync_dotfiles.sh      # 同步脚本
@@ -98,7 +96,6 @@ DTVM/
 SYNC_ITEMS=(
     ".claude:dotfiles/.claude"
     ".git/exclude:dotfiles/.git/exclude"
-    "qa.md:dotfiles/qa.md"
     "init.sh:dotfiles/init.sh"
     "CLAUDE.md:dotfiles/CLAUDE.md"
     "perf/record_erc20_perf.sh:dotfiles/perf/record_erc20_perf.sh"

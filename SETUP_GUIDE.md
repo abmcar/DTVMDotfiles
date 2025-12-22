@@ -45,7 +45,7 @@ bash setup_from_dotfiles.sh /tmp/new-setup
    ./release.sh
    ```
    - 释放所有配置文件到父目录
-   - 包括：.claude/, .git/info/exclude, qa.md, init.sh, CLAUDE.md
+   - 包括：.claude/, .git/info/exclude, init.sh, CLAUDE.md
 
 4. **执行 init.sh**
    ```bash
@@ -71,14 +71,12 @@ target-directory/
 │       │   └── info/
 │       │       └── exclude
 │       ├── init.sh
-│       ├── qa.md
 │       └── CLAUDE.md
 │
 ├── .claude/                   # ← 释放出来的配置
 ├── .git/
 │   └── info/
 │       └── exclude            # ← 释放出来的文件
-├── qa.md                      # ← 释放出来的文件
 ├── CLAUDE.md                  # ← 释放出来的文件
 └── init.sh                    # ← 释放出来的文件（已执行）
 ```
@@ -286,7 +284,7 @@ cd ..
 2. **备份配置**
    ```bash
    # 在运行脚本前备份当前配置
-   tar czf backup-$(date +%Y%m%d).tar.gz .claude/ qa.md CLAUDE.md
+   tar czf backup-$(date +%Y%m%d).tar.gz .claude/ CLAUDE.md
    ```
 
 3. **版本控制**

@@ -43,7 +43,6 @@ bash <(curl -s https://raw.githubusercontent.com/abmcar/DTVMDotfiles/main/setup_
 │
 ├── .claude/               # 配置文件（释放）
 ├── .git/info/exclude      # Git 配置（释放）
-├── qa.md                  # 文档（释放）
 ├── CLAUDE.md              # 文档（释放）
 └── init.sh                # 初始化脚本（释放并执行）
 ```
@@ -106,7 +105,7 @@ GitHub 仓库（abmcar/DTVMDotfiles）
          ↓ git clone
     本地仓库（DTVMDotfiles/）
          ↓ release.sh
-    外部文件（.claude/, qa.md 等）
+    外部文件（.claude/, CLAUDE.md 等）
          ↓ init.sh
     环境已初始化 ✓
 ```
@@ -120,7 +119,7 @@ GitHub 仓库（abmcar/DTVMDotfiles）
 ls -d DTVMDotfiles
 
 # 2. 文件已释放
-ls -a | grep -E "\.claude|qa.md|CLAUDE.md"
+ls -a | grep -E "\.claude|CLAUDE.md"
 
 # 3. 初始化已运行
 cat init.sh  # 查看初始化脚本内容

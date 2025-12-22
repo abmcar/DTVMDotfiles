@@ -17,7 +17,6 @@ SYNC_ITEMS=(
     ".claude:dotfiles/.claude"
     ".claude/settings.local.json:dotfiles/.claude/settings.local.json"
     ".git/info/exclude:dotfiles/exclude"
-    "qa.md:dotfiles/qa.md"
     "init.sh:dotfiles/init.sh"
     "CLAUDE.md:dotfiles/CLAUDE.md"
     "perf/record_erc20_perf.sh:dotfiles/perf/record_erc20_perf.sh"

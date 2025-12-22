@@ -42,7 +42,6 @@ cd DTVMDotfiles
 |---------|------|
 | `.claude/` | Claude Code 配置和命令 |
 | `.git/info/exclude` | Git 本地排除规则 |
-| `qa.md` | QA 文档 |
 | `init.sh` | 初始化脚本 |
 | `CLAUDE.md` | 开发指南 |
 | `perf/record_erc20_perf.sh` | ERC20 workload perf record 脚本 |
@@ -52,7 +51,7 @@ cd DTVMDotfiles
 
 ### 场景 1: 在外部修改文件后存放到 dotfiles
 ```bash
-# 1. 修改 DTVM 根目录中的文件（如 qa.md、CLAUDE.md 等）
+# 1. 修改 DTVM 根目录中的文件（如 CLAUDE.md 等）
 # 2. 进入 DTVMDotfiles 目录
 cd DTVMDotfiles
 
@@ -77,7 +76,7 @@ cd ..
 git status
 
 # 4. 根据需要提交到 DTVM 仓库
-git add CLAUDE.md qa.md init.sh
+git add CLAUDE.md init.sh
 git commit -m "Release changes from DTVMDotfiles"
 ```
 
@@ -102,7 +101,7 @@ git pull
 
 # 返回上层目录并提交
 cd ..
-git add CLAUDE.md qa.md init.sh
+git add CLAUDE.md init.sh
 git commit -m "Release changes from DTVMDotfiles"
 ```
 
@@ -115,7 +114,6 @@ git commit -m "Release changes from DTVMDotfiles"
 │  │ External Files:                      │   │
 │  │ - .claude/                           │   │
 │  │ - .git/exclude                       │   │
-│  │ - qa.md                              │   │
 │  │ - init.sh                            │   │
 │  │ - CLAUDE.md                          │   │
 │  └──────────────────────────────────────┘   │
@@ -124,7 +122,6 @@ git commit -m "Release changes from DTVMDotfiles"
 │  │ DTVMDotfiles/dotfiles/               │   │
 │  │ - .claude/                           │   │
 │  │ - .git/exclude                       │   │
-│  │ - qa.md                              │   │
 │  │ - init.sh                            │   │
 │  │ - CLAUDE.md                          │   │
 │  └──────────────────────────────────────┘   │
@@ -180,7 +177,6 @@ chmod +x DTVMDotfiles/store.sh
 SYNC_ITEMS=(
     ".claude:dotfiles/.claude"
     ".git/exclude:dotfiles/.git/exclude"
-    "qa.md:dotfiles/qa.md"
     "init.sh:dotfiles/init.sh"
     "CLAUDE.md:dotfiles/CLAUDE.md"
     "new_file.txt:dotfiles/new_file.txt"  # 添加新项
