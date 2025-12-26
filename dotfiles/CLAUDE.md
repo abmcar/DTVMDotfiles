@@ -53,6 +53,22 @@ cmake --build build -j
 ./build/evmStateTests
 ```
 
+### Evmone State Tests With DTVM VM
+
+```bash
+/root/evmone/build/bin/evmone-statetest /root/DTVM/tests/evm_spec_test/ALL_STATE_TESTS/ --vm "/root/DTVM/build/lib/libdtvmapi.so,mode=interpreter,enable-evm-gas=1" -k "fork_Cancun"
+```
+
+### Run All JSON State Tests With GTest Output
+
+```bash
+rg --files -g '*.json' -g '!index.json' /root/DTVM/tests/evm_spec_test/state_tests -0 \
+  | xargs -0 /root/evmone/build/bin/evmone-statetest \
+    --vm "/root/DTVM/build/lib/libdtvmapi.so,mode=multipass,enable-evm-gas=1" \
+    -k "fork_Cancun" \
+    --gtest_output=json:/tmp/evmone_all.json
+```
+
 ### Test Structure
 
 #### EVM State Tests (`tests/evm_spec_test/state_tests`)
@@ -75,3 +91,4 @@ Performance testing and sampling scripts are located in the `perf/` directory:
 # Record callgraph for fibr workload (default: interpreter)
 ./perf/record_fibr_perf.sh [multipass|interpreter]
 ```
+

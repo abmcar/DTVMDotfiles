@@ -5,6 +5,7 @@
 # *.[oa]
 # *~
 
+qa.md
 CLAUDE.md
 GEMINI.md
 init.sh
@@ -23,3 +24,5 @@ out.perf
 *.dump
 erc20.evm.hex
 perf
+ALL_STATE_TESTS
+static
