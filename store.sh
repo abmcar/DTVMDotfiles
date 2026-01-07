@@ -21,6 +21,9 @@ SYNC_ITEMS=(
     "CLAUDE.md:dotfiles/CLAUDE.md"
     "perf/record_erc20_perf.sh:dotfiles/perf/record_erc20_perf.sh"
     "perf/record_fibr_perf.sh:dotfiles/perf/record_fibr_perf.sh"
+    "perf/erc20.evm.hex:dotfiles/perf/erc20.evm.hex"
+    "perf/fib.evm.hex:dotfiles/perf/fib.evm.hex"
+    "perf/fibr.evm.hex:dotfiles/perf/fibr.evm.hex"
 )
 
 echo "Store script - Syncing files from $PARENT_DIR to $DOTFILES_DIR"

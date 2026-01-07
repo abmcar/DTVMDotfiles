@@ -27,6 +27,9 @@ RELEASE_ITEMS=(
     "dotfiles/CLAUDE.md:GEMINI.md"
     "dotfiles/perf/record_erc20_perf.sh:perf/record_erc20_perf.sh"
     "dotfiles/perf/record_fibr_perf.sh:perf/record_fibr_perf.sh"
+    "dotfiles/perf/erc20.evm.hex:perf/erc20.evm.hex"
+    "dotfiles/perf/fib.evm.hex:perf/fib.evm.hex"
+    "dotfiles/perf/fibr.evm.hex:perf/fibr.evm.hex"
 )
 
 echo "Release script - Releasing files from DTVMDotfiles to $PARENT_DIR"
