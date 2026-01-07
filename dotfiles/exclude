@@ -26,3 +26,6 @@ erc20.evm.hex
 perf
 ALL_STATE_TESTS
 static
+*.so
+*.jitted
+*.log

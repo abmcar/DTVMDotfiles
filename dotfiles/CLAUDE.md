@@ -7,7 +7,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 Current tasks focus on:
 - Research gas implementation optimization mechanisms in evmjit
 - Integrate dtvm into evmone's statetest logic
-- Analyze runtime performance bottlenecks through interpreter profiling
+- Analyze runtime performance bottlenecks through interpreter and EVM JIT profiling
 
 ## Code Style Guidelines (Important)
 1. Only include essential comments—avoid excessive documentation. All comments must be written in English
@@ -19,6 +19,54 @@ Current tasks focus on:
 ```
 4. The code follows clang-format coding style. Follow the LLVM naming conventions strictly. For example, variable names should be written as `GasCost`, and function names should be written as `calcGasCost`.
 5. Add comments only when necessary, and always write comments in English
+
+## Commit and PR Guidelines
+
+When creating commits or pull requests, follow the conventions defined in `commitlint.config.js`:
+
+### Commit Message Format
+```
+<type>(<scope>): <subject>
+
+[optional body]
+
+[optional footer]
+```
+
+### Type (required)
+- `feat` - A new feature
+- `fix` - A bug fix
+- `docs` - Documentation only changes
+- `style` - Code style changes (formatting, white-space, etc.)
+- `refactor` - Code changes that neither fix bugs nor add features
+- `perf` - Performance improvements
+- `test` - Adding or correcting tests
+- `build` - Build system or dependency changes
+- `ci` - CI configuration changes
+- `chore` - Other changes that don't modify src or test files
+
+### Scope (required)
+- `core` - Core engine code
+- `runtime` - Runtime library
+- `compiler` - Compiler related
+- `evm` - EVM interpreter and handlers
+- `examples` - Example code
+- `docs` - Documentation related
+- `tools` - Tool related
+- `deps` - Dependency related
+- `ci` - CI related
+- `test` - Test related
+- `other` - Other changes
+- `` (empty) - No specific scope
+
+### Rules
+- Header must not exceed 100 characters
+- Subject must not end with a period
+- Type must be lowercase
+- Use imperative mood in subject (e.g., "add feature" not "added feature")
+
+### PR Title Format
+PR titles should follow the same format as commit messages: `<type>(<scope>): <subject>`
 
 ## Project Architecture
 

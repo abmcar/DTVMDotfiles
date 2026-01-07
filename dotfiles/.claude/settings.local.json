@@ -26,7 +26,17 @@
       "Bash(ls:*)",
       "WebSearch",
       "mcp__ide__getDiagnostics",
-      "Bash(clang-format:*)"
+      "Bash(clang-format:*)",
+      "Bash(cmake:*)",
+      "Bash(gdb:*)",
+      "Bash(tac:*)",
+      "Bash(git show:*)",
+      "Bash(git stash:*)",
+      "Bash(git checkout:*)",
+      "Bash(for i in 1 2 3 4 5)",
+      "Bash(do echo \"Run $i with gas:\")",
+      "Bash(do echo \"Run $i without gas:\")",
+      "Bash(xxd:*)"
     ],
     "deny": [],
     "ask": []
