@@ -110,9 +110,7 @@ PR titles should follow the same format as commit messages: `<type>(<scope>): <s
   - `src/action/` - Module loading, instantiation, and bytecode visiting infrastructure
   - `src/common/` - Shared utilities, error handling, type definitions
 - `tests/`: Test suites
-  - `tests/wast` - WAST spec tests
   - `tests/evm_spec_test` - EVM spec tests
-  - `tests/mir` - dMIR tests
 - `docs/`: build and usage guides (`docs/start.md`, `docs/user-guide.md`)
 - `evmc/`: EVM compatibility components
 - `rust_crate/`: Rust bindings
@@ -121,28 +119,13 @@ PR titles should follow the same format as commit messages: `<type>(<scope>): <s
 
 ## Build Commands
 
-### Default Build (Interpreter)
-```bash
-cmake -B build -DCMAKE_BUILD_TYPE=Debug
-cmake --build build -j
-```
-
-### Build with JIT Options
-
-**Singlepass JIT:**
-```bash
-cmake -B build -DCMAKE_BUILD_TYPE=Debug -DZEN_ENABLE_SINGLEPASS_JIT=ON
-cmake --build build -j
-```
-
-**Multipass JIT (requires LLVM 15, x86-64 only):**
+### Multipass JIT (requires LLVM 15, x86-64 only)
 ```bash
 cmake -B build -DCMAKE_BUILD_TYPE=Debug \
   -DZEN_ENABLE_MULTIPASS_JIT=ON \
   -DZEN_ENABLE_SINGLEPASS_JIT=OFF \
   -DZEN_ENABLE_EVM=ON \
   -DZEN_ENABLE_SPEC_TEST=ON \
-  -DLLVM_DIR=<llvm>/lib/cmake/llvm \
   -G Ninja
 cmake --build build -j
 ```
@@ -157,26 +140,6 @@ cmake --build build -j
 - `-DCMAKE_BUILD_TYPE=RelWithDebInfo` - Use instead of `Debug` for performance testing
 
 ## Testing
-
-### Spec Tests
-Requires `ZEN_ENABLE_SPEC_TEST` at build time.
-
-**Run all tests:**
-```bash
-ctest --verbose
-```
-
-**Run WAST spec tests:**
-```bash
-# Run all WAST tests
-./build/specUnitTests <mode>
-
-# mode: 0 (interpreter), 1 (singlepass), 2 (multipass)
-# Example: ./build/specUnitTests 0
-
-# Run single test case (omit .wast suffix)
-./build/specUnitTests <case> <mode>
-```
 
 ### EVM State Tests
 
@@ -208,18 +171,6 @@ rg --files -g '*.json' -g '!index.json' /root/DTVM/tests/evm_spec_test/state_tes
 **EVM State Tests (`tests/evm_spec_test/state_tests`):**
 - JSON files: Test case specifications executed by the state test runner
 - Python files: Test case generators that define the test logic
-
-**WAST Tests:**
-- Test sources live under `tests/wast`
-- See `src/tests/CMakeLists.txt` for test categories
-
-### MIR Tests
-```bash
-pip install lit
-cd tests/compiler && ./test_mir.sh
-```
-
-See `docs/start.md` for more details.
 
 ## Development Tools
 
