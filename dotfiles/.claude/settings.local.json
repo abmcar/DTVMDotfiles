@@ -48,7 +48,22 @@
       "Bash(grep:*)",
       "Bash(build/dtvm:*)",
       "Bash(xargs rg:*)",
-      "Bash(tree:*)"
+      "Bash(tree:*)",
+      "Bash(openspec list:*)",
+      "Bash(openspec validate:*)",
+      "Bash(openspec show:*)",
+      "Bash(solc --bin-runtime --optimize --optimize-runs 200 mul_intensive.sol)",
+      "Bash(__NEW_LINE_e8bf17531c061d72__ echo \"\")",
+      "Bash(solc:*)",
+      "Bash(/root/DTVM/build/dtvm:*)",
+      "Bash(# 不要用echo，它会添加换行。使用printf printf ''%s'' \"\"6080604052348015600e575f5ffd5b50600436106030575f3560e01c8063d0958e4b146034578063e29fd3b4146068575b5f5ffd5b7fccfd5cccb35cd1468bd08f6f640d42650a969c68f7af12a482400000000000015b60405190815260200160405180910390f35b6056607336600460d8565b5f7f0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef7ffedcba9876543210fedcba9876543210fedcba9876543210fedcba987654321081835b8581101560cf57908202818401029060010160b9565b50949350505050565b5f6020828403121560e7575f5ffd5b503591905056fea264697066735822122099727cef93a4a0daa193c66a4f39a5c1faac55ad00fc18cfe2dfd4ed4b987e0c64736f6c634300081e0033\"\" # 测试 /root/DTVM/build/dtvm /root/DTVM/perf/mul_intensive.evm.hex --format evm -m multipass --gas-limit 0xFFFFFFFFFFFFFFFF --calldata e29fd3b400000000000000000000000000000000000000000000000000000000000186a0 --enable-statistics --enable-evm-gas 2>&1)",
+      "Bash(dmesg:*)",
+      "Bash(/root/DTVM/build/evmStateTests:*)",
+      "Bash(__NEW_LINE_f541537277a49919__ echo \"\")",
+      "Bash(__NEW_LINE_2ba0d49958007d64__ echo \"\")",
+      "Bash(__NEW_LINE_32644c18e9cd5ac0__ echo \"\")",
+      "Bash(__NEW_LINE_b66d7e49bde29ba7__ git stash pop)",
+      "Bash(__NEW_LINE_0d5e015de2926150__ echo \"\")"
     ],
     "deny": [],
     "ask": []
