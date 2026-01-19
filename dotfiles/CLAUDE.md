@@ -1,24 +1,52 @@
-# CLAUDE.md
+<!-- OPENSPEC:START -->
+# OpenSpec Instructions
 
-This file provides guidance to Claude Code (claude.ai/code) when working with code in this repository.
+These instructions are for AI assistants working in this project.
 
-## Development Focus
+Always open `@/openspec/AGENTS.md` when the request:
+- Mentions planning or proposals (words like proposal, spec, change, plan)
+- Introduces new capabilities, breaking changes, architecture shifts, or big performance/security work
+- Sounds ambiguous and you need the authoritative spec before coding
 
-Current tasks focus on:
-- Research gas implementation optimization mechanisms in evmjit
-- Integrate dtvm into evmone's statetest logic
-- Analyze runtime performance bottlenecks through interpreter and EVM JIT profiling
+Use `@/openspec/AGENTS.md` to learn:
+- How to create and apply change proposals
+- Spec format and conventions
+- Project structure and guidelines
 
-## Code Style Guidelines (Important)
-1. Only include essential comments—avoid excessive documentation. All comments must be written in English
+Keep this managed block so 'openspec update' can refresh the instructions.
+
+<!-- OPENSPEC:END -->
+
+# DTVM Development Guide
+
+This file provides guidance to Claude Code and other AI assistants when working with code in this repository.
+
+## Project Overview
+
+DTVM is a deterministic VM with EVM ABI compatibility. Core implementation is in C/C++ under `src/`.
+
+**Key Principles:**
+- Preserve determinism - avoid host-specific, non-deterministic behavior
+- Prefer touching `third_party/` only when explicitly required
+- Keep edits minimal and localized; follow existing patterns
+- Update or add tests when behavior changes
+
+## Code Style Guidelines
+
+### General Rules
+1. Only include essential comments—avoid excessive documentation. **All comments must be written in English**
 2. The last line of the file must contain exactly one blank line—no more, no less
-3. New .h and .cpp files must begin with the following license header:
-```
+3. Add comments only when necessary, and always write comments in English
+4. The code follows clang-format coding style. Follow the LLVM naming conventions strictly:
+   - Variable names: `GasCost` (PascalCase)
+   - Function names: `calcGasCost` (camelCase)
+
+### License Header
+New .h and .cpp files must begin with the following license header:
+```cpp
 // Copyright (C) 2025 the DTVM authors. All Rights Reserved.
 // SPDX-License-Identifier: Apache-2.0
 ```
-4. The code follows clang-format coding style. Follow the LLVM naming conventions strictly. For example, variable names should be written as `GasCost`, and function names should be written as `calcGasCost`.
-5. Add comments only when necessary, and always write comments in English
 
 ## Commit and PR Guidelines
 
@@ -70,45 +98,103 @@ PR titles should follow the same format as commit messages: `<type>(<scope>): <s
 
 ## Project Architecture
 
-### Core Module Structure
-
-- **`src/vm/`** - DTVM core implementation and wrapped host interface
-- **`src/runtime/`** - Execution environments and instance management for EVM
-- **`src/compiler/`** - dMIR (deterministic Middle IR) compiler:
-  - **`evm_frontend/`** - EVM bytecode to dMIR translation
-  - **`mir/`** - Middle Intermediate Representation core
-  - **`cgir/`** - Code generation IR and optimization passes
-- **`src/evm/`** - EVM interpreter and opcode handlers
-- **`src/action/`** - Module loading, instantiation, and bytecode visiting infrastructure
-- **`src/common/`** - Shared utilities, error handling, type definitions
+### Repository Map
+- `src/`: core runtime, compiler, execution engines
+  - `src/vm/` - DTVM core implementation and wrapped host interface
+  - `src/runtime/` - Execution environments and instance management for EVM
+  - `src/compiler/` - dMIR (deterministic Middle IR) compiler:
+    - `evm_frontend/` - EVM bytecode to dMIR translation
+    - `mir/` - Middle Intermediate Representation core
+    - `cgir/` - Code generation IR and optimization passes
+  - `src/evm/` - EVM interpreter and opcode handlers
+  - `src/action/` - Module loading, instantiation, and bytecode visiting infrastructure
+  - `src/common/` - Shared utilities, error handling, type definitions
+- `tests/`: Test suites
+  - `tests/wast` - WAST spec tests
+  - `tests/evm_spec_test` - EVM spec tests
+  - `tests/mir` - dMIR tests
+- `docs/`: build and usage guides (`docs/start.md`, `docs/user-guide.md`)
+- `evmc/`: EVM compatibility components
+- `rust_crate/`: Rust bindings
+- `tools/`: helper scripts and utilities
+- `openspec/`: spec-driven change proposals and references
 
 ## Build Commands
 
-### Build
+### Default Build (Interpreter)
 ```bash
-cmake -B build -DCMAKE_BUILD_TYPE=Debug -DZEN_ENABLE_MULTIPASS_JIT=ON -DZEN_ENABLE_SINGLEPASS_JIT=OFF -DZEN_ENABLE_EVM=ON -DZEN_ENABLE_SPEC_TEST=ON -G Ninja
+cmake -B build -DCMAKE_BUILD_TYPE=Debug
+cmake --build build -j
+```
+
+### Build with JIT Options
+
+**Singlepass JIT:**
+```bash
+cmake -B build -DCMAKE_BUILD_TYPE=Debug -DZEN_ENABLE_SINGLEPASS_JIT=ON
+cmake --build build -j
+```
+
+**Multipass JIT (requires LLVM 15, x86-64 only):**
+```bash
+cmake -B build -DCMAKE_BUILD_TYPE=Debug \
+  -DZEN_ENABLE_MULTIPASS_JIT=ON \
+  -DZEN_ENABLE_SINGLEPASS_JIT=OFF \
+  -DZEN_ENABLE_EVM=ON \
+  -DZEN_ENABLE_SPEC_TEST=ON \
+  -DLLVM_DIR=<llvm>/lib/cmake/llvm \
+  -G Ninja
 cmake --build build -j
 ```
 
 ### Build Options
+- `-DZEN_ENABLE_SPEC_TEST=ON` - Enable spec tests (required for testing)
 - `-DZEN_ENABLE_LINUX_PERF=ON` - Enable for performance testing
-- `-DCMAKE_EXPORT_COMPILE_COMMANDS=ON` - Enable when changing build parameters
+- `-DZEN_ENABLE_ASAN=ON` - Enable AddressSanitizer
+- `-DZEN_ENABLE_JIT_LOGGING=ON` - Enable JIT logging
+- `-DZEN_ENABLE_JIT_BOUND_CHECK=ON` - Enable JIT bounds checking
+- `-DCMAKE_EXPORT_COMPILE_COMMANDS=ON` - Generate compile_commands.json
 - `-DCMAKE_BUILD_TYPE=RelWithDebInfo` - Use instead of `Debug` for performance testing
 
 ## Testing
 
+### Spec Tests
+Requires `ZEN_ENABLE_SPEC_TEST` at build time.
+
+**Run all tests:**
+```bash
+ctest --verbose
+```
+
+**Run WAST spec tests:**
+```bash
+# Run all WAST tests
+./build/specUnitTests <mode>
+
+# mode: 0 (interpreter), 1 (singlepass), 2 (multipass)
+# Example: ./build/specUnitTests 0
+
+# Run single test case (omit .wast suffix)
+./build/specUnitTests <case> <mode>
+```
+
+### EVM State Tests
+
+**Built-in EVM state tests:**
 ```bash
 ./build/evmStateTests
 ```
 
-### Evmone State Tests With DTVM VM
-
+**Evmone State Tests with DTVM VM:**
 ```bash
-/root/evmone/build/bin/evmone-statetest /root/DTVM/tests/evm_spec_test/ALL_STATE_TESTS/ --vm "/root/DTVM/build/lib/libdtvmapi.so,mode=interpreter,enable-evm-gas=1" -k "fork_Cancun"
+# Test specific fork (e.g., Cancun)
+/root/evmone/build/bin/evmone-statetest \
+  /root/DTVM/tests/evm_spec_test/ALL_STATE_TESTS/ \
+  --vm "/root/DTVM/build/lib/libdtvmapi.so,mode=interpreter,enable-evm-gas=1" \
+  -k "fork_Cancun"
 ```
 
-### Run All JSON State Tests With GTest Output
-
+**Run all JSON state tests with GTest output:**
 ```bash
 rg --files -g '*.json' -g '!index.json' /root/DTVM/tests/evm_spec_test/state_tests -0 \
   | xargs -0 /root/evmone/build/bin/evmone-statetest \
@@ -119,14 +205,34 @@ rg --files -g '*.json' -g '!index.json' /root/DTVM/tests/evm_spec_test/state_tes
 
 ### Test Structure
 
-#### EVM State Tests (`tests/evm_spec_test/state_tests`)
-Contains JSON and Python files:
+**EVM State Tests (`tests/evm_spec_test/state_tests`):**
 - JSON files: Test case specifications executed by the state test runner
 - Python files: Test case generators that define the test logic
 
+**WAST Tests:**
+- Test sources live under `tests/wast`
+- See `src/tests/CMakeLists.txt` for test categories
+
+### MIR Tests
+```bash
+pip install lit
+cd tests/compiler && ./test_mir.sh
+```
+
+See `docs/start.md` for more details.
+
 ## Development Tools
-- `tools/format.sh check`  - Run clang-check to check code format, it should be run before you finish task
-- `tools/format.sh format` - Run clang-format to format code after you modify code
+
+### Code Formatting
+**IMPORTANT:** Always run format check before finishing a task.
+
+```bash
+# Check code format (run before finishing task)
+tools/format.sh check
+
+# Format code automatically (run after modifying code)
+tools/format.sh format
+```
 
 ## Performance Profiling
 
@@ -140,3 +246,11 @@ Performance testing and sampling scripts are located in the `perf/` directory:
 ./perf/record_fibr_perf.sh [multipass|interpreter]
 ```
 
+**Note:** Enable `-DZEN_ENABLE_LINUX_PERF=ON` when building for performance testing.
+
+## Documentation Pointers
+
+- Overview: `README.md`
+- Build/testing: `docs/start.md`
+- Usage details: `docs/user-guide.md`
+- Commit conventions: `docs/COMMIT_CONVENTION.md`

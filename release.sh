@@ -25,6 +25,7 @@ RELEASE_ITEMS=(
     "dotfiles/CLAUDE.md:CLAUDE.md"
     "dotfiles/CLAUDE.md:AGENTS.md"
     "dotfiles/CLAUDE.md:GEMINI.md"
+    "dotfiles/openspec:openspec"
     "dotfiles/perf/record_erc20_perf.sh:perf/record_erc20_perf.sh"
     "dotfiles/perf/record_fibr_perf.sh:perf/record_fibr_perf.sh"
     "dotfiles/perf/erc20.evm.hex:perf/erc20.evm.hex"

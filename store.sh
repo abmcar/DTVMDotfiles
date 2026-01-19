@@ -19,6 +19,7 @@ SYNC_ITEMS=(
     ".git/info/exclude:dotfiles/exclude"
     "init.sh:dotfiles/init.sh"
     "CLAUDE.md:dotfiles/CLAUDE.md"
+    "openspec:dotfiles/openspec"
     "perf/record_erc20_perf.sh:dotfiles/perf/record_erc20_perf.sh"
     "perf/record_fibr_perf.sh:dotfiles/perf/record_fibr_perf.sh"
     "perf/erc20.evm.hex:dotfiles/perf/erc20.evm.hex"
