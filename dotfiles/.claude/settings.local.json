@@ -36,7 +36,18 @@
       "Bash(for i in 1 2 3 4 5)",
       "Bash(do echo \"Run $i with gas:\")",
       "Bash(do echo \"Run $i without gas:\")",
-      "Bash(xxd:*)"
+      "Bash(xxd:*)",
+      "Skill(Notion:notion-create-page)",
+      "Skill(Notion:notion-search)",
+      "Bash(jq:*)",
+      "Bash(claude mcp list-tools:*)",
+      "Bash(env:*)",
+      "Bash(tools/format.sh:*)",
+      "Bash(echo:*)",
+      "Bash(awk:*)",
+      "Bash(grep:*)",
+      "Bash(build/dtvm:*)",
+      "Bash(xargs rg:*)"
     ],
     "deny": [],
     "ask": []
