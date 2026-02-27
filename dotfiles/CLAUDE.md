@@ -197,6 +197,23 @@ Performance testing and sampling scripts are located in the `perf/` directory:
 ./perf/record_fibr_perf.sh [multipass|interpreter]
 ```
 
+### Evmone Benchmarks with DTVM VM
+
+Use `evmone-bench` with DTVM as an external EVMC VM:
+
+```bash
+/root/evmone/build/bin/evmone-bench \
+  "/root/DTVM/build/lib/libdtvmapi.so,mode=multipass,enable_gas_metering=true" \
+  /root/evmone/test/evm-benchmarks/benchmarks
+```
+
+Notes:
+- First positional argument is EVMC config: `<vm_so_path>,mode=<interpreter|multipass>,enable_gas_metering=<true|false>`.
+- Second positional argument is the benchmark suite directory.
+- DTVM EVMC option key is `enable_gas_metering` (underscore), not `enable-evm-gas`.
+- To run full external total cases once (no repetition):
+  `/root/evmone/build/bin/evmone-bench "/root/DTVM/build/lib/libdtvmapi.so,mode=multipass,enable_gas_metering=true" /root/evmone/test/evm-benchmarks/benchmarks --benchmark_filter='^external/total/(main|micro)/' --benchmark_repetitions=1`
+
 **Note:** Enable `-DZEN_ENABLE_LINUX_PERF=ON` when building for performance testing.
 
 ## Documentation Pointers
