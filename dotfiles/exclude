@@ -29,3 +29,4 @@ static
 *.so
 *.jitted
 *.log
+fixtures

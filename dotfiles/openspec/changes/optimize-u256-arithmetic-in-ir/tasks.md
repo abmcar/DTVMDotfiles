@@ -13,9 +13,9 @@
 - EVM 规范要求和边界情况处理
 
 ## 1. Core U256 Arithmetic Operations
-- [ ] 1.1 Implement `handleMul` with IR instructions (4x64 multiplication with carry handling)
-- [ ] 1.2 Implement `handleDiv` with IR instructions (4x64 unsigned division)
-- [ ] 1.3 Implement `handleMod` with IR instructions (4x64 unsigned modulo)
+- [x] 1.1 Implement `handleMul` with IR instructions (4x64 multiplication with carry handling)
+- [x] 1.2 Implement `handleDiv` with IR instructions (4x64 unsigned division)
+- [x] 1.3 Implement `handleMod` with IR instructions (4x64 unsigned modulo)
 - [ ] 1.4 Implement `handleSDiv` with IR instructions (4x64 signed division with two's complement)
 - [ ] 1.5 Implement `handleSMod` with IR instructions (4x64 signed modulo)
 
@@ -24,10 +24,10 @@
 - [ ] 2.2 Implement `handleMulMod` with IR instructions (512-bit intermediate for overflow handling)
 
 ## 3. Helper Functions and Utilities
-- [ ] 3.1 Add helper function for multi-precision multiplication
-- [ ] 3.2 Add helper function for multi-precision division
+- [x] 3.1 Add helper function for multi-precision multiplication
+- [x] 3.2 Add helper function for multi-precision division
 - [ ] 3.3 Add helper function for sign detection and two's complement conversion
-- [ ] 3.4 Add helper function for zero division check
+- [x] 3.4 Add helper function for zero division check
 
 ## 4. Testing and Validation
 - [ ] 4.1 Run full EVM state tests: `python3 tools/run_evm_tests.py -r build/dtvm -m multipass --format evm --enable-evm-gas`

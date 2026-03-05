@@ -252,9 +252,126 @@ MUL(0, y) = 0
 - [ ] 通过 EVM 状态测试验证正确性
 - [ ] 使用 `perf` 验证指令使用 (MULX/ADCX)
 
-## 7. 参考资料
+## 7. 实际实现总结
+
+### 7.1 实现概览
+
+本次实现在 DTVM 中成功将 EVM U256 乘法从运行时函数调用优化为编译时内联 IR 实现，采用了 Schoolbook 乘法算法。
+
+### 7.2 新增 MIR 指令
+
+#### EVM_UMUL128 指令类型
+- **文件**: `src/compiler/mir/instruction.h:32`
+- **功能**: 表示 64x64->64 位乘法指令节点
+- **类实现**: `EvmUmul128Instruction` (src/compiler/mir/instructions.h:671-696)
+
+#### 新增操作码
+- **文件**: `src/compiler/mir/opcodes.def:65-67`
+- **OP_evm_umul128_lo**: 返回 64x64 乘法的低 64 位
+- **OP_evm_umul128_hi**: 返回 64x64 乘法的高 64 位
+
+**设计思路**: 将 64x64->128 位乘法拆分为两个独立的 IR 指令，使得调度器可以更灵活地安排指令顺序，提高 ILP (指令级并行)。
+
+### 7.3 EVM MIR Compiler 实现
+
+#### 辅助函数
+- **文件**: `src/compiler/evm_frontend/evm_mir_compiler.cpp:1017-1027`
+- **createEvmUmul128Lo()**: 创建低 64 位乘法指令
+- **createEvmUmul128Hi()**: 创建高 64 位乘法指令
+
+#### handleMul 主实现
+- **文件**: `src/compiler/evm_frontend/evm_mir_compiler.cpp:1029-1124`
+- **算法**: Schoolbook 乘法，4x4 = 16 次 64x64 位乘法
+- **优化点**:
+  - **提前终止**: 仅计算对 256-bit 结果有贡献的部分积 (i+j < 4)
+  - **进位优化**: 使用 `protectUnsafeValue()` 确保值安全性，避免不必要的溢出检查
+  - **双链进位**: 分离 sum 和 carry 计算，为后续 ADCX/ADOX 优化预留空间
+
+**关键代码片段**:
+```cpp
+// 预计算所有部分积
+for (size_t I = 0; I < 4; ++I) {
+  for (size_t J = 0; J < 4; ++J) {
+    if (I + J < 4) {
+      PLo[I][J] = createEvmUmul128Lo(A[I], B[J]);  // 低 64 位
+    }
+    if (I + J < 3) {
+      PHi[I][J] = createEvmUmul128Hi(A[I], B[J]);  // 高 64 位
+    }
+  }
+}
+```
+
+**进位累加策略**:
+- R[0]: 直接赋值，无进位
+- R[1]: 累加 3 项，跟踪进位 C1
+- R[2]: 累加 5 项 + C1，跟踪进位 C2
+- R[3]: 累加 7 项 + C2，丢弃溢出 (256-bit 截断)
+
+### 7.4 X86 Lowering 实现
+
+#### lowerEvmUmul128Expr
+- **文件**: `src/compiler/target/x86/x86lowering.cpp:945-983`
+- **指令**: 使用 x86 `MUL64r` 指令
+- **寄存器约定**:
+  - LHS → RAX (隐式输入)
+  - RHS → 通用寄存器 (显式操作数)
+  - 结果 → RDX:RAX (高:低)
+
+**实现细节**:
+1. 将 LHS 复制到 RAX
+2. 执行 `MUL64r RHS` → RDX:RAX
+3. 根据 `wantsHighBits()` 选择 RDX 或 RAX
+4. 将结果复制到虚拟寄存器
+
+**未来优化方向**:
+- 检测 BMI2 支持时使用 `MULX` 指令 (不影响 FLAGS)
+- 检测 ADX 支持时使用 `ADCX`/`ADOX` 优化进位链
+
+### 7.5 编译器集成
+
+#### Lowering 分发
+- **文件**: `src/compiler/cgir/lowering.h:186-189`
+- **集成点**: 在 `lowerExpr()` switch 中添加 `EVM_UMUL128` case
+
+#### Visitor 模式支持
+- **文件**: `src/compiler/mir/pass/visitor.h:48-50, 175-177`
+- **新增方法**: `visitEvmUmul128Instruction()`
+
+### 7.6 实现验证
+
+#### 正确性保证
+- 算法与 intx 库完全一致
+- 通过 EVM 状态测试验证 (待运行)
+- 支持 256-bit 截断语义
+
+#### 性能预期
+- **消除函数调用开销**: 不再需要参数传递、栈帧建立
+- **启用 IR 优化**: 常量折叠、死代码消除、指令重排
+- **机器码质量**: LLVM 可根据 CPU 特性选择最优指令序列
+
+### 7.7 与原方案的差异
+
+| 方面 | 原运行时实现 | 新 IR 实现 |
+|------|------------|-----------|
+| 调用方式 | `callRuntimeFor<GetMul>()` | 内联 IR 指令序列 |
+| 指令数 | 1 个 CALL | ~50-60 个 IR 指令 |
+| 优化机会 | 无 (黑盒) | 完全暴露给 LLVM |
+| 代码大小 | 小 (函数调用) | 大 (展开) |
+| 性能 | 基线 | 预期 +15-30% |
+
+### 7.8 后续工作
+
+- [ ] 运行完整的 EVM 状态测试验证正确性
+- [ ] 使用 `perf` 测量实际性能提升
+- [ ] 检查生成的汇编代码，确认使用了 MULX 指令
+- [ ] 考虑添加零值快速路径优化
+- [ ] 探索常量乘法的强度削减 (strength reduction)
+
+## 8. 参考资料
 
 - intx 源码: `intx.hpp:1524-1542` (umul 实现)
 - Intel 指令手册: BMI2, ADX 扩展
 - LLVM 文档: Multi-precision arithmetic optimization
 - EVM 黄皮书: 算术运算语义
+- 本次实现 commit: `perf(compiler): inline U256 multiplication with schoolbook algorithm`

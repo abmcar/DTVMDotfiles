@@ -63,9 +63,22 @@
       "Bash(__NEW_LINE_2ba0d49958007d64__ echo \"\")",
       "Bash(__NEW_LINE_32644c18e9cd5ac0__ echo \"\")",
       "Bash(__NEW_LINE_b66d7e49bde29ba7__ git stash pop)",
-      "Bash(__NEW_LINE_0d5e015de2926150__ echo \"\")"
+      "Bash(__NEW_LINE_0d5e015de2926150__ echo \"\")",
+      "Bash(if [ -f /tmp/evmone_all.json ])",
+      "Bash(then jq -r '.testsuites[] | .testsuite[] | select\\(.failures != null and .failures != \"\"0\"\"\\) | .name' /tmp/evmone_all.json)",
+      "Bash(else echo \"File not found\")",
+      "Bash(fi)",
+      "Bash(rg:*)",
+      "Bash(xargs:*)",
+      "Bash(/root/evmone/build/bin/evmone-statetest:*)",
+      "Bash(if [ -f /tmp/evmone_with_gas_reg_fixed.json ])",
+      "Bash(then python3 -c \"import json; data=json.load\\(open\\(''/tmp/evmone_with_gas_reg_fixed.json''\\)\\); tests=data.get\\(''testsuites'',[{}]\\)[0]; total=tests.get\\(''tests'',0\\); failures=tests.get\\(''failures'',0\\); print\\(f''Total: {total}, Failures: {failures}, Pass rate: {100*\\(total-failures\\)/total if total>0 else 0:.2f}%''\\)\")",
+      "Bash(timeout 300 bash -c 'rg --files -g \"\"*.json\"\" -g \"\"!index.json\"\" /root/DTVM/tests/evm_spec_test/ALL_STATE_TESTS -0 | xargs -0 /root/evmone/build/bin/evmone-statetest --vm \"\"/root/DTVM/build/lib/libdtvmapi.so,mode=multipass\"\" -k \"\"fork_Cancun\"\" 2>&1')",
+      "Bash(tee:*)",
+      "Bash(timeout 400 bash -c 'rg --files -g \"\"*.json\"\" -g \"\"!index.json\"\" /root/DTVM/tests/evm_spec_test/ALL_STATE_TESTS -0 | xargs -0 /root/evmone/build/bin/evmone-statetest --vm \"\"/root/DTVM/build/lib/libdtvmapi.so,mode=multipass\"\" -k \"\"fork_Cancun\"\" 2>&1 | tail -5')"
     ],
     "deny": [],
     "ask": []
-  }
+  },
+  "outputStyle": "default"
 }
