@@ -1,0 +1,4 @@
+interface:
+  display_name: "DTVM evmone Bench"
+  short_description: "Run and interpret DTVM EVM benchmarks"
+  default_prompt: "Use $dtvm-evmone-benchmark to run DTVM through evmone-bench with the right EVMC VM arguments."

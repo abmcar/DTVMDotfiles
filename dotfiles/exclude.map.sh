@@ -19,7 +19,6 @@ declare -Ag DTVM_EXCLUDE_MAP=(
     [fibr.evm.hex]=managed
     [fixtures]=managed
     [init.sh]=managed
-    [openspec]=managed
     [out.perf]=managed
     [perf]=managed
     [perf.data]=managed

@@ -1,0 +1,4 @@
+interface:
+  display_name: "DTVM Perf Lab"
+  short_description: "DTVM perf worktree and evmone lab setup"
+  default_prompt: "Use $dtvm-perf-worktree-lab to set up a clean DTVM performance worktree and evmone test lab."

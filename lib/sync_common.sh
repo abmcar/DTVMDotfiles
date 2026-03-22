@@ -25,12 +25,16 @@ declare -agr MIRRORED_ITEMS=(
     ".claude"
     "init.sh"
     "CLAUDE.md"
-    "openspec"
     "perf/record_erc20_perf.sh"
     "perf/record_fibr_perf.sh"
     "perf/erc20.evm.hex"
     "perf/fib.evm.hex"
     "perf/fibr.evm.hex"
+)
+
+declare -agr OMITTED_EXCLUDE_PATTERNS=(
+    "openspec"
+    "openspec/"
 )
 
 excludeHeader() {
@@ -44,6 +48,19 @@ EOF
 
 warn() {
     echo "Warning: $*"
+}
+
+isOmittedExcludePattern() {
+    local pattern="$1"
+    local omitted_pattern
+
+    for omitted_pattern in "${OMITTED_EXCLUDE_PATTERNS[@]}"; do
+        if [ "$pattern" = "$omitted_pattern" ]; then
+            return 0
+        fi
+    done
+
+    return 1
 }
 
 copyPath() {
@@ -200,6 +217,10 @@ buildExcludeMapFromFile() {
 
         pattern="$line"
         if isDerivedManagedSkillExclude "$pattern"; then
+            continue
+        fi
+
+        if isOmittedExcludePattern "$pattern"; then
             continue
         fi
 

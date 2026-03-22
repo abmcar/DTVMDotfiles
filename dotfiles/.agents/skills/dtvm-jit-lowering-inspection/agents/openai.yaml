@@ -1,0 +1,4 @@
+interface:
+  display_name: "DTVM JIT Inspect"
+  short_description: "Inspect DTVM multipass JIT lowering output"
+  default_prompt: "Use $dtvm-jit-lowering-inspection to inspect DTVM multipass JIT logs, CGIR, and assembly for one lowering hot path."

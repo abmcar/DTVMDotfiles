@@ -21,6 +21,7 @@ cd DTVMDotfiles
 3. 将 `.git/info/exclude` 归一化后写入 `dotfiles/exclude.map.sh`
 4. 仅同步 `dotfiles/skills.map.sh` 中标记为 `managed` 的 `.agents/skills`
 5. 忽略自动生成的 managed skill exclude，不把它们回写进 `exclude.map.sh`
+6. 跳过 `openspec`，避免把主仓库自管的 OpenSpec 内容镜像到 DTVMDotfiles
 
 ### 2. **release.sh** - 释放脚本
 位置: `DTVMDotfiles/release.sh`
@@ -53,6 +54,8 @@ cd DTVMDotfiles
 | `CLAUDE.md` | 开发指南 |
 | `perf/record_erc20_perf.sh` | ERC20 workload perf record 脚本 |
 | `perf/record_fibr_perf.sh` | fibr workload perf record 脚本 |
+
+说明：`openspec/` 由 DTVM 主仓库直接管理，不在 DTVMDotfiles 的镜像同步范围内。
 
 ## 使用场景
 
@@ -147,19 +150,21 @@ git pull
 
 5. **Managed Skill Exclude**: `release.sh` 会自动为每个 `managed` skill 生成 `.agents/skills/<skill>/` exclude 条目；`store.sh` 会在回写 `exclude.map.sh` 时忽略这些派生条目。
 
-6. **Bash 版本**: 脚本依赖 Bash 4.3 或更新版本。macOS 自带的 `/bin/bash` 3.2 不支持，需要自行安装更新版本的 Bash。
+6. **OpenSpec Ownership**: `openspec/` 只保留在 DTVM 主仓库中，`store.sh` 与 `release.sh` 都不会镜像它，也不会把对应 exclude 持久化到 `dotfiles/exclude.map.sh`。
 
-7. **权限**: 两个脚本都需要执行权限。如果权限丢失，运行:
+7. **Bash 版本**: 脚本依赖 Bash 4.3 或更新版本。macOS 自带的 `/bin/bash` 3.2 不支持，需要自行安装更新版本的 Bash。
+
+8. **权限**: 两个脚本都需要执行权限。如果权限丢失，运行:
    ```bash
    chmod +x release.sh
    chmod +x DTVMDotfiles/store.sh
    ```
 
-8. **路径要求**:
+9. **路径要求**:
    - `store.sh` 应在 `DTVMDotfiles` 目录中运行
    - `release.sh` 应在 `DTVMDotfiles` 目录中运行
 
-9. **环境变量**:
+10. **环境变量**:
    - `DTVMDOTFILES_PARENT_DIR`: 覆盖默认父目录，便于测试或自定义工作区
    - `DTVMDOTFILES_CODEX_PROMPTS_DIR`: 覆盖 `.claude/commands` 的目标目录
 

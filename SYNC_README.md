@@ -15,6 +15,8 @@
 - `perf/record_erc20_perf.sh` - ERC20 workload perf record 脚本
 - `perf/record_fibr_perf.sh` - fibr workload perf record 脚本
 
+`openspec/` 由 DTVM 主仓库直接管理，不再通过 DTVMDotfiles 镜像同步。
+
 ## 安装
 
 脚本已位于项目根目录：`/workspaces/DTVM/sync_dotfiles.sh`
@@ -78,6 +80,7 @@ DTVM/
 - `.git/info/exclude` 现在由 `exclude.map.sh` 生成，store 时会自动压缩冗余路径
 - 只有 `skills.map.sh` 中标记为 `managed` 的 skill 会被同步
 - 每个 `managed` skill 都会自动生成 `.agents/skills/<skill>/` exclude，且这些派生条目不会写回 `exclude.map.sh`
+- `openspec/` 不在 `MIRRORED_ITEMS` 中，也不会再写回 `exclude.map.sh`
 - 目录同步时会删除目标目录中的所有文件
 - 建议在同步前运行 `status` 命令检查变更
 
