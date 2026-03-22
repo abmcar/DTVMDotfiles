@@ -45,7 +45,7 @@ bash setup_from_dotfiles.sh /tmp/new-setup
    ./release.sh
    ```
    - 释放所有配置文件到父目录
-   - 包括：.claude/, .git/info/exclude, init.sh, CLAUDE.md
+   - 包括：.claude/, .git/info/exclude, .agents/skills/, init.sh, CLAUDE.md
 
 4. **执行 init.sh**
    ```bash
@@ -67,12 +67,15 @@ target-directory/
 │   ├── RELEASE_STORE_README.md
 │   └── dotfiles/
 │       ├── .claude/
-│       ├── .git/
-│       │   └── info/
-│       │       └── exclude
+│       ├── .agents/
+│       │   └── skills/
+│       ├── exclude.map.sh
+│       ├── skills.map.sh
 │       ├── init.sh
 │       └── CLAUDE.md
 │
+├── .agents/
+│   └── skills/                # ← 释放出来的托管技能
 ├── .claude/                   # ← 释放出来的配置
 ├── .git/
 │   └── info/
@@ -269,7 +272,6 @@ bash init.sh
 # 之后更新配置
 cd DTVMDotfiles
 git pull
-cd ..
 ./release.sh
 ```
 
@@ -302,6 +304,18 @@ cd ..
    docker run -it ubuntu:latest bash /path/to/setup_from_dotfiles.sh
    ```
 
+5. **托管 skill**
+   ```bash
+   # 只同步 skills.map.sh 中标记为 managed 的技能
+   sed -n '1,120p' DTVMDotfiles/dotfiles/skills.map.sh
+   ```
+
+6. **测试路径覆盖**
+   ```bash
+   DTVMDOTFILES_PARENT_DIR=/tmp/dtvm-workspace ./release.sh
+   DTVMDOTFILES_CODEX_PROMPTS_DIR=/tmp/codex-prompts ./release.sh
+   ```
+
 ## 相关文件
 
 - `setup_from_dotfiles.sh` - 本脚本
@@ -319,10 +333,10 @@ A: release.sh 会覆盖同名文件，建议先备份重要文件。
 A: 不能，需要从 GitHub 克隆。但一旦克隆完成，可以离线使用 release.sh。
 
 **Q: 支持哪些操作系统？**
-A: 任何支持 bash 和 git 的系统（Linux、macOS、Windows WSL 等）。
+A: 支持安装了 Git 和 Bash 4.3+ 的系统。Linux 和 WSL 可以直接使用；macOS 需要安装更新版本的 Bash，不能使用系统自带 `/bin/bash` 3.2。
 
 **Q: 如何禁用某些文件的释放？**
-A: 编辑 `DTVMDotfiles/release.sh`，注释掉不需要的项。
+A: 常规文件编辑 `DTVMDotfiles/lib/sync_common.sh` 里的 `MIRRORED_ITEMS`，技能则编辑 `DTVMDotfiles/dotfiles/skills.map.sh`。
 
 **Q: 可以在 Docker 中使用吗？**
 A: 可以，需要先安装 bash 和 git。

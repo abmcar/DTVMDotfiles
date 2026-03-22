@@ -2,13 +2,14 @@
 
 这个脚本用于在 DTVM 和 DTVM/DTVMDotfiles 仓库之间进行双向同步。
 
-**注意**: DTVMDotfiles 现在是 DTVM 的子目录，已添加到 `.git/exclude` 中，不会被提交到主仓库。
+**注意**: DTVMDotfiles 现在是 DTVM 的子目录，已添加到 `.git/info/exclude` 中，不会被提交到主仓库。
 
 ## 功能
 
 同步以下文件和目录：
 - `.claude/` - Claude Code 配置和命令
-- `.git/exclude` - Git 排除规则
+- `dotfiles/exclude.map.sh` - `.git/info/exclude` 的持久化 map
+- `dotfiles/skills.map.sh` + `dotfiles/.agents/skills/` - 仅同步托管的本地 skill
 - `init.sh` - 初始化脚本
 - `CLAUDE.md` - Claude 开发指南
 - `perf/record_erc20_perf.sh` - ERC20 workload perf record 脚本
@@ -60,8 +61,9 @@ DTVM/
 ├── DTVMDotfiles/         # 同步的 dotfiles 仓库
 │   └── dotfiles/
 │       ├── .claude/      # Claude Code 配置
-│       ├── .git/
-│       │   └── exclude   # Git 排除规则
+│       ├── .agents/skills/
+│       ├── exclude.map.sh
+│       ├── skills.map.sh
 │       ├── init.sh       # 初始化脚本
 │       └── CLAUDE.md     # 开发指南
 ├── sync_dotfiles.sh      # 同步脚本
@@ -73,7 +75,8 @@ DTVM/
 ## 注意事项
 
 - 脚本会**覆盖**目标位置的文件，请确保先备份重要更改
-- `.git/exclude` 文件不包含在 Git 跟踪中（根据 git 惯例）
+- `.git/info/exclude` 现在由 `exclude.map.sh` 生成，store 时会自动压缩冗余路径
+- 只有 `skills.map.sh` 中标记为 `managed` 的 skill 会被同步
 - 目录同步时会删除目标目录中的所有文件
 - 建议在同步前运行 `status` 命令检查变更
 
@@ -86,20 +89,26 @@ DTVM/
 运行 `./sync_dotfiles.sh status` 先检查将要同步的文件。
 
 ### Q: 可以选择性地同步某些文件吗？
-目前脚本同步所有定义的项目。如需选择性同步，可手动编辑脚本中的 `SYNC_ITEMS` 数组。
+可以。常规文件编辑 `lib/sync_common.sh` 里的 `MIRRORED_ITEMS`，技能编辑 `dotfiles/skills.map.sh`。
 
 ## 自定义
 
-编辑脚本中的 `SYNC_ITEMS` 数组来修改同步内容：
+编辑 `lib/sync_common.sh` 中的 `MIRRORED_ITEMS` 来修改常规同步内容：
 
 ```bash
-SYNC_ITEMS=(
-    ".claude:dotfiles/.claude"
-    ".git/exclude:dotfiles/.git/exclude"
-    "init.sh:dotfiles/init.sh"
-    "CLAUDE.md:dotfiles/CLAUDE.md"
-    "perf/record_erc20_perf.sh:dotfiles/perf/record_erc20_perf.sh"
-    "perf/record_fibr_perf.sh:dotfiles/perf/record_fibr_perf.sh"
-    # 添加更多项目...
+declare -agr MIRRORED_ITEMS=(
+    ".claude"
+    "init.sh"
+    "CLAUDE.md"
+    "perf/record_erc20_perf.sh"
+    "perf/record_fibr_perf.sh"
+)
+```
+
+技能同步则由 `dotfiles/skills.map.sh` 控制：
+```bash
+declare -Ag DTVM_SKILLS_MAP=(
+    ["local-skill"]="managed"
+    ["shared-skill"]="external"
 )
 ```

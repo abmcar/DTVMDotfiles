@@ -17,8 +17,9 @@ cd DTVMDotfiles
 
 **工作流程**:
 1. 读取 DTVM 根目录中的文件
-2. 将其复制到 `DTVMDotfiles/dotfiles/` 中
-3. 覆盖目标目录中的所有内容
+2. 将镜像文件复制到 `DTVMDotfiles/dotfiles/` 中
+3. 将 `.git/info/exclude` 归一化后写入 `dotfiles/exclude.map.sh`
+4. 仅同步 `dotfiles/skills.map.sh` 中标记为 `managed` 的 `.agents/skills`
 
 ### 2. **release.sh** - 释放脚本
 位置: `DTVMDotfiles/release.sh`
@@ -31,8 +32,10 @@ cd DTVMDotfiles
 ```
 
 **工作流程**:
-1. 将 `DTVMDotfiles/dotfiles/` 中的所有文件复制到 DTVM 根目录
-2. 完成释放操作
+1. 将 `DTVMDotfiles/dotfiles/` 中的镜像文件复制到 DTVM 根目录
+2. 根据 `dotfiles/exclude.map.sh` 生成 `.git/info/exclude`
+3. 仅释放 `dotfiles/skills.map.sh` 中标记为 `managed` 的 `.agents/skills`
+4. 将 `.claude/commands` 同步到 `~/.codex/prompts`
 
 ## 同步的文件
 
@@ -41,7 +44,9 @@ cd DTVMDotfiles
 | 文件/目录 | 说明 |
 |---------|------|
 | `.claude/` | Claude Code 配置和命令 |
-| `.git/info/exclude` | Git 本地排除规则 |
+| `dotfiles/exclude.map.sh` | `.git/info/exclude` 的持久化 map，会在 store 时压缩冗余路径 |
+| `dotfiles/skills.map.sh` | `.agents/skills` 的同步策略，`managed` 会同步，`external` 会跳过 |
+| `dotfiles/.agents/skills/` | 仅保存当前仓库自己管理的 skill |
 | `init.sh` | 初始化脚本 |
 | `CLAUDE.md` | 开发指南 |
 | `perf/record_erc20_perf.sh` | ERC20 workload perf record 脚本 |
@@ -72,12 +77,10 @@ git pull
 ./release.sh
 
 # 3. 检查外部文件是否已更新
-cd ..
-git status
+(cd .. && git status)
 
 # 4. 根据需要提交到 DTVM 仓库
-git add CLAUDE.md init.sh
-git commit -m "Release changes from DTVMDotfiles"
+(cd .. && git add CLAUDE.md init.sh && git commit -m "Release changes from DTVMDotfiles")
 ```
 
 ### 场景 3: 完整的双向同步流程
@@ -100,9 +103,7 @@ git pull
 ./release.sh
 
 # 返回上层目录并提交
-cd ..
-git add CLAUDE.md init.sh
-git commit -m "Release changes from DTVMDotfiles"
+(cd .. && git add CLAUDE.md init.sh && git commit -m "Release changes from DTVMDotfiles")
 ```
 
 ## 工作原理
@@ -113,7 +114,8 @@ git commit -m "Release changes from DTVMDotfiles"
 │  ┌──────────────────────────────────────┐   │
 │  │ External Files:                      │   │
 │  │ - .claude/                           │   │
-│  │ - .git/exclude                       │   │
+│  │ - .git/info/exclude                  │   │
+│  │ - .agents/skills/                    │   │
 │  │ - init.sh                            │   │
 │  │ - CLAUDE.md                          │   │
 │  └──────────────────────────────────────┘   │
@@ -121,7 +123,9 @@ git commit -m "Release changes from DTVMDotfiles"
 │  ┌──────────────────────────────────────┐   │
 │  │ DTVMDotfiles/dotfiles/               │   │
 │  │ - .claude/                           │   │
-│  │ - .git/exclude                       │   │
+│  │ - exclude.map.sh                     │   │
+│  │ - skills.map.sh                      │   │
+│  │ - .agents/skills/                    │   │
 │  │ - init.sh                            │   │
 │  │ - CLAUDE.md                          │   │
 │  └──────────────────────────────────────┘   │
@@ -135,17 +139,25 @@ git commit -m "Release changes from DTVMDotfiles"
 
 2. **目录同步**: 目录（如 `.claude/`）同步时会完全删除目标目录后重新创建，不会保留目标目录中的额外文件。
 
-3. **自动同步**: `release.sh` 执行后会自动调用 `store.sh`，确保文件一致性。
+3. **Exclude 压缩**: `store.sh` 会把 `.git/info/exclude` 存成 map，并自动去掉 `aaa/bbb/ccc` 这类已被 `aaa/bbb` 覆盖的冗余项。
 
-4. **权限**: 两个脚本都需要执行权限。如果权限丢失，运行:
+4. **Skills 分层**: 只有 `dotfiles/skills.map.sh` 中标记为 `managed` 的 skill 会被同步；`external` 或未列出的 skill 不会被 DTVMDotfiles 触碰。
+
+5. **Bash 版本**: 脚本依赖 Bash 4.3 或更新版本。macOS 自带的 `/bin/bash` 3.2 不支持，需要自行安装更新版本的 Bash。
+
+6. **权限**: 两个脚本都需要执行权限。如果权限丢失，运行:
    ```bash
    chmod +x release.sh
    chmod +x DTVMDotfiles/store.sh
    ```
 
-5. **路径要求**:
+7. **路径要求**:
    - `store.sh` 应在 `DTVMDotfiles` 目录中运行
    - `release.sh` 应在 `DTVMDotfiles` 目录中运行
+
+8. **环境变量**:
+   - `DTVMDOTFILES_PARENT_DIR`: 覆盖默认父目录，便于测试或自定义工作区
+   - `DTVMDOTFILES_CODEX_PROMPTS_DIR`: 覆盖 `.claude/commands` 的目标目录
 
 ## 与 sync_dotfiles.sh 的区别
 
@@ -169,16 +181,25 @@ chmod +x DTVMDotfiles/store.sh
 确保 `DTVMDotfiles/store.sh` 存在且有执行权限
 
 ### Q: 文件没有被同步
-检查文件路径是否在 `SYNC_ITEMS` 数组中定义
+检查路径是否在 `lib/sync_common.sh` 的 `MIRRORED_ITEMS` 中，或技能是否在 `dotfiles/skills.map.sh` 中标记为 `managed`
 
 ### Q: 想添加新的同步文件
-编辑相应脚本的 `SYNC_ITEMS` 数组，添加新的同步项:
+编辑 `lib/sync_common.sh` 中的 `MIRRORED_ITEMS`：
 ```bash
-SYNC_ITEMS=(
-    ".claude:dotfiles/.claude"
-    ".git/exclude:dotfiles/.git/exclude"
-    "init.sh:dotfiles/init.sh"
-    "CLAUDE.md:dotfiles/CLAUDE.md"
-    "new_file.txt:dotfiles/new_file.txt"  # 添加新项
+declare -agr MIRRORED_ITEMS=(
+    ".claude"
+    "init.sh"
+    "CLAUDE.md"
+    "new_file.txt"
+)
+```
+
+### Q: 想管理新的 skill
+编辑 `dotfiles/skills.map.sh`，将 skill 标记为 `managed`：
+```bash
+declare -Ag DTVM_SKILLS_MAP=(
+    ["existing-skill"]="managed"
+    ["new-local-skill"]="managed"
+    ["shared-skill"]="external"
 )
 ```

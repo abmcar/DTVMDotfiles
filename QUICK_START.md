@@ -28,6 +28,8 @@ bash <(curl -s https://raw.githubusercontent.com/abmcar/DTVMDotfiles/main/setup_
 
 1. 🔗 克隆 `DTVMDotfiles` 仓库到本地
 2. 🔓 运行 `release.sh` 释放所有配置文件
+   - `.git/info/exclude` 会由 `dotfiles/exclude.map.sh` 生成
+   - `.agents/skills` 只会释放 `skills.map.sh` 中标记为 `managed` 的技能
 3. 🚀 执行 `init.sh` 进行初始化设置
 
 ## 📂 执行后会有什么
@@ -42,6 +44,7 @@ bash <(curl -s https://raw.githubusercontent.com/abmcar/DTVMDotfiles/main/setup_
 │   └── dotfiles/
 │
 ├── .claude/               # 配置文件（释放）
+├── .agents/skills/        # 仅释放托管的本地 skills
 ├── .git/info/exclude      # Git 配置（释放）
 ├── CLAUDE.md              # 文档（释放）
 └── init.sh                # 初始化脚本（释放并执行）
@@ -96,6 +99,8 @@ bash setup_from_dotfiles.sh
 | `release.sh` | DTVMDotfiles | 释放配置文件 |
 | `store.sh` | DTVMDotfiles | 存放配置文件 |
 | `init.sh` | DTVMDotfiles/dotfiles | 初始化脚本 |
+| `exclude.map.sh` | DTVMDotfiles/dotfiles | `.git/info/exclude` 的持久化 map |
+| `skills.map.sh` | DTVMDotfiles/dotfiles | 选择哪些 `.agents/skills` 需要同步 |
 | `sync_dotfiles.sh` | DTVM 根目录 | 双向同步工具（可选） |
 
 ## 💡 工作流程示意
@@ -105,7 +110,7 @@ GitHub 仓库（abmcar/DTVMDotfiles）
          ↓ git clone
     本地仓库（DTVMDotfiles/）
          ↓ release.sh
-    外部文件（.claude/, CLAUDE.md 等）
+    外部文件（.claude/、.agents/skills/、CLAUDE.md 等）
          ↓ init.sh
     环境已初始化 ✓
 ```
@@ -146,7 +151,6 @@ bash setup_from_dotfiles.sh
 # 方式 2: 手动更新
 cd DTVMDotfiles
 git pull
-cd ..
 ./release.sh
 ```
 
@@ -174,8 +178,10 @@ bash init.sh
 ## 📌 重要提示
 
 - ⚠️ `release.sh` 会覆盖同名文件，建议先备份
-- ✓ 脚本支持所有 Unix-like 系统（Linux、macOS、WSL）
-- ✓ 需要 `git` 和 `bash`，大多数系统已预装
+- ✓ `store.sh` 会自动压缩冗余 exclude，例如 `aaa/bbb` 会覆盖 `aaa/bbb/ccc`
+- ✓ `skills.map.sh` 可区分本仓库托管的 skill 和外部同步的 skill
+- ✓ 需要 `git` 和 Bash 4.3+
+- ✓ Linux 和 WSL 可直接使用；macOS 需安装更新版本的 Bash，不能用系统自带 `/bin/bash` 3.2
 - ✓ 首次克隆需要网络连接
 - ✓ 脚本是幂等的，可以重复运行
 
@@ -199,7 +205,7 @@ bash init.sh
 |------|------|
 | 快速设置 | `bash setup_from_dotfiles.sh` |
 | 指定目录 | `bash setup_from_dotfiles.sh /path` |
-| 更新配置 | `cd DTVMDotfiles && git pull && cd .. && ./release.sh` |
+| 更新配置 | `cd DTVMDotfiles && git pull && ./release.sh` |
 | 提交配置 | `cd DTVMDotfiles && ./store.sh && git push` |
 | 查看帮助 | `cat SETUP_GUIDE.md` |
 
