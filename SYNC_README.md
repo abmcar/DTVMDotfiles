@@ -9,7 +9,7 @@
 同步以下文件和目录：
 - `.claude/` - Claude Code 配置和命令
 - `dotfiles/exclude.map.sh` - `.git/info/exclude` 的持久化 map
-- `dotfiles/skills.map.sh` + `dotfiles/.agents/skills/` - 仅同步托管的本地 skill
+- `dotfiles/skills.map.sh` + `dotfiles/.agents/skills/` - 仅同步托管的本地 skill，并自动生成对应的 exclude
 - `init.sh` - 初始化脚本
 - `CLAUDE.md` - Claude 开发指南
 - `perf/record_erc20_perf.sh` - ERC20 workload perf record 脚本
@@ -77,6 +77,7 @@ DTVM/
 - 脚本会**覆盖**目标位置的文件，请确保先备份重要更改
 - `.git/info/exclude` 现在由 `exclude.map.sh` 生成，store 时会自动压缩冗余路径
 - 只有 `skills.map.sh` 中标记为 `managed` 的 skill 会被同步
+- 每个 `managed` skill 都会自动生成 `.agents/skills/<skill>/` exclude，且这些派生条目不会写回 `exclude.map.sh`
 - 目录同步时会删除目标目录中的所有文件
 - 建议在同步前运行 `status` 命令检查变更
 

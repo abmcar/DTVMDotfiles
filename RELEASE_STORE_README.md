@@ -20,6 +20,7 @@ cd DTVMDotfiles
 2. 将镜像文件复制到 `DTVMDotfiles/dotfiles/` 中
 3. 将 `.git/info/exclude` 归一化后写入 `dotfiles/exclude.map.sh`
 4. 仅同步 `dotfiles/skills.map.sh` 中标记为 `managed` 的 `.agents/skills`
+5. 忽略自动生成的 managed skill exclude，不把它们回写进 `exclude.map.sh`
 
 ### 2. **release.sh** - 释放脚本
 位置: `DTVMDotfiles/release.sh`
@@ -35,7 +36,8 @@ cd DTVMDotfiles
 1. 将 `DTVMDotfiles/dotfiles/` 中的镜像文件复制到 DTVM 根目录
 2. 根据 `dotfiles/exclude.map.sh` 生成 `.git/info/exclude`
 3. 仅释放 `dotfiles/skills.map.sh` 中标记为 `managed` 的 `.agents/skills`
-4. 将 `.claude/commands` 同步到 `~/.codex/prompts`
+4. 自动向父仓库 `.git/info/exclude` 添加 `.agents/skills/<skill>/` 形式的 managed skill 排除项
+5. 将 `.claude/commands` 同步到 `~/.codex/prompts`
 
 ## 同步的文件
 
@@ -45,7 +47,7 @@ cd DTVMDotfiles
 |---------|------|
 | `.claude/` | Claude Code 配置和命令 |
 | `dotfiles/exclude.map.sh` | `.git/info/exclude` 的持久化 map，会在 store 时压缩冗余路径 |
-| `dotfiles/skills.map.sh` | `.agents/skills` 的同步策略，`managed` 会同步，`external` 会跳过 |
+| `dotfiles/skills.map.sh` | `.agents/skills` 的同步策略，`managed` 会同步并自动加入父仓库 exclude，`external` 会跳过 |
 | `dotfiles/.agents/skills/` | 仅保存当前仓库自己管理的 skill |
 | `init.sh` | 初始化脚本 |
 | `CLAUDE.md` | 开发指南 |
@@ -143,19 +145,21 @@ git pull
 
 4. **Skills 分层**: 只有 `dotfiles/skills.map.sh` 中标记为 `managed` 的 skill 会被同步；`external` 或未列出的 skill 不会被 DTVMDotfiles 触碰。
 
-5. **Bash 版本**: 脚本依赖 Bash 4.3 或更新版本。macOS 自带的 `/bin/bash` 3.2 不支持，需要自行安装更新版本的 Bash。
+5. **Managed Skill Exclude**: `release.sh` 会自动为每个 `managed` skill 生成 `.agents/skills/<skill>/` exclude 条目；`store.sh` 会在回写 `exclude.map.sh` 时忽略这些派生条目。
 
-6. **权限**: 两个脚本都需要执行权限。如果权限丢失，运行:
+6. **Bash 版本**: 脚本依赖 Bash 4.3 或更新版本。macOS 自带的 `/bin/bash` 3.2 不支持，需要自行安装更新版本的 Bash。
+
+7. **权限**: 两个脚本都需要执行权限。如果权限丢失，运行:
    ```bash
    chmod +x release.sh
    chmod +x DTVMDotfiles/store.sh
    ```
 
-7. **路径要求**:
+8. **路径要求**:
    - `store.sh` 应在 `DTVMDotfiles` 目录中运行
    - `release.sh` 应在 `DTVMDotfiles` 目录中运行
 
-8. **环境变量**:
+9. **环境变量**:
    - `DTVMDOTFILES_PARENT_DIR`: 覆盖默认父目录，便于测试或自定义工作区
    - `DTVMDOTFILES_CODEX_PROMPTS_DIR`: 覆盖 `.claude/commands` 的目标目录
 
@@ -203,3 +207,4 @@ declare -Ag DTVM_SKILLS_MAP=(
     ["shared-skill"]="external"
 )
 ```
+随后 `release.sh` 会自动把 `.agents/skills/new-local-skill/` 加入父仓库 `.git/info/exclude`。

@@ -46,6 +46,7 @@ bash setup_from_dotfiles.sh /tmp/new-setup
    ```
    - 释放所有配置文件到父目录
    - 包括：.claude/, .git/info/exclude, .agents/skills/, init.sh, CLAUDE.md
+   - 对于 `skills.map.sh` 中标记为 `managed` 的 skill，会自动加入 `.git/info/exclude`
 
 4. **执行 init.sh**
    ```bash
@@ -306,7 +307,8 @@ git pull
 
 5. **托管 skill**
    ```bash
-   # 只同步 skills.map.sh 中标记为 managed 的技能
+   # 只同步 skills.map.sh 中标记为 managed 的技能，
+   # 并自动把它们加到父仓库 .git/info/exclude
    sed -n '1,120p' DTVMDotfiles/dotfiles/skills.map.sh
    ```
 

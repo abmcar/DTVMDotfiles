@@ -30,6 +30,7 @@ bash <(curl -s https://raw.githubusercontent.com/abmcar/DTVMDotfiles/main/setup_
 2. 🔓 运行 `release.sh` 释放所有配置文件
    - `.git/info/exclude` 会由 `dotfiles/exclude.map.sh` 生成
    - `.agents/skills` 只会释放 `skills.map.sh` 中标记为 `managed` 的技能
+   - `managed` skill 会自动加入父仓库 `.git/info/exclude`
 3. 🚀 执行 `init.sh` 进行初始化设置
 
 ## 📂 执行后会有什么
@@ -180,6 +181,7 @@ bash init.sh
 - ⚠️ `release.sh` 会覆盖同名文件，建议先备份
 - ✓ `store.sh` 会自动压缩冗余 exclude，例如 `aaa/bbb` 会覆盖 `aaa/bbb/ccc`
 - ✓ `skills.map.sh` 可区分本仓库托管的 skill 和外部同步的 skill
+- ✓ `managed` skill 的 `.agents/skills/<skill>/` 会自动加入父仓库 `.git/info/exclude`
 - ✓ 需要 `git` 和 Bash 4.3+
 - ✓ Linux 和 WSL 可直接使用；macOS 需安装更新版本的 Bash，不能用系统自带 `/bin/bash` 3.2
 - ✓ 首次克隆需要网络连接

@@ -188,6 +188,7 @@ buildExcludeMapFromFile() {
     local line
     local pattern
 
+    loadSkillsMap
     map_ref=()
 
     while IFS= read -r line || [ -n "$line" ]; do
@@ -198,6 +199,10 @@ buildExcludeMapFromFile() {
         fi
 
         pattern="$line"
+        if isDerivedManagedSkillExclude "$pattern"; then
+            continue
+        fi
+
         map_ref["$pattern"]="managed"
     done < "$exclude_file"
 
@@ -236,19 +241,50 @@ loadExcludeMap() {
     fi
 }
 
+managedSkillExcludePattern() {
+    local skill_name="$1"
+
+    printf '.agents/skills/%s/' "$skill_name"
+}
+
+isDerivedManagedSkillExclude() {
+    local pattern="$1"
+    local skill_name
+
+    while IFS= read -r skill_name; do
+        if [ "$pattern" = "$(managedSkillExcludePattern "$skill_name")" ]; then
+            return 0
+        fi
+    done < <(managedSkillNames)
+
+    return 1
+}
+
 renderExcludeFile() {
     local dst_path="$1"
     local tmp_file
+    local pattern
+    local skill_name
+    local -A render_map=()
 
     loadExcludeMap
+    loadSkillsMap
+
+    for pattern in "${!DTVM_EXCLUDE_MAP[@]}"; do
+        render_map["$pattern"]="${DTVM_EXCLUDE_MAP[$pattern]}"
+    done
+
+    while IFS= read -r skill_name; do
+        render_map["$(managedSkillExcludePattern "$skill_name")"]="derived-managed-skill"
+    done < <(managedSkillNames)
 
     tmp_file="$(mktemp)"
     {
         excludeHeader
-        if [ "${#DTVM_EXCLUDE_MAP[@]}" -gt 0 ]; then
+        if [ "${#render_map[@]}" -gt 0 ]; then
             while IFS= read -r pattern; do
                 [ -n "$pattern" ] && printf '%s\n' "$pattern"
-            done < <(printf '%s\n' "${!DTVM_EXCLUDE_MAP[@]}" | LC_ALL=C sort)
+            done < <(printf '%s\n' "${!render_map[@]}" | LC_ALL=C sort)
         fi
     } > "$tmp_file"
 
