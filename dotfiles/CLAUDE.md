@@ -19,8 +19,6 @@ Keep this managed block so tooling can refresh the instructions.
 
 # DTVM Development Guide
 
-This file provides guidance to Claude Code and other AI assistants when working with code in this repository.
-
 ## Project Overview
 
 DTVM is a deterministic VM with EVM ABI compatibility. Core implementation is in C/C++ under `src/`.
@@ -31,121 +29,50 @@ DTVM is a deterministic VM with EVM ABI compatibility. Core implementation is in
 - Keep edits minimal and localized; follow existing patterns
 - Update or add tests when behavior changes
 
-## Code Style Guidelines
+## Task Routing
 
-### General Rules
-1. Only include essential comments—avoid excessive documentation. **All comments must be written in English**
-2. The last line of the file must contain exactly one blank line—no more, no less
-3. Add comments only when necessary, and always write comments in English
-4. The code follows clang-format coding style. Follow the LLVM naming conventions strictly:
-   - Variable names: `GasCost` (PascalCase)
-   - Function names: `calcGasCost` (camelCase)
+### Direct Execution
+- Single-file bug fixes or small edits
+- Format checks, simple git operations
+- Code review or explanation of a specific function
 
-### License Header
-New .h and .cpp files must begin with the following license header:
-```cpp
-// Copyright (C) 2025 the DTVM authors. All Rights Reserved.
-// SPDX-License-Identifier: Apache-2.0
-```
+### Delegate to Sub-Agent
+- **compiler-agent**: Changes in `src/compiler/` (CGIR passes, MIR, peephole patterns, x86 codegen)
+- **evm-agent**: Changes in `src/evm/`, `src/runtime/`, `src/vm/` (opcode handlers, gas metering, spec tests)
+- **perf-agent**: Profiling, benchmark analysis, optimization proposals
+- Use parallel dispatch when tasks touch independent domains (e.g., compiler + evm simultaneously)
+- Use sequential dispatch when output from one task feeds into another
 
-## Commit and PR Guidelines
+### Research First (EnterPlanMode)
+- New features, architecture changes, or breaking changes
+- Ambiguous requirements where scope is unclear
+- Multi-file refactors affecting 5+ files
+- Performance work requiring profiling before coding
 
-When creating commits or pull requests, follow the conventions defined in `commitlint.config.js`:
+## Quality Gates
 
-### Commit Message Format
-```
-<type>(<scope>): <subject>
+**Before finishing any code task, verify:**
+1. `tools/format.sh check` passes
+2. Changed code compiles: `cmake --build build --target <relevant_target>`
+3. Relevant tests pass (EVM spec tests for evm/runtime changes, unit tests for compiler)
+4. No new compiler warnings introduced
+5. Comments are in English, naming follows LLVM conventions
 
-[optional body]
+**Before creating commits/PRs:**
+- Follow conventions in `.claude/rules/commit-conventions.md`
+- PR description includes what changed and why
 
-[optional footer]
-```
+## Build & Test
 
-### Type (required)
-- `feat` - A new feature
-- `fix` - A bug fix
-- `docs` - Documentation only changes
-- `style` - Code style changes (formatting, white-space, etc.)
-- `refactor` - Code changes that neither fix bugs nor add features
-- `perf` - Performance improvements
-- `test` - Adding or correcting tests
-- `build` - Build system or dependency changes
-- `ci` - CI configuration changes
-- `chore` - Other changes that don't modify src or test files
+Treat repository docs and skills as authoritative:
+- General build: `docs/start.md`
+- CI-faithful EVM build: `dtvm-build-config` skill
+- Perf-oriented builds: relevant perf skills
 
-### Scope (required)
-- `core` - Core engine code
-- `runtime` - Runtime library
-- `compiler` - Compiler related
-- `evm` - EVM interpreter and handlers
-- `examples` - Example code
-- `docs` - Documentation related
-- `tools` - Tool related
-- `deps` - Dependency related
-- `ci` - CI related
-- `test` - Test related
-- `other` - Other changes
-- `` (empty) - No specific scope
+## Code Style
 
-### Rules
-- Header must not exceed 100 characters
-- Subject must not end with a period
-- Type must be lowercase
-- Use imperative mood in subject (e.g., "add feature" not "added feature")
-
-### PR Title Format
-PR titles should follow the same format as commit messages: `<type>(<scope>): <subject>`
-
-## Project Architecture
-
-### Repository Map
-- `src/`: core runtime, compiler, execution engines
-  - `src/vm/` - DTVM core implementation and wrapped host interface
-  - `src/runtime/` - Execution environments and instance management for EVM
-  - `src/compiler/` - dMIR (deterministic Middle IR) compiler:
-    - `evm_frontend/` - EVM bytecode to dMIR translation
-    - `mir/` - Middle Intermediate Representation core
-    - `cgir/` - Code generation IR and optimization passes
-  - `src/evm/` - EVM interpreter and opcode handlers
-  - `src/action/` - Module loading, instantiation, and bytecode visiting infrastructure
-  - `src/common/` - Shared utilities, error handling, type definitions
-- `tests/`: Test suites
-  - `tests/evm_spec_test` - EVM spec tests
-- `docs/`: build and usage guides (`docs/start.md`, `docs/user-guide.md`)
-- `specs/`: SSOT module specifications and feature workflow documents
-- `evmc/`: EVM compatibility components
-- `rust_crate/`: Rust bindings
-- `tools/`: helper scripts and utilities
-
-## Build Configuration
-
-Treat repository docs and build-related skills as authoritative for build
-commands and flag combinations.
-
-- For general local build guidance, use `docs/start.md`
-- For CI-faithful EVM build and test reproduction, use the `dtvm-build-config`
-  skill
-- For perf-oriented build variants, use the relevant perf skills instead of
-  copying stale flag sets into this file
-
-## Testing and Performance
-
-Detailed EVM state test, evmone benchmark, and perf workflows are maintained in
-dedicated skills and repository documentation. Prefer the current skills and
-repo scripts over copying old command lines into this file.
-
-## Development Tools
-
-### Code Formatting
-**IMPORTANT:** Always run format check before finishing a task.
-
-```bash
-# Check code format (run before finishing task)
-tools/format.sh check
-
-# Format code automatically (run after modifying code)
-tools/format.sh format
-```
+Detailed rules auto-loaded from `.claude/rules/cpp-code-style.md` for C++ files.
+Run `tools/format.sh format` after modifying code, `tools/format.sh check` before finishing.
 
 ## Documentation Pointers
 
