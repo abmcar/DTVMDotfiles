@@ -15,16 +15,22 @@ if data.get("stop_hook_active", False):
     sys.exit(0)
 
 # Skip if no C/C++ or CMake files were modified this session
-diff = subprocess.run(
-    ["git", "status", "--porcelain"],
-    capture_output=True,
-    text=True,
-    cwd=REPO_ROOT,
-)
-changed = [line[3:].strip() for line in diff.stdout.splitlines()]
-needs_check = any(
-    pathlib.Path(f).suffix in FORMAT_EXTS or pathlib.Path(f).name == "CMakeLists.txt"
-    for f in changed
+try:
+    git_status = subprocess.run(
+        ["git", "status", "--porcelain"],
+        capture_output=True,
+        text=True,
+        cwd=REPO_ROOT,
+        timeout=10,
+    )
+except subprocess.TimeoutExpired:
+    git_status = None
+
+needs_check = git_status is None or any(
+    (p := pathlib.Path(line[3:].strip())).suffix in FORMAT_EXTS
+    or p.name == "CMakeLists.txt"
+    for line in git_status.stdout.splitlines()
+    if len(line) > 3
 )
 if not needs_check:
     sys.exit(0)

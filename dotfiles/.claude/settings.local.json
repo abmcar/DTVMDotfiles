@@ -63,7 +63,7 @@
         "hooks": [
           {
             "type": "command",
-            "command": "python3 /home/abmcar/DTVM/.claude/hooks/stop_validation.py"
+            "command": "python3 .claude/hooks/stop_validation.py"
           }
         ]
       }
