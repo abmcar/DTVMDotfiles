@@ -117,27 +117,16 @@ PR titles should follow the same format as commit messages: `<type>(<scope>): <s
 - `rust_crate/`: Rust bindings
 - `tools/`: helper scripts and utilities
 
-## Build Commands
+## Build Configuration
 
-### Multipass JIT (requires LLVM 15, x86-64 only)
-```bash
-cmake -B build -DCMAKE_BUILD_TYPE=Debug \
-  -DZEN_ENABLE_MULTIPASS_JIT=ON \
-  -DZEN_ENABLE_SINGLEPASS_JIT=OFF \
-  -DZEN_ENABLE_EVM=ON \
-  -DZEN_ENABLE_SPEC_TEST=ON \
-  -G Ninja
-cmake --build build -j
-```
+Treat repository docs and build-related skills as authoritative for build
+commands and flag combinations.
 
-### Build Options
-- `-DZEN_ENABLE_SPEC_TEST=ON` - Enable spec tests (required for testing)
-- `-DZEN_ENABLE_LINUX_PERF=ON` - Enable for performance testing
-- `-DZEN_ENABLE_ASAN=ON` - Enable AddressSanitizer
-- `-DZEN_ENABLE_JIT_LOGGING=ON` - Enable JIT logging
-- `-DZEN_ENABLE_JIT_BOUND_CHECK=ON` - Enable JIT bounds checking
-- `-DCMAKE_EXPORT_COMPILE_COMMANDS=ON` - Generate compile_commands.json
-- `-DCMAKE_BUILD_TYPE=RelWithDebInfo` - Use instead of `Debug` for performance testing
+- For general local build guidance, use `docs/start.md`
+- For CI-faithful EVM build and test reproduction, use the `dtvm-build-config`
+  skill
+- For perf-oriented build variants, use the relevant perf skills instead of
+  copying stale flag sets into this file
 
 ## Testing and Performance
 
