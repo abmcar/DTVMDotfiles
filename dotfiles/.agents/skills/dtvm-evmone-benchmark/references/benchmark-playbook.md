@@ -52,10 +52,10 @@ Use a local evmone-for-test checkout:
 
 ## When To Use Something Else
 
-- Use `tools/bench_u256_mul.py` when the task is a custom lowering microbench,
-  not a standard evmone benchmark suite run.
 - Use `evmc run --bench` only for one-off custom bytecode timing, not as the
   default answer for “how do I use evmone benchmark with DTVM?”
+- If a repo-local helper exists for a custom microbench, verify that it is
+  present before recommending it.
 
 ## Common Failure Modes
 
@@ -63,3 +63,4 @@ Use a local evmone-for-test checkout:
 - Forgetting to rebuild `libdtvmapi.so` before benchmarking
 - Pointing the suite path at the wrong evmone checkout
 - Using a stale evmone binary from another experiment
+- Passing `--benchmark_min_time=0.001` without a unit suffix; use `0.001s`

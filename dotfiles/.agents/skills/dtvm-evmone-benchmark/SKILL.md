@@ -33,9 +33,11 @@ Use this skill for local evmone benchmark execution. For CI build reproduction, 
 - The second positional argument is always the benchmark suite directory.
 - If the user wants a full external total sweep once, include
   `--benchmark_filter='^external/total/(main|micro)/' --benchmark_repetitions=1`.
-- If the user wants one custom microbenchmark bytecode, prefer a dedicated
-  helper such as `tools/bench_u256_mul.py` or `evmc run --bench`, but only when
-  the benchmark is intentionally custom.
+- If the user passes `--benchmark_min_time`, include a duration suffix such as
+  `0.001s`; a bare value like `0.001` is rejected.
+- If the user wants one custom microbenchmark bytecode, prefer `evmc run --bench`
+  or another repo-local helper only if it actually exists in the current
+  workspace.
 
 ## Output Requirements
 
