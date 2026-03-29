@@ -47,7 +47,8 @@ bash <(curl -s https://raw.githubusercontent.com/abmcar/DTVMDotfiles/main/setup_
 ├── .claude/               # 配置文件（释放）
 ├── .agents/skills/        # 仅释放托管的本地 skills
 ├── .git/info/exclude      # Git 配置（释放）
-├── CLAUDE.md              # 文档（释放）
+├── CLAUDE.md              # 文档权威源（释放）
+├── AGENTS.md              # 由 CLAUDE.md 生成的别名（释放）
 └── init.sh                # 初始化脚本（释放并执行）
 ```
 
@@ -97,7 +98,7 @@ bash setup_from_dotfiles.sh
 | 文件 | 位置 | 作用 |
 |------|------|------|
 | `setup_from_dotfiles.sh` | DTVM 根目录 | 一键安装脚本 |
-| `release.sh` | DTVMDotfiles | 释放配置文件 |
+| `release.sh` | DTVMDotfiles | 释放配置文件，并从 `CLAUDE.md` 生成 `AGENTS.md` / `GEMINI.md` |
 | `store.sh` | DTVMDotfiles | 存放配置文件 |
 | `init.sh` | DTVMDotfiles/dotfiles | 初始化脚本 |
 | `exclude.map.sh` | DTVMDotfiles/dotfiles | `.git/info/exclude` 的持久化 map |
@@ -111,7 +112,7 @@ GitHub 仓库（abmcar/DTVMDotfiles）
          ↓ git clone
     本地仓库（DTVMDotfiles/）
          ↓ release.sh
-    外部文件（.claude/、.agents/skills/、CLAUDE.md 等）
+    外部文件（.claude/、.agents/skills/、CLAUDE.md、AGENTS.md 等）
          ↓ init.sh
     环境已初始化 ✓
 ```
@@ -125,7 +126,7 @@ GitHub 仓库（abmcar/DTVMDotfiles）
 ls -d DTVMDotfiles
 
 # 2. 文件已释放
-ls -a | grep -E "\.claude|CLAUDE.md"
+ls -a | grep -E "\.claude|CLAUDE.md|AGENTS.md"
 
 # 3. 初始化已运行
 cat init.sh  # 查看初始化脚本内容
@@ -182,6 +183,7 @@ bash init.sh
 - ✓ `store.sh` 会自动压缩冗余 exclude，例如 `aaa/bbb` 会覆盖 `aaa/bbb/ccc`
 - ✓ `skills.map.sh` 可区分本仓库托管的 skill 和外部同步的 skill
 - ✓ `managed` skill 的 `.agents/skills/<skill>/` 会自动加入父仓库 `.git/info/exclude`
+- ✓ `CLAUDE.md` 是文档权威源；`AGENTS.md` 和 `GEMINI.md` 由 `release.sh` 生成
 - ✓ 需要 `git` 和 Bash 4.3+
 - ✓ Linux 和 WSL 可直接使用；macOS 需安装更新版本的 Bash，不能用系统自带 `/bin/bash` 3.2
 - ✓ 首次克隆需要网络连接

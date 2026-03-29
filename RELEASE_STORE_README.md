@@ -51,17 +51,18 @@ cd DTVMDotfiles
 | `dotfiles/skills.map.sh` | `.agents/skills` 的同步策略，`managed` 会同步并自动加入父仓库 exclude，`external` 会跳过 |
 | `dotfiles/.agents/skills/` | 仅保存当前仓库自己管理的 skill |
 | `init.sh` | 初始化脚本 |
-| `CLAUDE.md` | 开发指南 |
+| `CLAUDE.md` | 开发指南的权威源；`release.sh` 会额外生成根目录 `AGENTS.md` 和 `GEMINI.md` |
 | `perf/record_erc20_perf.sh` | ERC20 workload perf record 脚本 |
 | `perf/record_fibr_perf.sh` | fibr workload perf record 脚本 |
 
 说明：`openspec/` 由 DTVM 主仓库直接管理，不在 DTVMDotfiles 的镜像同步范围内。
+说明：文档同步以 `CLAUDE.md` 为权威源；`AGENTS.md` 是 `release.sh` 生成的别名，不应作为长期编辑入口。
 
 ## 使用场景
 
 ### 场景 1: 在外部修改文件后存放到 dotfiles
 ```bash
-# 1. 修改 DTVM 根目录中的文件（如 CLAUDE.md 等）
+# 1. 修改 DTVM 根目录中的文件（如 CLAUDE.md 等；不要只改 AGENTS.md）
 # 2. 进入 DTVMDotfiles 目录
 cd DTVMDotfiles
 
@@ -85,7 +86,7 @@ git pull
 (cd .. && git status)
 
 # 4. 根据需要提交到 DTVM 仓库
-(cd .. && git add CLAUDE.md init.sh && git commit -m "Release changes from DTVMDotfiles")
+(cd .. && git add AGENTS.md CLAUDE.md init.sh && git commit -m "Release changes from DTVMDotfiles")
 ```
 
 ### 场景 3: 完整的双向同步流程
@@ -108,7 +109,7 @@ git pull
 ./release.sh
 
 # 返回上层目录并提交
-(cd .. && git add CLAUDE.md init.sh && git commit -m "Release changes from DTVMDotfiles")
+(cd .. && git add AGENTS.md CLAUDE.md init.sh && git commit -m "Release changes from DTVMDotfiles")
 ```
 
 ## 工作原理
@@ -123,6 +124,7 @@ git pull
 │  │ - .agents/skills/                    │   │
 │  │ - init.sh                            │   │
 │  │ - CLAUDE.md                          │   │
+│  │ - AGENTS.md / GEMINI.md             │   │
 │  └──────────────────────────────────────┘   │
 │           ↕ (via release.sh & store.sh)     │
 │  ┌──────────────────────────────────────┐   │
@@ -190,7 +192,7 @@ chmod +x DTVMDotfiles/store.sh
 确保 `DTVMDotfiles/store.sh` 存在且有执行权限
 
 ### Q: 文件没有被同步
-检查路径是否在 `lib/sync_common.sh` 的 `MIRRORED_ITEMS` 中，或技能是否在 `dotfiles/skills.map.sh` 中标记为 `managed`
+检查路径是否在 `lib/sync_common.sh` 的 `MIRRORED_ITEMS` 中，或技能是否在 `dotfiles/skills.map.sh` 中标记为 `managed`。其中 `AGENTS.md` 由 `release.sh` 基于 `dotfiles/CLAUDE.md` 生成，不是独立镜像源。
 
 ### Q: 想添加新的同步文件
 编辑 `lib/sync_common.sh` 中的 `MIRRORED_ITEMS`：

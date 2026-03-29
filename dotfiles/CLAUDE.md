@@ -1,19 +1,19 @@
 <!-- OPENSPEC:START -->
-# OpenSpec Instructions
+# Spec Workflow Instructions
 
 These instructions are for AI assistants working in this project.
 
-Always open `@/openspec/AGENTS.md` when the request:
+Always open `@/specs/AGENTS.md` when the request:
 - Mentions planning or proposals (words like proposal, spec, change, plan)
 - Introduces new capabilities, breaking changes, architecture shifts, or big performance/security work
 - Sounds ambiguous and you need the authoritative spec before coding
 
-Use `@/openspec/AGENTS.md` to learn:
-- How to create and apply change proposals
-- Spec format and conventions
-- Project structure and guidelines
+Use `@/specs/AGENTS.md` to learn:
+- How the SSOT and feature workflow are organized
+- Which Spec-Kit skills to use
+- Project-specific spec, change, and implementation guidelines
 
-Keep this managed block so 'openspec update' can refresh the instructions.
+Keep this managed block so tooling can refresh the instructions.
 
 <!-- OPENSPEC:END -->
 
@@ -112,10 +112,10 @@ PR titles should follow the same format as commit messages: `<type>(<scope>): <s
 - `tests/`: Test suites
   - `tests/evm_spec_test` - EVM spec tests
 - `docs/`: build and usage guides (`docs/start.md`, `docs/user-guide.md`)
+- `specs/`: SSOT module specifications and feature workflow documents
 - `evmc/`: EVM compatibility components
 - `rust_crate/`: Rust bindings
 - `tools/`: helper scripts and utilities
-- `openspec/`: spec-driven change proposals and references
 
 ## Build Commands
 
@@ -139,38 +139,11 @@ cmake --build build -j
 - `-DCMAKE_EXPORT_COMPILE_COMMANDS=ON` - Generate compile_commands.json
 - `-DCMAKE_BUILD_TYPE=RelWithDebInfo` - Use instead of `Debug` for performance testing
 
-## Testing
+## Testing and Performance
 
-### EVM State Tests
-
-**Built-in EVM state tests:**
-```bash
-./build/evmStateTests
-```
-
-**Evmone State Tests with DTVM VM:**
-```bash
-# Test specific fork (e.g., Cancun)
-/root/evmone/build/bin/evmone-statetest \
-  /root/DTVM/tests/evm_spec_test/ALL_STATE_TESTS/ \
-  --vm "/root/DTVM/build/lib/libdtvmapi.so,mode=interpreter,enable-evm-gas=1" \
-  -k "fork_Cancun"
-```
-
-**Run all JSON state tests with GTest output:**
-```bash
-rg --files -g '*.json' -g '!index.json' /root/DTVM/tests/evm_spec_test/state_tests -0 \
-  | xargs -0 /root/evmone/build/bin/evmone-statetest \
-    --vm "/root/DTVM/build/lib/libdtvmapi.so,mode=multipass,enable-evm-gas=1" \
-    -k "fork_Cancun" \
-    --gtest_output=json:/tmp/evmone_all.json
-```
-
-### Test Structure
-
-**EVM State Tests (`tests/evm_spec_test/state_tests`):**
-- JSON files: Test case specifications executed by the state test runner
-- Python files: Test case generators that define the test logic
+Detailed EVM state test, evmone benchmark, and perf workflows are maintained in
+dedicated skills and repository documentation. Prefer the current skills and
+repo scripts over copying old command lines into this file.
 
 ## Development Tools
 
@@ -185,40 +158,11 @@ tools/format.sh check
 tools/format.sh format
 ```
 
-## Performance Profiling
-
-Performance testing and sampling scripts are located in the `perf/` directory:
-
-```bash
-# Record callgraph for ERC20 workload (default: interpreter)
-./perf/record_erc20_perf.sh [multipass|interpreter]
-
-# Record callgraph for fibr workload (default: interpreter)
-./perf/record_fibr_perf.sh [multipass|interpreter]
-```
-
-### Evmone Benchmarks with DTVM VM
-
-Use `evmone-bench` with DTVM as an external EVMC VM:
-
-```bash
-/root/evmone/build/bin/evmone-bench \
-  "/root/DTVM/build/lib/libdtvmapi.so,mode=multipass,enable_gas_metering=true" \
-  /root/evmone/test/evm-benchmarks/benchmarks
-```
-
-Notes:
-- First positional argument is EVMC config: `<vm_so_path>,mode=<interpreter|multipass>,enable_gas_metering=<true|false>`.
-- Second positional argument is the benchmark suite directory.
-- DTVM EVMC option key is `enable_gas_metering` (underscore), not `enable-evm-gas`.
-- To run full external total cases once (no repetition):
-  `/root/evmone/build/bin/evmone-bench "/root/DTVM/build/lib/libdtvmapi.so,mode=multipass,enable_gas_metering=true" /root/evmone/test/evm-benchmarks/benchmarks --benchmark_filter='^external/total/(main|micro)/' --benchmark_repetitions=1`
-
-**Note:** Enable `-DZEN_ENABLE_LINUX_PERF=ON` when building for performance testing.
-
 ## Documentation Pointers
 
 - Overview: `README.md`
 - Build/testing: `docs/start.md`
 - Usage details: `docs/user-guide.md`
 - Commit conventions: `docs/COMMIT_CONVENTION.md`
+- Spec workflow: `specs/AGENTS.md`
+- SSOT overview: `specs/README.md`
