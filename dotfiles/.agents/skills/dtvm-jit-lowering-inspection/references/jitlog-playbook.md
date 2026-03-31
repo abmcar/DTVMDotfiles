@@ -13,11 +13,10 @@ cmake -S . -B build-jitlog \
   -DZEN_ENABLE_LIBEVM=ON \
   -DZEN_ENABLE_SPEC_TEST=OFF \
   -DZEN_ENABLE_JIT_LOGGING=ON \
-  -DFETCHCONTENT_SOURCE_DIR_SPDLOG=<perf-build>/_deps/spdlog-src \
-  -DFETCHCONTENT_SOURCE_DIR_CLI11=<perf-build>/_deps/cli11-src \
-  -DFETCHCONTENT_SOURCE_DIR_INTX=<perf-build>/_deps/intx-src \
-  -DFETCHCONTENT_SOURCE_DIR_BOOST=<perf-build>/_deps/boost-src \
-  -DFETCHCONTENT_SOURCE_DIR_RAPIDJSON=<perf-build>/_deps/rapidjson-src \
+  -DFETCHCONTENT_SOURCE_DIR_spdlog=<perf-build>/_deps/spdlog-src \
+  -DFETCHCONTENT_SOURCE_DIR_cli11=<perf-build>/_deps/cli11-src \
+  -DFETCHCONTENT_SOURCE_DIR_intx=<perf-build>/_deps/intx-src \
+  -DFETCHCONTENT_SOURCE_DIR_rapidjson=<perf-build>/_deps/rapidjson-src \
   -G Ninja
 cmake --build build-jitlog -j$(nproc) --target dtvmapi
 ```
@@ -28,8 +27,8 @@ Example for one `single-mul` style case:
 
 ```bash
 LOG=/tmp/dtvm-case-jitlog.txt
-/home/abmcar/evmone-for-test-topic/build/bin/evmc \
-  --vm /home/abmcar/DTVM-topic/build-jitlog/lib/libdtvmapi.so,mode=multipass \
+/home/abmcar/evmone-bench/build/bin/evmc \
+  --vm /home/abmcar/DTVM/build-jitlog/lib/libdtvmapi.so,mode=multipass \
   run <bytecode> \
   --input <hex> \
   > "$LOG" 2>&1
