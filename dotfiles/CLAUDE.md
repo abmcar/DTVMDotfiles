@@ -69,6 +69,10 @@ Treat repository docs and skills as authoritative:
 - CI-faithful EVM build: `dtvm-build-config` skill
 - Perf-oriented builds: relevant perf skills
 
+To use a skill, Read `.agents/skills/<name>/SKILL.md` and follow its workflow.
+Available skills: `dtvm-build-config`, `dtvm-evmone-benchmark`, `dtvm-perf-worktree-lab`,
+`dtvm-jit-lowering-inspection`, `dtvm-perf-profile`, `dmir-compiler-analysis`.
+
 ## Code Style
 
 Detailed rules auto-loaded from `.claude/rules/cpp-code-style.md` for C++ files.
