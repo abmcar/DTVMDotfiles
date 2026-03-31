@@ -2,17 +2,22 @@
 
 ## Keep/Remove Policy
 
+Never remove:
+
+- `/home/abmcar/dtvm-baseline` — persistent baseline worktree
+- `/home/abmcar/evmone-bench` — persistent evmone symlink
+- `/home/abmcar/evmone-for-test-mulx-adx` — symlink target for evmone-bench
+
 Keep by default:
 
 - `/home/abmcar/DTVM`
 - one active branch worktree such as `/home/abmcar/DTVM-<topic>`
-- one active evmone checkout such as `/home/abmcar/evmone-for-test-<topic>`
 
 Remove after use:
 
-- detached baseline worktrees
 - stale `DTVM-*` worktrees not tied to the current branch
 - stale `evmone-for-test-*` directories from old experiments
+  (except `evmone-for-test-mulx-adx`)
 
 Do not remove:
 
@@ -29,47 +34,51 @@ cd /home/abmcar/DTVM-topic
 git submodule update --init --recursive
 ```
 
-Create detached baseline worktree:
+Remove stale branch worktree:
 
 ```bash
-git -C /home/abmcar/DTVM worktree add /home/abmcar/DTVM-topic-base <commit>
-cd /home/abmcar/DTVM-topic-base
+git -C /home/abmcar/DTVM worktree remove --force /home/abmcar/DTVM-topic
+```
+
+Refresh persistent baseline to latest upstream/main:
+
+```bash
+git -C /home/abmcar/dtvm-baseline fetch upstream
+git -C /home/abmcar/dtvm-baseline checkout upstream/main
+# Then rebuild if upstream/main changed:
+cmake --build /home/abmcar/dtvm-baseline/build-baseline --target dtvmapi -j$(nproc)
+```
+
+## Initial Baseline Build (first time or fresh machine only)
+
+If `/home/abmcar/dtvm-baseline/build-baseline/` does not exist yet:
+
+```bash
+cd /home/abmcar/dtvm-baseline
 git submodule update --init --recursive
+cmake -S . -B build-baseline -GNinja -DCMAKE_BUILD_TYPE=Release \
+  -DZEN_ENABLE_SINGLEPASS_JIT=OFF -DZEN_ENABLE_MULTIPASS_JIT=ON \
+  -DZEN_ENABLE_EVM=ON -DZEN_ENABLE_LIBEVM=ON \
+  -DZEN_ENABLE_CPU_EXCEPTION=ON -DZEN_ENABLE_VIRTUAL_STACK=ON
+cmake --build build-baseline --target dtvmapi -j$(nproc)
 ```
 
-Remove temporary worktree:
+To speed up the configure step by reusing already-fetched deps from an
+existing build (e.g. `/home/abmcar/DTVM/build`), add FETCHCONTENT overrides:
 
 ```bash
-git -C /home/abmcar/DTVM worktree remove --force /home/abmcar/DTVM-topic-base
+cmake -S . -B build-baseline -GNinja -DCMAKE_BUILD_TYPE=Release \
+  -DZEN_ENABLE_SINGLEPASS_JIT=OFF -DZEN_ENABLE_MULTIPASS_JIT=ON \
+  -DZEN_ENABLE_EVM=ON -DZEN_ENABLE_LIBEVM=ON \
+  -DZEN_ENABLE_CPU_EXCEPTION=ON -DZEN_ENABLE_VIRTUAL_STACK=ON \
+  -DFETCHCONTENT_SOURCE_DIR_spdlog=/home/abmcar/DTVM/build/_deps/spdlog-src \
+  -DFETCHCONTENT_SOURCE_DIR_cli11=/home/abmcar/DTVM/build/_deps/cli11-src \
+  -DFETCHCONTENT_SOURCE_DIR_intx=/home/abmcar/DTVM/build/_deps/intx-src \
+  -DFETCHCONTENT_SOURCE_DIR_rapidjson=/home/abmcar/DTVM/build/_deps/rapidjson-src
 ```
 
-Replace evmone VM library:
+Note: FETCHCONTENT key names must be lowercase to match `FetchContent_Declare`
+names in CMakeLists.txt. Mismatched keys are silently ignored.
 
-```bash
-cp /home/abmcar/DTVM-topic/build/lib/libdtvmapi.so \
-  /home/abmcar/evmone-for-test-topic/
-```
-
-## Baseline Build Shortcut
-
-If a temporary baseline only needs `dtvmapi`, configure it with local source
-overrides for fetched dependencies instead of downloading them again:
-
-```bash
-cmake -S . -B build-perf-lite \
-  -DCMAKE_BUILD_TYPE=RelWithDebInfo \
-  -DZEN_ENABLE_MULTIPASS_JIT=ON \
-  -DZEN_ENABLE_SINGLEPASS_JIT=OFF \
-  -DZEN_ENABLE_EVM=ON \
-  -DZEN_ENABLE_LIBEVM=ON \
-  -DZEN_ENABLE_SPEC_TEST=OFF \
-  -DFETCHCONTENT_SOURCE_DIR_SPDLOG=<active-build>/_deps/spdlog-src \
-  -DFETCHCONTENT_SOURCE_DIR_CLI11=<active-build>/_deps/cli11-src \
-  -DFETCHCONTENT_SOURCE_DIR_INTX=<active-build>/_deps/intx-src \
-  -DFETCHCONTENT_SOURCE_DIR_BOOST=<active-build>/_deps/boost-src \
-  -DFETCHCONTENT_SOURCE_DIR_RAPIDJSON=<active-build>/_deps/rapidjson-src \
-  -G Ninja
-cmake --build build-perf-lite -j$(nproc) --target dtvmapi
-```
-
-This is for local perf comparison only. Do not present it as CI reproduction.
+For benchmark run commands and before/after comparison workflow, see the
+`dtvm-evmone-benchmark` skill.
