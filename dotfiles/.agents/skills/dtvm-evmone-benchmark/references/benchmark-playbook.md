@@ -98,4 +98,4 @@ External total sweep (single rep):
 - Pointing the suite path at the wrong evmone checkout
 - Using a stale evmone binary from another experiment
 - Passing `--benchmark_min_time=0.001` without a unit suffix; use `0.001s`
-- JSON output末尾可能缺 `]\n}` — 解析前手动补全
+- JSON output may be missing the closing `]\n}` — append it before parsing with `json.loads`

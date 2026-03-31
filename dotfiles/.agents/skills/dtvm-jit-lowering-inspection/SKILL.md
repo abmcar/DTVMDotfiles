@@ -1,6 +1,6 @@
 ---
 name: dtvm-jit-lowering-inspection
-description: Inspect DTVM multipass JIT output to understand whether a lowering or register-allocation change really helped. Use when Codex needs to build a JIT-logging variant, capture MIR/CgIR/assembly for an EVM hot path, count spills and copies, or explain why a benchmark delta did or did not happen.
+description: Inspect DTVM multipass JIT output to understand whether a lowering or register-allocation change really helped. Use when building a JIT-logging variant, capturing MIR/CgIR/assembly for an EVM hot path, counting spills and copies, or explaining why a benchmark delta did or did not happen.
 ---
 
 # DTVM JIT Lowering Inspection
@@ -41,7 +41,7 @@ more lowering code.
 
 ## Output Requirements
 
-Always summarize:
+For a full analysis, include:
 
 - the build flags used for the logging build
 - the exact test case used to trigger the JIT
@@ -49,6 +49,8 @@ Always summarize:
 - approximate stack spill/fill count before and after
 - the main hot-block instruction pattern in plain words
 - the likely reason a schedule change helped or failed
+
+For quick "did spills drop?" questions, a short summary is enough.
 
 ## References
 

@@ -8,8 +8,10 @@ description: Set up, maintain, and clean a local DTVM EVM performance lab with b
 Keep the local performance environment minimal and reproducible.
 
 Use this skill for local perf iteration workflow, not CI reproduction. For CI
-job flags and `.ci/run_test_suite.sh`, use `dtvm-build-config`. For running
-evmone benchmarks or before/after comparisons, use `dtvm-evmone-benchmark`.
+job flags and `.ci/run_test_suite.sh`, read
+`.agents/skills/dtvm-build-config/SKILL.md`. For running evmone benchmarks or
+before/after comparisons, read
+`.agents/skills/dtvm-evmone-benchmark/SKILL.md`.
 
 ## Permanent Resources (never delete)
 
@@ -81,5 +83,6 @@ When using this skill, always report:
 
 - Read [references/lab-playbook.md](references/lab-playbook.md) for concrete
   command patterns and cleanup rules.
-- Read `dtvm-evmone-benchmark` skill for benchmark run commands and
+- Read `.agents/skills/dtvm-evmone-benchmark/SKILL.md` and its
+  `references/benchmark-playbook.md` for benchmark run commands and
   before/after comparison workflow.

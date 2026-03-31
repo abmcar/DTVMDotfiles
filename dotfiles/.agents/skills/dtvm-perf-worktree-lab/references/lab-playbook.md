@@ -59,7 +59,8 @@ git submodule update --init --recursive
 cmake -S . -B build-baseline -GNinja -DCMAKE_BUILD_TYPE=Release \
   -DZEN_ENABLE_SINGLEPASS_JIT=OFF -DZEN_ENABLE_MULTIPASS_JIT=ON \
   -DZEN_ENABLE_EVM=ON -DZEN_ENABLE_LIBEVM=ON \
-  -DZEN_ENABLE_CPU_EXCEPTION=ON -DZEN_ENABLE_VIRTUAL_STACK=ON
+  -DZEN_ENABLE_CPU_EXCEPTION=ON -DZEN_ENABLE_VIRTUAL_STACK=ON \
+  -DZEN_ENABLE_JIT_PRECOMPILE_FALLBACK=ON
 cmake --build build-baseline --target dtvmapi -j$(nproc)
 ```
 
@@ -71,6 +72,7 @@ cmake -S . -B build-baseline -GNinja -DCMAKE_BUILD_TYPE=Release \
   -DZEN_ENABLE_SINGLEPASS_JIT=OFF -DZEN_ENABLE_MULTIPASS_JIT=ON \
   -DZEN_ENABLE_EVM=ON -DZEN_ENABLE_LIBEVM=ON \
   -DZEN_ENABLE_CPU_EXCEPTION=ON -DZEN_ENABLE_VIRTUAL_STACK=ON \
+  -DZEN_ENABLE_JIT_PRECOMPILE_FALLBACK=ON \
   -DFETCHCONTENT_SOURCE_DIR_spdlog=/home/abmcar/DTVM/build/_deps/spdlog-src \
   -DFETCHCONTENT_SOURCE_DIR_cli11=/home/abmcar/DTVM/build/_deps/cli11-src \
   -DFETCHCONTENT_SOURCE_DIR_intx=/home/abmcar/DTVM/build/_deps/intx-src \
@@ -80,5 +82,5 @@ cmake -S . -B build-baseline -GNinja -DCMAKE_BUILD_TYPE=Release \
 Note: FETCHCONTENT key names must be lowercase to match `FetchContent_Declare`
 names in CMakeLists.txt. Mismatched keys are silently ignored.
 
-For benchmark run commands and before/after comparison workflow, see the
-`dtvm-evmone-benchmark` skill.
+For benchmark run commands and before/after comparison workflow, read
+`.agents/skills/dtvm-evmone-benchmark/SKILL.md`.

@@ -16,12 +16,12 @@ Ignore non-EVM jobs. This skill is EVM-only and CI-focused.
 If the user is not asking about CI reproduction, hand off instead of stretching
 this skill:
 
-- For local perf worktree and evmone checkout management, use
-  `dtvm-perf-worktree-lab`.
-- For local evmone benchmark command construction and usage, use
-  `dtvm-evmone-benchmark`.
-- For multipass JIT log and lowering inspection, use
-  `dtvm-jit-lowering-inspection`.
+- For local perf worktree and evmone checkout management, read
+  `.agents/skills/dtvm-perf-worktree-lab/SKILL.md`.
+- For local evmone benchmark command construction and usage, read
+  `.agents/skills/dtvm-evmone-benchmark/SKILL.md`.
+- For multipass JIT log and lowering inspection, read
+  `.agents/skills/dtvm-jit-lowering-inspection/SKILL.md`.
 
 ## Workflow
 
