@@ -50,8 +50,6 @@ For a full analysis, include:
 - the main hot-block instruction pattern in plain words
 - the likely reason a schedule change helped or failed
 
-For quick "did spills drop?" questions, a short summary is enough.
-
 ## References
 
 - Read [references/jitlog-playbook.md](references/jitlog-playbook.md) for the

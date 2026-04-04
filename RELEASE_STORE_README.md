@@ -19,9 +19,7 @@ cd DTVMDotfiles
 1. 读取 DTVM 根目录中的文件
 2. 将镜像文件复制到 `DTVMDotfiles/dotfiles/` 中
 3. 将 `.git/info/exclude` 归一化后写入 `dotfiles/exclude.map.sh`
-4. 仅同步 `dotfiles/skills.map.sh` 中标记为 `managed` 的 `.agents/skills`
-5. 忽略自动生成的 managed skill exclude，不把它们回写进 `exclude.map.sh`
-6. 跳过 `openspec`，避免把主仓库自管的 OpenSpec 内容镜像到 DTVMDotfiles
+4. 跳过 `openspec`，避免把主仓库自管的 OpenSpec 内容镜像到 DTVMDotfiles
 
 ### 2. **release.sh** - 释放脚本
 位置: `DTVMDotfiles/release.sh`
@@ -36,9 +34,7 @@ cd DTVMDotfiles
 **工作流程**:
 1. 将 `DTVMDotfiles/dotfiles/` 中的镜像文件复制到 DTVM 根目录
 2. 根据 `dotfiles/exclude.map.sh` 生成 `.git/info/exclude`
-3. 仅释放 `dotfiles/skills.map.sh` 中标记为 `managed` 的 `.agents/skills`
-4. 自动向父仓库 `.git/info/exclude` 添加 `.agents/skills/<skill>/` 形式的 managed skill 排除项
-5. 将 `.claude/commands` 同步到 `~/.codex/prompts`
+3. 将 `.claude/commands` 同步到 `~/.codex/prompts`
 
 ## 同步的文件
 
@@ -48,8 +44,8 @@ cd DTVMDotfiles
 |---------|------|
 | `.claude/` | Claude Code 配置和命令 |
 | `dotfiles/exclude.map.sh` | `.git/info/exclude` 的持久化 map，会在 store 时压缩冗余路径 |
-| `dotfiles/skills.map.sh` | `.agents/skills` 的同步策略，`managed` 会同步并自动加入父仓库 exclude，`external` 会跳过 |
-| `dotfiles/.agents/skills/` | 仅保存当前仓库自己管理的 skill |
+| `dotfiles/skills.map.sh` | 历史记录，仅作文档参考（documentation-only） |
+| `CLAUDE.local.md` | 本地开发指南，不提交到主仓库 |
 | `init.sh` | 初始化脚本 |
 | `CLAUDE.md` | 开发指南的权威源；`release.sh` 会额外生成根目录 `AGENTS.md` 和 `GEMINI.md` |
 | `perf/record_erc20_perf.sh` | ERC20 workload perf record 脚本 |
@@ -121,9 +117,9 @@ git pull
 │  │ External Files:                      │   │
 │  │ - .claude/                           │   │
 │  │ - .git/info/exclude                  │   │
-│  │ - .agents/skills/                    │   │
 │  │ - init.sh                            │   │
 │  │ - CLAUDE.md                          │   │
+│  │ - CLAUDE.local.md                    │   │
 │  │ - AGENTS.md / GEMINI.md             │   │
 │  └──────────────────────────────────────┘   │
 │           ↕ (via release.sh & store.sh)     │
@@ -131,10 +127,10 @@ git pull
 │  │ DTVMDotfiles/dotfiles/               │   │
 │  │ - .claude/                           │   │
 │  │ - exclude.map.sh                     │   │
-│  │ - skills.map.sh                      │   │
-│  │ - .agents/skills/                    │   │
+│  │ - skills.map.sh (documentation-only) │   │
 │  │ - init.sh                            │   │
 │  │ - CLAUDE.md                          │   │
+│  │ - CLAUDE.local.md                    │   │
 │  └──────────────────────────────────────┘   │
 │  (Separate Git Repository)                  │
 └─────────────────────────────────────────────┘
@@ -148,25 +144,21 @@ git pull
 
 3. **Exclude 压缩**: `store.sh` 会把 `.git/info/exclude` 存成 map，并自动去掉 `aaa/bbb/ccc` 这类已被 `aaa/bbb` 覆盖的冗余项。
 
-4. **Skills 分层**: 只有 `dotfiles/skills.map.sh` 中标记为 `managed` 的 skill 会被同步；`external` 或未列出的 skill 不会被 DTVMDotfiles 触碰。
+4. **OpenSpec Ownership**: `openspec/` 只保留在 DTVM 主仓库中，`store.sh` 与 `release.sh` 都不会镜像它，也不会把对应 exclude 持久化到 `dotfiles/exclude.map.sh`。
 
-5. **Managed Skill Exclude**: `release.sh` 会自动为每个 `managed` skill 生成 `.agents/skills/<skill>/` exclude 条目；`store.sh` 会在回写 `exclude.map.sh` 时忽略这些派生条目。
+5. **Bash 版本**: 脚本依赖 Bash 4.3 或更新版本。macOS 自带的 `/bin/bash` 3.2 不支持，需要自行安装更新版本的 Bash。
 
-6. **OpenSpec Ownership**: `openspec/` 只保留在 DTVM 主仓库中，`store.sh` 与 `release.sh` 都不会镜像它，也不会把对应 exclude 持久化到 `dotfiles/exclude.map.sh`。
-
-7. **Bash 版本**: 脚本依赖 Bash 4.3 或更新版本。macOS 自带的 `/bin/bash` 3.2 不支持，需要自行安装更新版本的 Bash。
-
-8. **权限**: 两个脚本都需要执行权限。如果权限丢失，运行:
+6. **权限**: 两个脚本都需要执行权限。如果权限丢失，运行:
    ```bash
    chmod +x release.sh
    chmod +x DTVMDotfiles/store.sh
    ```
 
-9. **路径要求**:
+7. **路径要求**:
    - `store.sh` 应在 `DTVMDotfiles` 目录中运行
    - `release.sh` 应在 `DTVMDotfiles` 目录中运行
 
-10. **环境变量**:
+8. **环境变量**:
    - `DTVMDOTFILES_PARENT_DIR`: 覆盖默认父目录，便于测试或自定义工作区
    - `DTVMDOTFILES_CODEX_PROMPTS_DIR`: 覆盖 `.claude/commands` 的目标目录
 
@@ -192,7 +184,7 @@ chmod +x DTVMDotfiles/store.sh
 确保 `DTVMDotfiles/store.sh` 存在且有执行权限
 
 ### Q: 文件没有被同步
-检查路径是否在 `lib/sync_common.sh` 的 `MIRRORED_ITEMS` 中，或技能是否在 `dotfiles/skills.map.sh` 中标记为 `managed`。其中 `AGENTS.md` 由 `release.sh` 基于 `dotfiles/CLAUDE.md` 生成，不是独立镜像源。
+检查路径是否在 `lib/sync_common.sh` 的 `MIRRORED_ITEMS` 中。其中 `AGENTS.md` 由 `release.sh` 基于 `dotfiles/CLAUDE.md` 生成，不是独立镜像源。
 
 ### Q: 想添加新的同步文件
 编辑 `lib/sync_common.sh` 中的 `MIRRORED_ITEMS`：
@@ -206,12 +198,4 @@ declare -agr MIRRORED_ITEMS=(
 ```
 
 ### Q: 想管理新的 skill
-编辑 `dotfiles/skills.map.sh`，将 skill 标记为 `managed`：
-```bash
-declare -Ag DTVM_SKILLS_MAP=(
-    ["existing-skill"]="managed"
-    ["new-local-skill"]="managed"
-    ["shared-skill"]="external"
-)
-```
-随后 `release.sh` 会自动把 `.agents/skills/new-local-skill/` 加入父仓库 `.git/info/exclude`。
+`skills.map.sh` 现在仅作文档参考（documentation-only），不再驱动同步。新的本地 skill 应放到 `.claude/rules/` 或 `.claude/commands/` 中，它们会随 `.claude/` 目录自动同步。

@@ -25,6 +25,7 @@ declare -agr MIRRORED_ITEMS=(
     ".claude"
     "init.sh"
     "CLAUDE.md"
+    "CLAUDE.local.md"
     "perf/record_erc20_perf.sh"
     "perf/record_fibr_perf.sh"
     "perf/erc20.evm.hex"
@@ -295,10 +296,6 @@ renderExcludeFile() {
         render_map["$pattern"]="${DTVM_EXCLUDE_MAP[$pattern]}"
     done
 
-    while IFS= read -r skill_name; do
-        render_map["$(managedSkillExcludePattern "$skill_name")"]="derived-managed-skill"
-    done < <(managedSkillNames)
-
     tmp_file="$(mktemp)"
     {
         excludeHeader
@@ -336,58 +333,13 @@ managedSkillNames() {
 }
 
 storeManagedSkills() {
-    local parent_skills_dir="$PARENT_DIR/.agents/skills"
-    local dotfiles_skills_dir="$DOTFILES_DIR/.agents/skills"
-    local temp_skills_dir
-    local skill_name
-    local skipped_skills=()
-
-    loadSkillsMap
-    temp_skills_dir="$(mktemp -d)"
-
-    while IFS= read -r skill_name; do
-        if [ -e "$parent_skills_dir/$skill_name" ]; then
-            copyPath "$parent_skills_dir/$skill_name" "$temp_skills_dir/$skill_name"
-            echo "  Stored managed skill: $skill_name"
-            continue
-        fi
-
-        if [ -e "$dotfiles_skills_dir/$skill_name" ]; then
-            copyPath "$dotfiles_skills_dir/$skill_name" "$temp_skills_dir/$skill_name"
-            warn "Managed skill missing in parent, kept existing dotfiles copy: $skill_name"
-            continue
-        fi
-
-        warn "Managed skill not found in parent or dotfiles: $skill_name"
-    done < <(managedSkillNames)
-
-    rm -rf "$dotfiles_skills_dir"
-    mkdir -p "$(dirname "$dotfiles_skills_dir")"
-    mv "$temp_skills_dir" "$dotfiles_skills_dir"
-
-    if [ -d "$parent_skills_dir" ]; then
-        while IFS= read -r skill_name; do
-            if [ "${DTVM_SKILLS_MAP[$skill_name]:-unmanaged}" != "managed" ]; then
-                skipped_skills+=("$skill_name")
-            fi
-        done < <(find "$parent_skills_dir" -mindepth 1 -maxdepth 1 -type d -printf '%f\n' | LC_ALL=C sort)
-    fi
-
-    if [ "${#skipped_skills[@]}" -gt 0 ]; then
-        echo "  Skipped unmanaged skills: ${skipped_skills[*]}"
-    fi
+    # No-op: managed skills migrated to .claude/rules/ and .claude/commands/,
+    # which are synced via MIRRORED_ITEMS. See spec:
+    # docs/superpowers/specs/2026-04-04-skill-migration-design.md
+    :
 }
 
 releaseManagedSkills() {
-    local parent_skills_dir="$PARENT_DIR/.agents/skills"
-    local dotfiles_skills_dir="$DOTFILES_DIR/.agents/skills"
-    local skill_name
-
-    mkdir -p "$parent_skills_dir"
-
-    while IFS= read -r skill_name; do
-        if copyPath "$dotfiles_skills_dir/$skill_name" "$parent_skills_dir/$skill_name"; then
-            echo "  Released managed skill: $skill_name"
-        fi
-    done < <(managedSkillNames)
+    # No-op: managed skills migrated to .claude/rules/ and .claude/commands/.
+    :
 }

@@ -1,33 +1,13 @@
-<!-- OPENSPEC:START -->
-# Spec Workflow Instructions
-
-These instructions are for AI assistants working in this project.
-
-Always open `@/specs/AGENTS.md` when the request:
-- Mentions planning or proposals (words like proposal, spec, change, plan)
-- Introduces new capabilities, breaking changes, architecture shifts, or big performance/security work
-- Sounds ambiguous and you need the authoritative spec before coding
-
-Use `@/specs/AGENTS.md` to learn:
-- How the SSOT and feature workflow are organized
-- Which Spec-Kit skills to use
-- Project-specific spec, change, and implementation guidelines
-
-Keep this managed block so tooling can refresh the instructions.
-
-<!-- OPENSPEC:END -->
-
 # DTVM Development Guide
-
-## Project Overview
 
 DTVM is a deterministic VM with EVM ABI compatibility. Core implementation is in C/C++ under `src/`.
 
-**Key Principles:**
-- Preserve determinism - avoid host-specific, non-deterministic behavior
+## Key Principles
+- Preserve determinism — avoid host-specific, non-deterministic behavior
 - Prefer touching `third_party/` only when explicitly required
 - Keep edits minimal and localized; follow existing patterns
 - Update or add tests when behavior changes
+- Never hype a direction as paper-worthy without rigorous novelty evidence
 
 ## Task Routing
 
@@ -49,40 +29,41 @@ DTVM is a deterministic VM with EVM ABI compatibility. Core implementation is in
 - Multi-file refactors affecting 5+ files
 - Performance work requiring profiling before coding
 
+## Context Management
+- Delegate specialized work to reduce context pollution
+- Domain knowledge lives in `.claude/rules/` and `.claude/commands/`
+- Upstream skills remain in `.agents/skills/`
+
 ## Quality Gates
 
 **Before finishing any code task, verify:**
 1. `tools/format.sh check` passes
 2. Changed code compiles: `cmake --build build --target <relevant_target>`
 3. Relevant tests pass (EVM spec tests for evm/runtime changes, unit tests for compiler)
-4. No new compiler warnings introduced
+4. No new compiler warnings in build output
 5. Comments are in English, naming follows LLVM conventions
 
 **Before creating commits/PRs:**
 - Follow conventions in `.claude/rules/commit-conventions.md`
 - PR description includes what changed and why
 
+## Worktrees
+
+When creating a git worktree, always run `tools/worktree-init.sh <path>` after creation
+to initialize submodules (`evmc/`, `tests/wast/spec`). Without this, cmake will fail.
+
+Worktree directories: use `.worktrees/` (project-local, gitignored).
+
 ## Build & Test
 
-Treat repository docs and skills as authoritative:
+Treat repository docs and rules as authoritative:
 - General build: `docs/start.md`
-- CI-faithful EVM build: `dtvm-build-config` skill
-- Perf-oriented builds: relevant perf skills
-
-To use a skill, Read `.agents/skills/<name>/SKILL.md` and follow its workflow.
-Available skills: `dtvm-build-config`, `dtvm-evmone-benchmark`, `dtvm-perf-worktree-lab`,
-`dtvm-jit-lowering-inspection`, `dtvm-perf-profile`, `dmir-compiler-analysis`.
+- CI-faithful EVM build: `.claude/rules/dtvm-build-config.md`
+- Perf workflows: `.claude/commands/dtvm-evmone-benchmark.md`, `.claude/commands/dtvm-jit-lowering-inspection.md`
+- Profiling: `.agents/skills/dtvm-perf-profile/SKILL.md` (upstream)
+- Compiler analysis: `.agents/skills/dmir-compiler-analysis/SKILL.md` (upstream)
 
 ## Code Style
 
 Detailed rules auto-loaded from `.claude/rules/cpp-code-style.md` for C++ files.
 Run `tools/format.sh format` after modifying code, `tools/format.sh check` before finishing.
-
-## Documentation Pointers
-
-- Overview: `README.md`
-- Build/testing: `docs/start.md`
-- Usage details: `docs/user-guide.md`
-- Commit conventions: `docs/COMMIT_CONVENTION.md`
-- Spec workflow: `specs/AGENTS.md`
-- SSOT overview: `specs/README.md`

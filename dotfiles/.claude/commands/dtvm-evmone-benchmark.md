@@ -1,15 +1,15 @@
 ---
 name: dtvm-evmone-benchmark
-description: Run local DTVM EVM benchmarks through evmone benchmark tools. Use when running `evmone-bench` with DTVM as an external EVMC VM, choosing the right VM argument shape, benchmark suite path, filter, repetition settings, or explaining how to benchmark a local DTVM EVM build without reconstructing the evmone command line from scratch.
+description: Run local DTVM EVM benchmarks through evmone benchmark tools. Use when running evmone-bench with DTVM as an external EVMC VM, choosing the right VM argument shape, benchmark suite path, filter, or repetition settings.
 ---
 
 # DTVM evmone Benchmark
 
 Run local DTVM EVM benchmarks through evmone with the right VM argument shape.
 
-Use this skill for local evmone benchmark execution. For CI build reproduction, read
-`.agents/skills/dtvm-build-config/SKILL.md`. For JIT log and spill analysis, read
-`.agents/skills/dtvm-jit-lowering-inspection/SKILL.md`.
+Use this command for local evmone benchmark execution. For CI build reproduction, see
+`.claude/rules/dtvm-build-config.md`. For JIT log and spill analysis, see
+`.claude/commands/dtvm-jit-lowering-inspection.md`.
 
 ## Workflow
 
@@ -53,7 +53,7 @@ For complex benchmark requests, consider including:
 For simple "give me the command" requests, just give the command.
 
 If the user is not asking specifically about evmone benchmark usage, do not
-force this skill onto broader benchmark-interpretation questions.
+force this command onto broader benchmark-interpretation questions.
 
 ## References
 

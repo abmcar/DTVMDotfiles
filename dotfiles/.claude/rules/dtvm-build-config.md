@@ -1,6 +1,7 @@
 ---
-name: dtvm-build-config
-description: Explain and reproduce DTVM EVM CI build and test configurations. Use when the user asks for EVM CI build config, CI job flags, local reproduction of a CI job, how `.ci/run_test_suite.sh` maps environment variables to CMake options, or how CI configures evmtestsuite, evmrealsuite, evmone unit tests, evmone statetests, gas register, JIT fallback, or performance regression builds.
+description: DTVM EVM CI build and test configurations. Use when reproducing CI builds, checking CI job flags, understanding how .ci/run_test_suite.sh maps environment variables to CMake options, or configuring evmtestsuite, evmrealsuite, evmone unit tests, evmone statetests, gas register, JIT fallback, or performance regression builds.
+globs: []
+alwaysApply: false
 ---
 
 # DTVM EVM Build Config
@@ -14,14 +15,14 @@ question that depends on current CI settings:
 Ignore non-EVM jobs. This skill is EVM-only and CI-focused.
 
 If the user is not asking about CI reproduction, hand off instead of stretching
-this skill:
+this rule:
 
-- For local perf worktree and evmone checkout management, read
-  `.agents/skills/dtvm-perf-worktree-lab/SKILL.md`.
-- For local evmone benchmark command construction and usage, read
-  `.agents/skills/dtvm-evmone-benchmark/SKILL.md`.
-- For multipass JIT log and lowering inspection, read
-  `.agents/skills/dtvm-jit-lowering-inspection/SKILL.md`.
+- For local perf worktree and evmone checkout management, see
+  `.claude/rules/dtvm-perf-worktree-lab.md`.
+- For local evmone benchmark command construction and usage, see
+  `.claude/commands/dtvm-evmone-benchmark.md`.
+- For multipass JIT log and lowering inspection, see
+  `.claude/commands/dtvm-jit-lowering-inspection.md`.
 
 ## Workflow
 

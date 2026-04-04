@@ -18,7 +18,6 @@ syncMirroredItems "$DOTFILES_DIR" "$PARENT_DIR"
 renderExcludeFile "$PARENT_DIR/.git/info/exclude"
 echo "  Released: $(basename "$EXCLUDE_MAP_FILE") → .git/info/exclude"
 syncClaudeAliases
-releaseManagedSkills
 syncCodexPrompts
 
 echo ""

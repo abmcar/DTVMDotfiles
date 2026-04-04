@@ -45,8 +45,7 @@ bash setup_from_dotfiles.sh /tmp/new-setup
    ./release.sh
    ```
    - 释放所有配置文件到父目录
-   - 包括：.claude/, .git/info/exclude, .agents/skills/, init.sh, CLAUDE.md
-   - 对于 `skills.map.sh` 中标记为 `managed` 的 skill，会自动加入 `.git/info/exclude`
+   - 包括：.claude/, .git/info/exclude, init.sh, CLAUDE.md, CLAUDE.local.md
 
 4. **执行 init.sh**
    ```bash
@@ -68,20 +67,18 @@ target-directory/
 │   ├── RELEASE_STORE_README.md
 │   └── dotfiles/
 │       ├── .claude/
-│       ├── .agents/
-│       │   └── skills/
 │       ├── exclude.map.sh
-│       ├── skills.map.sh
+│       ├── skills.map.sh     # documentation-only
 │       ├── init.sh
-│       └── CLAUDE.md
+│       ├── CLAUDE.md
+│       └── CLAUDE.local.md
 │
-├── .agents/
-│   └── skills/                # ← 释放出来的托管技能
 ├── .claude/                   # ← 释放出来的配置
 ├── .git/
 │   └── info/
 │       └── exclude            # ← 释放出来的文件
 ├── CLAUDE.md                  # ← 释放出来的文件
+├── CLAUDE.local.md            # ← 释放出来的文件
 └── init.sh                    # ← 释放出来的文件（已执行）
 ```
 
@@ -305,11 +302,12 @@ git pull
    docker run -it ubuntu:latest bash /path/to/setup_from_dotfiles.sh
    ```
 
-5. **托管 skill**
+5. **本地 skill**
    ```bash
-   # 只同步 skills.map.sh 中标记为 managed 的技能，
-   # 并自动把它们加到父仓库 .git/info/exclude
-   sed -n '1,120p' DTVMDotfiles/dotfiles/skills.map.sh
+   # skills.map.sh 现在仅作文档参考（documentation-only），不再驱动同步。
+   # 新的本地 skill 应放到 .claude/rules/ 或 .claude/commands/ 中，
+   # 它们会随 .claude/ 目录自动同步。
+   ls .claude/rules/ .claude/commands/
    ```
 
 6. **测试路径覆盖**
@@ -338,7 +336,7 @@ A: 不能，需要从 GitHub 克隆。但一旦克隆完成，可以离线使用
 A: 支持安装了 Git 和 Bash 4.3+ 的系统。Linux 和 WSL 可以直接使用；macOS 需要安装更新版本的 Bash，不能使用系统自带 `/bin/bash` 3.2。
 
 **Q: 如何禁用某些文件的释放？**
-A: 常规文件编辑 `DTVMDotfiles/lib/sync_common.sh` 里的 `MIRRORED_ITEMS`，技能则编辑 `DTVMDotfiles/dotfiles/skills.map.sh`。
+A: 编辑 `DTVMDotfiles/lib/sync_common.sh` 里的 `MIRRORED_ITEMS`。`skills.map.sh` 现在仅作文档参考（documentation-only），不再控制同步。
 
 **Q: 可以在 Docker 中使用吗？**
 A: 可以，需要先安装 bash 和 git。

@@ -1,17 +1,18 @@
 ---
-name: dtvm-perf-worktree-lab
-description: Set up, maintain, and clean a local DTVM EVM performance lab with branch worktrees and persistent baseline/evmone resources. Use when Codex needs to prepare or prune local perf experiment environments, or keep worktrees under control during repeated optimization work.
+description: Local DTVM EVM performance lab with branch worktrees and persistent baseline/evmone resources. Use when preparing or pruning local perf experiment environments, keeping worktrees under control during repeated optimization work, or managing the persistent baseline at /home/abmcar/dtvm-baseline.
+globs: []
+alwaysApply: false
 ---
 
 # DTVM Perf Worktree Lab
 
 Keep the local performance environment minimal and reproducible.
 
-Use this skill for local perf iteration workflow, not CI reproduction. For CI
-job flags and `.ci/run_test_suite.sh`, read
-`.agents/skills/dtvm-build-config/SKILL.md`. For running evmone benchmarks or
-before/after comparisons, read
-`.agents/skills/dtvm-evmone-benchmark/SKILL.md`.
+Use this rule for local perf iteration workflow, not CI reproduction. For CI
+job flags and `.ci/run_test_suite.sh`, see
+`.claude/rules/dtvm-build-config.md`. For running evmone benchmarks or
+before/after comparisons, see
+`.claude/commands/dtvm-evmone-benchmark.md`.
 
 ## Permanent Resources (never delete)
 
@@ -72,7 +73,7 @@ For the initial build (e.g., on a fresh machine), see
 
 ## Output Requirements
 
-When using this skill, always report:
+When using this rule, always report:
 
 - which directories are being kept
 - which directories are being created
@@ -83,6 +84,6 @@ When using this skill, always report:
 
 - Read [references/lab-playbook.md](references/lab-playbook.md) for concrete
   command patterns and cleanup rules.
-- Read `.agents/skills/dtvm-evmone-benchmark/SKILL.md` and its
+- See `.claude/commands/dtvm-evmone-benchmark.md` and its
   `references/benchmark-playbook.md` for benchmark run commands and
   before/after comparison workflow.

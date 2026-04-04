@@ -24,8 +24,6 @@ else
     warn "Source not found: $PARENT_DIR/.git/info/exclude"
 fi
 
-storeManagedSkills
-
 echo ""
 echo "✓ Store operation complete"
 echo "Files have been synced to dotfiles folder"

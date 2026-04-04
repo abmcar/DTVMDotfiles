@@ -9,7 +9,7 @@
 同步以下文件和目录：
 - `.claude/` - Claude Code 配置和命令
 - `dotfiles/exclude.map.sh` - `.git/info/exclude` 的持久化 map
-- `dotfiles/skills.map.sh` + `dotfiles/.agents/skills/` - 仅同步托管的本地 skill，并自动生成对应的 exclude
+- `CLAUDE.local.md` - 本地开发指南
 - `init.sh` - 初始化脚本
 - `CLAUDE.md` - Claude 开发指南
 - `perf/record_erc20_perf.sh` - ERC20 workload perf record 脚本
@@ -63,11 +63,11 @@ DTVM/
 ├── DTVMDotfiles/         # 同步的 dotfiles 仓库
 │   └── dotfiles/
 │       ├── .claude/      # Claude Code 配置
-│       ├── .agents/skills/
 │       ├── exclude.map.sh
-│       ├── skills.map.sh
+│       ├── skills.map.sh # documentation-only
 │       ├── init.sh       # 初始化脚本
-│       └── CLAUDE.md     # 开发指南
+│       ├── CLAUDE.md     # 开发指南
+│       └── CLAUDE.local.md
 ├── sync_dotfiles.sh      # 同步脚本
 ├── .git/
 │   └── exclude           # 包含 DTVMDotfiles/ 的排除规则
@@ -78,8 +78,6 @@ DTVM/
 
 - 脚本会**覆盖**目标位置的文件，请确保先备份重要更改
 - `.git/info/exclude` 现在由 `exclude.map.sh` 生成，store 时会自动压缩冗余路径
-- 只有 `skills.map.sh` 中标记为 `managed` 的 skill 会被同步
-- 每个 `managed` skill 都会自动生成 `.agents/skills/<skill>/` exclude，且这些派生条目不会写回 `exclude.map.sh`
 - `openspec/` 不在 `MIRRORED_ITEMS` 中，也不会再写回 `exclude.map.sh`
 - 目录同步时会删除目标目录中的所有文件
 - 建议在同步前运行 `status` 命令检查变更
@@ -93,7 +91,7 @@ DTVM/
 运行 `./sync_dotfiles.sh status` 先检查将要同步的文件。
 
 ### Q: 可以选择性地同步某些文件吗？
-可以。常规文件编辑 `lib/sync_common.sh` 里的 `MIRRORED_ITEMS`，技能编辑 `dotfiles/skills.map.sh`。
+可以。编辑 `lib/sync_common.sh` 里的 `MIRRORED_ITEMS`。
 
 ## 自定义
 
@@ -109,10 +107,4 @@ declare -agr MIRRORED_ITEMS=(
 )
 ```
 
-技能同步则由 `dotfiles/skills.map.sh` 控制：
-```bash
-declare -Ag DTVM_SKILLS_MAP=(
-    ["local-skill"]="managed"
-    ["shared-skill"]="external"
-)
-```
+`dotfiles/skills.map.sh` 现在仅作文档参考（documentation-only），不再驱动同步。新的本地 skill 应放到 `.claude/rules/` 或 `.claude/commands/` 中，它们会随 `.claude/` 目录自动同步。
