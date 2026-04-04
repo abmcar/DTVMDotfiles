@@ -12,7 +12,7 @@ question that depends on current CI settings:
 - `.github/workflows/dtvm_evm_test_x86.yml`
 - `.ci/run_test_suite.sh`
 
-Ignore non-EVM jobs. This skill is EVM-only and CI-focused.
+Ignore non-EVM jobs. This rule is EVM-only and CI-focused.
 
 If the user is not asking about CI reproduction, hand off instead of stretching
 this rule:

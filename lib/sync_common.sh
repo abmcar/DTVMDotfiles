@@ -4,7 +4,6 @@ REPO_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 DOTFILES_DIR="$REPO_DIR/dotfiles"
 PARENT_DIR="${DTVMDOTFILES_PARENT_DIR:-$(dirname "$REPO_DIR")}"
 EXCLUDE_MAP_FILE="$DOTFILES_DIR/exclude.map.sh"
-SKILLS_MAP_FILE="$DOTFILES_DIR/skills.map.sh"
 
 requireBash43() {
     if [ -z "${BASH_VERSINFO:-}" ]; then
@@ -206,7 +205,6 @@ buildExcludeMapFromFile() {
     local line
     local pattern
 
-    loadSkillsMap
     map_ref=()
 
     while IFS= read -r line || [ -n "$line" ]; do
@@ -217,10 +215,6 @@ buildExcludeMapFromFile() {
         fi
 
         pattern="$line"
-        if isDerivedManagedSkillExclude "$pattern"; then
-            continue
-        fi
-
         if isOmittedExcludePattern "$pattern"; then
             continue
         fi
@@ -263,34 +257,13 @@ loadExcludeMap() {
     fi
 }
 
-managedSkillExcludePattern() {
-    local skill_name="$1"
-
-    printf '.agents/skills/%s/' "$skill_name"
-}
-
-isDerivedManagedSkillExclude() {
-    local pattern="$1"
-    local skill_name
-
-    while IFS= read -r skill_name; do
-        if [ "$pattern" = "$(managedSkillExcludePattern "$skill_name")" ]; then
-            return 0
-        fi
-    done < <(managedSkillNames)
-
-    return 1
-}
-
 renderExcludeFile() {
     local dst_path="$1"
     local tmp_file
     local pattern
-    local skill_name
     local -A render_map=()
 
     loadExcludeMap
-    loadSkillsMap
 
     for pattern in "${!DTVM_EXCLUDE_MAP[@]}"; do
         render_map["$pattern"]="${DTVM_EXCLUDE_MAP[$pattern]}"
@@ -310,36 +283,3 @@ renderExcludeFile() {
     mv "$tmp_file" "$dst_path"
 }
 
-loadSkillsMap() {
-    declare -gA DTVM_SKILLS_MAP=()
-
-    if [ -f "$SKILLS_MAP_FILE" ]; then
-        # shellcheck source=/dev/null
-        source "$SKILLS_MAP_FILE"
-    fi
-}
-
-managedSkillNames() {
-    local skill_name
-
-    loadSkillsMap
-    if [ "${#DTVM_SKILLS_MAP[@]}" -eq 0 ]; then
-        return
-    fi
-
-    while IFS= read -r skill_name; do
-        [ "${DTVM_SKILLS_MAP[$skill_name]}" = "managed" ] && printf '%s\n' "$skill_name"
-    done < <(printf '%s\n' "${!DTVM_SKILLS_MAP[@]}" | LC_ALL=C sort)
-}
-
-storeManagedSkills() {
-    # No-op: managed skills migrated to .claude/rules/ and .claude/commands/,
-    # which are synced via MIRRORED_ITEMS. See spec:
-    # docs/superpowers/specs/2026-04-04-skill-migration-design.md
-    :
-}
-
-releaseManagedSkills() {
-    # No-op: managed skills migrated to .claude/rules/ and .claude/commands/.
-    :
-}
