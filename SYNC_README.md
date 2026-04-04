@@ -102,8 +102,12 @@ declare -agr MIRRORED_ITEMS=(
     ".claude"
     "init.sh"
     "CLAUDE.md"
+    "CLAUDE.local.md"
     "perf/record_erc20_perf.sh"
     "perf/record_fibr_perf.sh"
+    "perf/erc20.evm.hex"
+    "perf/fib.evm.hex"
+    "perf/fibr.evm.hex"
 )
 ```
 

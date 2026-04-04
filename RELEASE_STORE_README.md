@@ -187,13 +187,19 @@ chmod +x DTVMDotfiles/store.sh
 检查路径是否在 `lib/sync_common.sh` 的 `MIRRORED_ITEMS` 中。其中 `AGENTS.md` 由 `release.sh` 基于 `dotfiles/CLAUDE.md` 生成，不是独立镜像源。
 
 ### Q: 想添加新的同步文件
-编辑 `lib/sync_common.sh` 中的 `MIRRORED_ITEMS`：
+编辑 `lib/sync_common.sh` 中的 `MIRRORED_ITEMS`，例如添加 `new_file.txt`：
 ```bash
 declare -agr MIRRORED_ITEMS=(
     ".claude"
     "init.sh"
     "CLAUDE.md"
+    "CLAUDE.local.md"
     "new_file.txt"
+    "perf/record_erc20_perf.sh"
+    "perf/record_fibr_perf.sh"
+    "perf/erc20.evm.hex"
+    "perf/fib.evm.hex"
+    "perf/fibr.evm.hex"
 )
 ```
 
