@@ -11,10 +11,24 @@ if [ ! -d "$PARENT_DIR" ]; then
     exit 1
 fi
 
+MANIFEST_PATH="$PARENT_DIR/.claude/$MANIFEST_FILENAME"
+
 echo "Release script - Releasing files from DTVMDotfiles to $PARENT_DIR"
 echo ""
 
-syncMirroredItems "$DOTFILES_DIR" "$PARENT_DIR"
+declare -A OldManifest=()
+readManifest "$MANIFEST_PATH" OldManifest 2>/dev/null || true
+
+declare -A NewManifest=()
+syncMirroredItemsWithManifest "$DOTFILES_DIR" "$PARENT_DIR" NewManifest
+
+if [ "${#OldManifest[@]}" -gt 0 ]; then
+    cleanRemovedFiles "$PARENT_DIR" OldManifest NewManifest
+fi
+
+writeManifest "$MANIFEST_PATH" NewManifest
+echo "  Generated: .claude/$MANIFEST_FILENAME (${#NewManifest[@]} files)"
+
 renderExcludeFile "$PARENT_DIR/.git/info/exclude"
 echo "  Released: $(basename "$EXCLUDE_MAP_FILE") → .git/info/exclude"
 syncClaudeAliases

@@ -9,7 +9,7 @@ source "$SCRIPT_DIR/lib/sync_common.sh"
 echo "Store script - Syncing files from $PARENT_DIR to $DOTFILES_DIR"
 echo ""
 
-syncMirroredItems "$PARENT_DIR" "$DOTFILES_DIR"
+storeMirroredItemsFromManifest "$PARENT_DIR" "$DOTFILES_DIR"
 
 if [ -f "$PARENT_DIR/.git/info/exclude" ]; then
     declare -A ExcludeMap=()
@@ -26,4 +26,3 @@ fi
 
 echo ""
 echo "✓ Store operation complete"
-echo "Files have been synced to dotfiles folder"
