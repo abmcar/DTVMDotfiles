@@ -27,6 +27,10 @@ Use this command for local evmone benchmark execution. For CI build reproduction
 ## Benchmark Rules
 
 - Use `evmone-bench` as the default path for local DTVM EVM benchmarking.
+- **The `.so` file must be named `libdtvmapi.so`** — EVMC loader derives the
+  create-function symbol from the filename. Renaming the file (e.g.
+  `libdtvmapi_loopaware.so`) causes "EVMC create function not found".
+  Use the original build path or copy to a directory with the original name.
 - Use the DTVM EVMC option key `enable_gas_metering` with an underscore, not
   `enable-evm-gas`.
 - The first positional argument is always the EVMC VM config string.
@@ -57,5 +61,5 @@ force this command onto broader benchmark-interpretation questions.
 
 ## References
 
-- Read [references/benchmark-playbook.md](references/benchmark-playbook.md) for
+- See `.claude/rules/dtvm-perf-worktree-lab.md` for
   canonical evmone benchmark command shapes.

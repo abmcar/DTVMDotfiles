@@ -14,8 +14,7 @@ declare -Ag DTVM_EXCLUDE_MAP=(
     [CLAUDE.md]=managed
     [DTVMDotfiles]=managed
     [GEMINI.md]=managed
-    [docs/research/directions/]=managed
-    [docs/research/index.yaml]=managed
+    [docs/research]=managed
     [erc20.evm.hex]=managed
     [fib.evm.hex]=managed
     [fibr.evm.hex]=managed
@@ -28,5 +27,6 @@ declare -Ag DTVM_EXCLUDE_MAP=(
     [perf.data.old.\*]=managed
     [qa.md]=managed
     [static]=managed
+    [superpowers]=managed
     [tmp.sh]=managed
 )

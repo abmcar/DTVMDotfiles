@@ -26,11 +26,10 @@ this rule:
 
 ## Workflow
 
-1. Identify the closest CI job family in
-   [references/evm-ci-build-matrix.md](references/evm-ci-build-matrix.md).
+1. Identify the closest CI job family by reading
+   `.github/workflows/dtvm_evm_test_x86.yml`.
 2. Prefer the `.ci/run_test_suite.sh` interface for CI-faithful local
-   reproduction. Use
-   [references/evm-env-to-cmake.md](references/evm-env-to-cmake.md) to explain
+   reproduction. Read `.ci/run_test_suite.sh` directly to understand
    how each environment variable changes CMake flags and runtime options.
 3. Use raw `cmake` commands only for CI paths that already do that. The main
    special case is the performance baseline build.
@@ -56,8 +55,5 @@ When giving a build config or reproduction command, include:
 
 ## References
 
-- [references/evm-ci-build-matrix.md](references/evm-ci-build-matrix.md):
-  canonical EVM CI job matrix and local reproduction recipes
-- [references/evm-env-to-cmake.md](references/evm-env-to-cmake.md):
-  authoritative environment-to-CMake and environment-to-runtime mapping from
-  `.ci/run_test_suite.sh`
+- `.github/workflows/dtvm_evm_test_x86.yml`: canonical CI job matrix
+- `.ci/run_test_suite.sh`: authoritative environment-to-CMake and runtime mapping

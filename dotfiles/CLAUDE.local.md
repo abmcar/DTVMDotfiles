@@ -1,16 +1,14 @@
 # Local Development Environment
 
 ## evmone Test Infrastructure
-- evmone source: `/home/abmcar/evmone-for-test-mulx-adx/`
-- evmone-bench: `/home/abmcar/evmone-for-test-mulx-adx/build/bin/evmone-bench`
-- evmone-unittests: `/home/abmcar/evmone-for-test-mulx-adx/build/bin/evmone-unittests`
-- evmone-statetest: `/home/abmcar/evmone-statetest/build/bin/evmone-statetest`
-- Benchmark suite: `/home/abmcar/evmone-for-test-mulx-adx/test/evm-benchmarks/benchmarks`
-- evmone is also accessible via symlink at `/home/abmcar/evmone-bench`
+- evmone root: `/home/abmcar/evmone/`
+- evmone-bench: `/home/abmcar/evmone/build/bin/evmone-bench`
+- evmone-unittests: `/home/abmcar/evmone/build/bin/evmone-unittests`
+- evmone-statetest: `/home/abmcar/evmone/build/bin/evmone-statetest`
+- Benchmark suite: `/home/abmcar/evmone/test/evm-benchmarks/benchmarks`
 
 ## DTVM Builds
-- Main lib: `build/lib/libdtvmapi.so`
-- CI build (multipass JIT): `build-ci/` with `-DZEN_ENABLE_MULTIPASS_JIT=ON`
+- Main lib: `build/lib/libdtvmapi.so` (multipass JIT enabled)
 - EVMC config string: `"<lib>,mode=multipass,enable_gas_metering=true"`
 - For full build commands, see `.claude/rules/dtvm-build-config.md`
 
@@ -23,10 +21,16 @@
 - Path: `tests/fixtures/fixtures/state_tests`
 - statetest VM arg: `EVMONE_EXTERNAL_OPTIONS="<lib>,mode=multipass,enable_gas_metering=true"`
 
+## Research
+- Research repo: `docs/research/` (clone of https://github.com/abmcar/DTVM-Papers)
+- Direction tracking: `docs/research/directions/`
+- Paper library: `docs/research/papers/`
+- Setup: `git clone https://github.com/abmcar/DTVM-Papers docs/research`
+
 ## Difftest
 - Code: `tools/difftest/`
-- evmone CLI: `evmone/build/bin/evmc run --vm evmone/build/lib/libevmone.so`
-- Quick run: `python3 -m tools.difftest.evm_difftest --dtvm ./build-ci/dtvm --seeds-only -v`
+- evmone CLI: `/home/abmcar/evmone/build/bin/evmc run --vm /home/abmcar/evmone/build/lib/libevmone.so`
+- Quick run: `python3 -m tools.difftest.evm_difftest --dtvm ./build/dtvm --seeds-only -v`
 
 ## Git Remotes
 - `origin` = github.com/abmcar/DTVM (personal fork)

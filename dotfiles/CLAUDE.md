@@ -17,11 +17,14 @@ DTVM is a deterministic VM with EVM ABI compatibility. Core implementation is in
 - Code review or explanation of a specific function
 
 ### Delegate to Sub-Agent
-- **compiler-agent**: Changes in `src/compiler/` (CGIR passes, MIR, peephole patterns, x86 codegen)
-- **evm-agent**: Changes in `src/evm/`, `src/runtime/`, `src/vm/` (opcode handlers, gas metering, spec tests)
-- **perf-agent**: Profiling, benchmark analysis, optimization proposals
-- Use parallel dispatch when tasks touch independent domains (e.g., compiler + evm simultaneously)
+- **compiler-agent**: All `src/` code changes (compiler, EVM interpreter, runtime, VM core)
+- **perf-agent**: Profiling, benchmark analysis, performance comparison
+- **test-agent**: Running test suites, CI reproduction, test result analysis
+- **research-agent**: Codebase exploration, web research, information gathering (read-only)
+- Use parallel dispatch when tasks are independent
 - Use sequential dispatch when output from one task feeds into another
+- Standard pipeline: research-agent → compiler-agent → test-agent → perf-agent
+- Builder-Validator: compiler-agent implements, test-agent validates correctness (no Edit/Write), perf-agent validates performance
 
 ### Research First (EnterPlanMode)
 - New features, architecture changes, or breaking changes

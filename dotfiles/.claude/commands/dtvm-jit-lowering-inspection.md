@@ -50,7 +50,3 @@ For a full analysis, include:
 - the main hot-block instruction pattern in plain words
 - the likely reason a schedule change helped or failed
 
-## References
-
-- Read [references/jitlog-playbook.md](references/jitlog-playbook.md) for the
-  canonical build command, log-capture command, and grep patterns.

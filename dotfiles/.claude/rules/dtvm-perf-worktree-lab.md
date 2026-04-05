@@ -22,15 +22,15 @@ any circumstances, even during cleanup:
 - `/home/abmcar/dtvm-baseline` — git worktree tracking `upstream/main`,
   built at `build-baseline/`. Refresh with `git fetch upstream` + checkout;
   rebuild incrementally only when upstream/main has changed.
-- `/home/abmcar/evmone-bench` — symlink to `evmone-for-test-mulx-adx`,
-  the canonical evmone benchmark installation.
+- `/home/abmcar/evmone` — the single canonical evmone installation
+  (bench, statetest, unittests, evmc CLI all built here).
 
 ## Workflow
 
 1. Keep the following long-lived directories unless the user says otherwise:
    - `/home/abmcar/DTVM` — repo root
    - `/home/abmcar/dtvm-baseline` — persistent baseline worktree (see above)
-   - `/home/abmcar/evmone-bench` — persistent evmone benchmark symlink
+   - `/home/abmcar/evmone` — canonical evmone installation
    - one active branch worktree for the current optimization branch
 2. Do not create temporary detached baseline worktrees. The persistent
    `/home/abmcar/dtvm-baseline` worktree serves this purpose; refresh it with
@@ -38,24 +38,34 @@ any circumstances, even during cleanup:
 3. Treat `git worktree list` as authoritative for DTVM worktrees.
 4. Benchmarking passes `libdtvmapi.so` as an EVMC command-line argument.
    Never copy `.so` files into the evmone directory.
+5. **The `.so` file must be named `libdtvmapi.so`** — never rename it (e.g.
+   `libdtvmapi_loopaware.so`). EVMC loader derives the create-function
+   symbol from the filename (`lib` stripped, extensions removed →
+   `evmc_create_dtvmapi`). A different filename produces a wrong symbol
+   lookup and fails with "EVMC create function not found".
+6. **Always reference the `.so` at its original build path** — do not copy
+   it to `/tmp/` or anywhere else. The baseline and branch builds live in
+   separate worktrees (`dtvm-baseline/build-baseline/lib/libdtvmapi.so`
+   vs `<branch>/build/lib/libdtvmapi.so`), so they never collide.
+   There is no reason to create intermediate copies.
 
 ## Worktree Rules
 
 - For a branch worktree, use `git worktree add <path> -b <branch-name>`.
 - Always run `git submodule update --init --recursive` in a fresh DTVM worktree
   before configuring it.
-- Remove stale branch worktrees with `git worktree remove --force <path>`.
+- Remove stale branch worktrees with `rm -rf <path> && git worktree prune`.
+  Do not use `git worktree remove` — it fails on worktrees with submodules.
 - Never remove `/home/abmcar/dtvm-baseline` — it is a permanent resource.
 
 ## evmone Rules
 
-- `/home/abmcar/evmone-bench` is the one canonical evmone installation.
-  Do not create topic-named `evmone-for-test-<topic>` directories.
+- `/home/abmcar/evmone` is the single canonical evmone installation.
+  Do not clone additional evmone copies or create `evmone-for-test-*`
+  directories.
 - Do not copy `libdtvmapi.so` into the evmone directory. Pass the library
   path as the EVMC VM string argument to `evmone-bench` instead.
-- If stale `evmone-for-test-*` directories accumulate (from old experiments),
-  delete them — but never delete `evmone-bench` or `evmone-for-test-mulx-adx`
-  (the symlink target).
+- If stale `evmone-for-test-*` directories appear, delete them.
 
 ## Baseline Refresh
 
@@ -82,8 +92,5 @@ When using this rule, always report:
 
 ## References
 
-- Read [references/lab-playbook.md](references/lab-playbook.md) for concrete
-  command patterns and cleanup rules.
-- See `.claude/commands/dtvm-evmone-benchmark.md` and its
-  `references/benchmark-playbook.md` for benchmark run commands and
-  before/after comparison workflow.
+- See `.claude/commands/dtvm-evmone-benchmark.md` for benchmark run commands
+  and before/after comparison workflow.
