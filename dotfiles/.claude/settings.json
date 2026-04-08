@@ -12,6 +12,18 @@
           }
         ]
       }
+    ],
+    "Stop": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "python3 .claude/hooks/stop_validation.py",
+            "timeout": 120,
+            "statusMessage": "Running format check..."
+          }
+        ]
+      }
     ]
   }
 }
