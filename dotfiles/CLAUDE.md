@@ -69,6 +69,15 @@ with superpowers skills. Simple bug fixes or single-file edits may skip to step 
 - Use the `archive` skill to move completed change to `docs/_archive/<YYYY-MM>/`
 - Clean up branch and worktree
 
+### Dotfiles Sync Rule
+Whenever any file managed by DTVMDotfiles is modified (see `MIRRORED_ITEMS` in
+`DTVMDotfiles/lib/sync_common.sh` — includes `.claude/`, `CLAUDE.md`, `CLAUDE.local.md`,
+`init.sh`, `perf/*.sh`, `perf/*.hex`), you **must** sync before the conversation ends:
+```bash
+bash DTVMDotfiles/store.sh
+cd DTVMDotfiles && git add -A && git commit -m "<message>" && git push && cd ..
+```
+
 ## Context Management
 - Delegate specialized work to reduce context pollution
 - Domain knowledge lives in `.claude/rules/` and `.claude/commands/`
