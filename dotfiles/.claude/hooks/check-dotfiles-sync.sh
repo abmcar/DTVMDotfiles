@@ -23,6 +23,9 @@ case "$REL_PATH" in
     .claude/*|CLAUDE.md|CLAUDE.local.md|init.sh)
         echo '{"hookSpecificOutput":{"hookEventName":"PostToolUse","additionalContext":"[dotfiles-sync] A DTVMDotfiles-managed file was modified. Remember to run store.sh and push DTVMDotfiles before ending this session."}}'
         ;;
+    docs/research/*)
+        echo '{"hookSpecificOutput":{"hookEventName":"PostToolUse","additionalContext":"[paper-repo] docs/research/ is a separate git repo (DTVM-Papers). Remember to commit and push it independently before ending this session."}}'
+        ;;
 esac
 
 exit 0
