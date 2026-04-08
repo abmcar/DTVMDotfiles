@@ -11,6 +11,7 @@ declare -Ag DTVM_EXCLUDE_MAP=(
     [AGENTS.md]=managed
     [ALL_STATE_TESTS]=managed
     [BRANCH_REPORT.md]=managed
+    [CLAUDE.local.md]=managed
     [CLAUDE.md]=managed
     [DTVMDotfiles]=managed
     [GEMINI.md]=managed
