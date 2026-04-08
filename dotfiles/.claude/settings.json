@@ -1,0 +1,17 @@
+{
+  "hooks": {
+    "PostToolUse": [
+      {
+        "matcher": "Edit|Write",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "bash .claude/hooks/check-dotfiles-sync.sh",
+            "timeout": 5,
+            "statusMessage": "Checking dotfiles sync..."
+          }
+        ]
+      }
+    ]
+  }
+}
