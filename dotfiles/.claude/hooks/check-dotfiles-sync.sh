@@ -5,7 +5,8 @@
 set -euo pipefail
 
 INPUT=$(cat)
-FILE_PATH=$(echo "$INPUT" | jq -r '.tool_input.file_path // empty')
+# Extract file_path without jq for lower overhead on every Edit/Write
+FILE_PATH=$(echo "$INPUT" | grep -o '"file_path":"[^"]*"' | head -1 | cut -d'"' -f4)
 
 [ -z "$FILE_PATH" ] && exit 0
 
