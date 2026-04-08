@@ -6,7 +6,16 @@ import subprocess
 import sys
 
 def _find_repo_root() -> pathlib.Path:
-    """Find the main repo root, works from worktrees too."""
+    """Find the main repo root, works from worktrees and nested repos."""
+    # Prefer __file__-based resolution — always correct when the script lives
+    # in <repo>/.claude/hooks/.  This avoids bugs when CWD is inside a nested
+    # git repo (e.g. docs/research/) where git rev-parse returns the wrong root.
+    file_root = pathlib.Path(__file__).resolve().parents[2]
+    if (file_root / "tools" / "format.sh").exists():
+        return file_root
+
+    # Fallback: git rev-parse (useful inside worktrees where __file__ might
+    # resolve through a symlink to the main repo while the worktree is elsewhere).
     try:
         git_common = subprocess.run(
             ["git", "rev-parse", "--git-common-dir"],
@@ -16,10 +25,13 @@ def _find_repo_root() -> pathlib.Path:
             git_dir = pathlib.Path(git_common.stdout.strip())
             if not git_dir.is_absolute():
                 git_dir = pathlib.Path.cwd() / git_dir
-            return git_dir.resolve().parent
+            candidate = git_dir.resolve().parent
+            # Sanity check: the detected root must contain format.sh
+            if (candidate / "tools" / "format.sh").exists():
+                return candidate
     except (subprocess.TimeoutExpired, OSError):
         pass
-    return pathlib.Path(__file__).resolve().parents[2]
+    return file_root
 
 
 REPO_ROOT = _find_repo_root()

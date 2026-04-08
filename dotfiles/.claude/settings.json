@@ -6,7 +6,7 @@
         "hooks": [
           {
             "type": "command",
-            "command": "bash .claude/hooks/check-dotfiles-sync.sh",
+            "command": "d=\"$PWD\"; while [ \"$d\" != \"/\" ] && [ ! -f \"$d/.claude/hooks/check-dotfiles-sync.sh\" ]; do d=\"$(dirname \"$d\")\"; done; bash \"$d/.claude/hooks/check-dotfiles-sync.sh\"",
             "timeout": 5,
             "statusMessage": "Checking dotfiles sync..."
           }
