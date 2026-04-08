@@ -14,13 +14,13 @@ REPORT="$HOME/.claude/session-check-report.txt"
 # No report file = nothing to show
 [ -f "$REPORT" ] || exit 0
 
-# Skip if report is older than 7 days (stale)
+# Skip if report is older than 1 day (stale)
 if [ "$(uname)" = "Darwin" ]; then
     AGE=$(( $(date +%s) - $(stat -f %m "$REPORT") ))
 else
     AGE=$(( $(date +%s) - $(stat -c %Y "$REPORT") ))
 fi
-[ "$AGE" -gt 604800 ] && exit 0
+[ "$AGE" -gt 86400 ] && exit 0
 
 # Read and display
 CONTENT=$(cat "$REPORT")
