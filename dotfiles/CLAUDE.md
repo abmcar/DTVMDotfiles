@@ -32,6 +32,43 @@ DTVM is a deterministic VM with EVM ABI compatibility. Core implementation is in
 - Multi-file refactors affecting 5+ files
 - Performance work requiring profiling before coding
 
+## Development Workflow
+
+All non-trivial changes follow a unified flow that combines the project's `dev-workflow` skill
+with superpowers skills. Simple bug fixes or single-file edits may skip to step 3.
+
+### 1. Brainstorm + Propose
+- Use `superpowers:brainstorming` to explore intent and requirements
+- Output: a change document in `docs/changes/YYYY-MM-DD-<slug>/README.md`
+  - **Full tier** (`template.md`): cross-module, architecture, new capabilities
+  - **Light tier** (`template-light.md`): single-module, well-scoped improvements
+- Update the table in `docs/changes/README.md`
+
+### 2. Plan
+- Use `superpowers:writing-plans` to create an implementation plan
+- Plan must reference the change doc and consult relevant `docs/modules/` specs
+- Write implementation phases back into the change doc (Full tier)
+
+### 3. Execute
+- Use `superpowers:executing-plans` or `superpowers:subagent-driven-development`
+- Apply `superpowers:test-driven-development` where applicable
+- Use `superpowers:using-git-worktrees` for isolation when needed
+- After each logical unit: build gate → test gate → format gate
+
+### 4. Verify
+- Use `superpowers:verification-before-completion` before claiming done
+- Run full test suite and benchmark comparison (if perf-related)
+- Update change doc status to `Implemented`
+
+### 5. PR + Review
+- Use `superpowers:requesting-code-review` to create PR
+- Use `superpowers:receiving-code-review` when handling feedback
+- Resolve review threads via GraphQL after fixing
+
+### 6. Archive (after merge)
+- Use the `archive` skill to move completed change to `docs/_archive/<YYYY-MM>/`
+- Clean up branch and worktree
+
 ## Context Management
 - Delegate specialized work to reduce context pollution
 - Domain knowledge lives in `.claude/rules/` and `.claude/commands/`
