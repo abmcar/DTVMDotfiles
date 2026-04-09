@@ -67,6 +67,40 @@ any circumstances, even during cleanup:
   path as the EVMC VM string argument to `evmone-bench` instead.
 - If stale `evmone-for-test-*` directories appear, delete them.
 
+## Forbidden Artifacts (must not exist)
+
+The CI script `.ci/run_test_suite.sh` is designed for disposable CI
+containers — it clones evmone into the current working directory and copies
+`.so` files into the clone. **Never run this script from the DTVM root
+locally.** If someone does, it creates these artifacts:
+
+| Path | Created by |
+|------|-----------|
+| `$DTVM_ROOT/evmone/` | CI `benchmarksuite` / `evmonetestsuite` |
+| `$DTVM_ROOT/evmone-statetest/` | CI `evmonestatetestsuite` |
+| `$DTVM_ROOT/asmjit/` | evmone `--recurse-submodules` residue |
+| `~/evmone/libdtvmapi*.so` | CI `cp build/lib/*` pattern |
+| `dtvm-baseline/build/` | Agent using wrong build dir name |
+
+If any of these exist, delete them immediately:
+```bash
+rm -rf $DTVM_ROOT/evmone/ $DTVM_ROOT/evmone-statetest/ $DTVM_ROOT/asmjit/
+rm -f ~/evmone/libdtvmapi*.so
+rm -rf /home/abmcar/dtvm-baseline/build/   # only build-baseline/ is valid
+```
+
+### Why this keeps happening
+
+Sub-agents (test-agent, perf-agent) may not load `alwaysApply: false` rules.
+When they need to run tests or benchmarks, they may:
+1. Run `.ci/run_test_suite.sh` instead of the local test commands
+2. Copy `.so` files instead of passing paths as EVMC arguments
+3. Use `cmake -B build` in the baseline worktree instead of `-B build-baseline`
+
+**Mitigation:** When dispatching sub-agents for test/perf work, include in
+the prompt: "Use ~/evmone/ binaries directly. Never run .ci/run_test_suite.sh.
+Never copy .so files. In baseline worktree use build-baseline/ not build/."
+
 ## Baseline Refresh
 
 To update the persistent baseline to the latest upstream/main:
