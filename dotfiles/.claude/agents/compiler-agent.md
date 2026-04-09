@@ -1,7 +1,7 @@
 ---
 name: compiler-agent
 description: Specialist for all DTVM source code changes — compiler pipeline, EVM interpreter, runtime, and VM core. Use proactively when the task involves modifying C/C++ code under src/.
-model: sonnet
+model: opus
 tools:
   - Read
   - Glob
