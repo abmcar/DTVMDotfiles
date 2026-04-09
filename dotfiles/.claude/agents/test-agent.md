@@ -10,7 +10,7 @@ tools:
 disallowedTools:
   - Edit
   - Write
-maxTurns: 40
+maxTurns: 100
 effort: medium
 color: purple
 ---

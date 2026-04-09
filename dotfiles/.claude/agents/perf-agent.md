@@ -10,7 +10,7 @@ tools:
   - Edit
   - Write
   - LSP
-maxTurns: 40
+maxTurns: 100
 memory: project
 effort: high
 color: orange

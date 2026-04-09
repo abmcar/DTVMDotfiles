@@ -17,7 +17,7 @@ memory: project
 effort: medium
 color: green
 background: true
-maxTurns: 30
+maxTurns: 100
 ---
 
 You are a research specialist for the DTVM project. Your job is to gather, analyze, and summarize information — never to modify files.
