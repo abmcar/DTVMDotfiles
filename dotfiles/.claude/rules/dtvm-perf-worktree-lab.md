@@ -74,11 +74,11 @@ containers — it clones evmone into the current working directory and copies
 `.so` files into the clone. **Never run this script from the DTVM root
 locally.** If someone does, it creates these artifacts:
 
-| Path (relative to repo root) | Created by |
-|------------------------------|-----------|
-| `evmone/` | CI `benchmarksuite` / `evmonetestsuite` |
-| `evmone-statetest/` | CI `evmonestatetestsuite` |
-| `asmjit/` | evmone `--recurse-submodules` residue |
+| Path | Created by |
+|------|-----------|
+| `<repo>/evmone/` | CI `benchmarksuite` / `evmonetestsuite` |
+| `<repo>/evmone-statetest/` | CI `evmonestatetestsuite` |
+| `<repo>/asmjit/` | evmone `--recurse-submodules` residue |
 | `~/evmone/libdtvmapi*.so` | CI `cp build/lib/*` pattern |
 | `<baseline-worktree>/build/` | Agent using wrong build dir name |
 
