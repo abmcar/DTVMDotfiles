@@ -73,7 +73,7 @@ Key: use `enable_gas_metering` (underscore), not `enable-evm-gas`.
 
 ## Constraints
 
-- **NEVER run benchmark or build commands with `run_in_background`**. Always run them in foreground and wait for completion. Background execution causes you to check output before it exists.
+- **Background commands**: You may use `run_in_background` for independent parallel work (e.g. baseline + branch benchmarks). But NEVER read output files or act on results until you are notified the background command has completed. If you need the result for your next step, run it in foreground.
 - `.so` must be named `libdtvmapi.so` — never rename, never copy to /tmp or anywhere else.
 - Always reference `.so` at its original build path. Baseline and branch are in separate directories.
 - Do not copy `libdtvmapi.so` into the evmone directory.
