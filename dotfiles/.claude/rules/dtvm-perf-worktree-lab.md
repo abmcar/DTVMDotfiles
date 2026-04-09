@@ -74,19 +74,19 @@ containers — it clones evmone into the current working directory and copies
 `.so` files into the clone. **Never run this script from the DTVM root
 locally.** If someone does, it creates these artifacts:
 
-| Path | Created by |
-|------|-----------|
-| `/home/abmcar/DTVM/evmone/` | CI `benchmarksuite` / `evmonetestsuite` |
-| `/home/abmcar/DTVM/evmone-statetest/` | CI `evmonestatetestsuite` |
-| `/home/abmcar/DTVM/asmjit/` | evmone `--recurse-submodules` residue |
+| Path (relative to repo root) | Created by |
+|------------------------------|-----------|
+| `evmone/` | CI `benchmarksuite` / `evmonetestsuite` |
+| `evmone-statetest/` | CI `evmonestatetestsuite` |
+| `asmjit/` | evmone `--recurse-submodules` residue |
 | `~/evmone/libdtvmapi*.so` | CI `cp build/lib/*` pattern |
-| `dtvm-baseline/build/` | Agent using wrong build dir name |
+| `<baseline-worktree>/build/` | Agent using wrong build dir name |
 
 If any of these exist, delete them immediately:
 ```bash
-rm -rf /home/abmcar/DTVM/evmone/ /home/abmcar/DTVM/evmone-statetest/ /home/abmcar/DTVM/asmjit/
+# Run from the DTVM repo root
+rm -rf evmone/ evmone-statetest/ asmjit/
 rm -f ~/evmone/libdtvmapi*.so
-rm -rf /home/abmcar/dtvm-baseline/build/   # only build-baseline/ is valid
 ```
 
 **Sub-agent mitigation:** When dispatching sub-agents for test/perf work,
