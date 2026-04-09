@@ -14,7 +14,7 @@ disallowedTools:
   - Edit
   - Write
 memory: project
-effort: medium
+effort: high
 color: green
 background: true
 maxTurns: 100
