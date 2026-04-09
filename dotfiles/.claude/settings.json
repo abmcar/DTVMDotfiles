@@ -17,9 +17,10 @@
         "if": "Bash(git push*)",
         "hooks": [
           {
-            "type": "prompt",
-            "prompt": "A git push just completed. Monitor the CI run: 1) Run `gh run list --limit 1 --json databaseId,status,workflowName,headBranch` to find the triggered run. 2) If a run was triggered, run `gh run watch <id> --exit-status` in background to monitor it. 3) When notified of completion, if it failed: run `gh run view <id> --log-failed` to get failure details, then diagnose and fix the issue. If it passed, briefly report success. Skip monitoring if the push was to a repo without CI (e.g. docs/research/).",
-            "statusMessage": "Setting up CI monitor..."
+            "type": "command",
+            "command": "if git -C \"$PWD\" remote get-url origin 2>/dev/null | grep -q 'DTVMStack/DTVM\\|abmcar/DTVM'; then echo '{\"hookSpecificOutput\":{\"hookEventName\":\"PostToolUse\",\"additionalContext\":\"[ci-monitor] Push to DTVM detected. In the BACKGROUND: 1) Run gh run list --limit 1 --json databaseId,status,workflowName,headBranch to find the triggered run. 2) Run gh run watch <id> --exit-status in background. 3) On completion, if failed: gh run view <id> --log-failed and diagnose. If passed: briefly report. Do NOT interrupt your current task for this.\"}}'; fi",
+            "timeout": 5,
+            "statusMessage": "Checking CI monitor..."
           }
         ]
       }
