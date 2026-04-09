@@ -68,6 +68,7 @@ Key: use `enable_gas_metering` (underscore), not `enable-evm-gas`.
 
 ## Constraints
 
+- **NEVER run test or build commands with `run_in_background`**. Always run in foreground and wait for completion.
 - `.so` must be named `libdtvmapi.so` — EVMC loader derives symbol from filename.
 - Never modify source code. Report failures with details and defer fixes to compiler-agent.
 - When running Python scripts, read the script's `--help` output first to avoid wrong arguments.

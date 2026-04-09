@@ -71,7 +71,8 @@ Always run `tools/format.sh format` after editing C/C++ files.
 
 ## Key Constraints
 
-1. **Determinism** — DTVM must be deterministic. Never introduce host-specific or non-deterministic behavior.
+1. **No background commands** — NEVER run build, test, or long-running commands with `run_in_background`. Always run in foreground and wait for completion.
+2. **Determinism** — DTVM must be deterministic. Never introduce host-specific or non-deterministic behavior.
 2. **CF chain safety** — `protectUnsafeValue` barriers in ADC/SBB carry chains are structural, not semantic. Do NOT rewrite or eliminate them unless you fully understand the carry flag dependency.
 3. **`.so` naming** — The library must be named `libdtvmapi.so`. EVMC loader derives symbol name from filename; renaming breaks loading.
 4. **Code style** — LLVM conventions: PascalCase variables, camelCase functions. English comments only. See `.claude/rules/cpp-code-style.md`.
