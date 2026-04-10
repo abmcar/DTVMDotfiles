@@ -51,17 +51,6 @@
         ]
       }
     ],
-    "Stop": [
-      {
-        "hooks": [
-          {
-            "type": "command",
-            "command": "d=\"$PWD\"; while [ \"$d\" != \"/\" ] && [ ! -f \"$d/.claude/hooks/stop-session-summary.sh\" ]; do d=\"$(dirname \"$d\")\"; done; [ -f \"$d/.claude/hooks/stop-session-summary.sh\" ] && bash \"$d/.claude/hooks/stop-session-summary.sh\"",
-            "timeout": 15,
-            "statusMessage": "Saving session summary..."
-          }
-        ]
-      }
-    ]
+    "Stop": []
   }
 }
