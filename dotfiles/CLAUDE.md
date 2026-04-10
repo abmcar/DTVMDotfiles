@@ -51,7 +51,10 @@ with superpowers skills. Simple bug fixes or single-file edits may skip to step 
 ### 3. Execute
 - Use `superpowers:executing-plans` or `superpowers:subagent-driven-development`
 - Apply `superpowers:test-driven-development` where applicable
-- Use `superpowers:using-git-worktrees` for isolation when needed
+- **MUST** use `superpowers:using-git-worktrees` when adding experimental changes
+  (performance optimizations, algorithm changes, SPP activation, etc.) on a branch
+  that already has an open PR or reviewed commits. Never experiment directly on a
+  branch with work you can't afford to lose.
 - After each logical unit: build gate → test gate → format gate
 
 ### 4. Verify
