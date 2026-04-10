@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Stop hook: block Claude from finishing until format check passes."""
+"""Stop hook: format check (blocking) + unpushed commits reminder (non-blocking)."""
 import json
 import pathlib
 import subprocess
@@ -107,5 +107,33 @@ if result.returncode != 0:
         if src.stderr.strip():
             parts.append(src.stderr[-2000:].strip())
         print(json.dumps({"decision": "block", "reason": "\n".join(parts)}))
+
+# --- Unpushed commits reminder ---
+try:
+    # Count commits ahead of upstream
+    rev_list = subprocess.run(
+        ["git", "rev-list", "@{u}..HEAD", "--count"],
+        capture_output=True,
+        text=True,
+        cwd=REPO_ROOT,
+        timeout=5,
+    )
+    if rev_list.returncode == 0:
+        count = int(rev_list.stdout.strip())
+        if count > 0:
+            branch = subprocess.run(
+                ["git", "branch", "--show-current"],
+                capture_output=True,
+                text=True,
+                cwd=REPO_ROOT,
+                timeout=5,
+            )
+            branch_name = branch.stdout.strip() if branch.returncode == 0 else "<unknown>"
+            print(json.dumps({
+                "decision": "allow",
+                "reason": f"Reminder: you have {count} unpushed commit(s) on branch '{branch_name}'. Push when ready.",
+            }))
+except (subprocess.TimeoutExpired, OSError, ValueError):
+    pass  # No upstream, detached HEAD, or other git issue — skip silently
 
 sys.exit(0)
