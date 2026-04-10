@@ -18,7 +18,6 @@ alwaysApply: true
   - `src/common/` — Shared utilities, error handling, type definitions
 - `tests/` — Test suites (`tests/evm_spec_test` for EVM spec tests)
 - `docs/` — Build and usage guides (`docs/start.md`, `docs/user-guide.md`)
-- `specs/` — SSOT module specifications and feature workflow documents
 - `evmc/` — EVM compatibility components
 - `rust_crate/` — Rust bindings
 - `tools/` — Helper scripts and utilities

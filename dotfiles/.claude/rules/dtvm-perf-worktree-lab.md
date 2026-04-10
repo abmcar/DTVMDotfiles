@@ -1,5 +1,5 @@
 ---
-description: Local DTVM EVM performance lab with branch worktrees and persistent baseline/evmone resources. Use when preparing or pruning local perf experiment environments, keeping worktrees under control during repeated optimization work, or managing the persistent baseline at /home/abmcar/dtvm-baseline.
+description: Local DTVM EVM performance lab with branch worktrees and persistent baseline/evmone resources. Use when preparing or pruning local perf experiment environments, keeping worktrees under control during repeated optimization work, or managing the persistent baseline at ~/dtvm-baseline.
 globs: []
 alwaysApply: false
 ---
@@ -19,21 +19,21 @@ before/after comparisons, see
 These two resources are persistent infrastructure. Do not remove them under
 any circumstances, even during cleanup:
 
-- `/home/abmcar/dtvm-baseline` — git worktree tracking `upstream/main`,
+- `~/dtvm-baseline` — git worktree tracking `upstream/main`,
   built at `build-baseline/`. Refresh with `git fetch upstream` + checkout;
   rebuild incrementally only when upstream/main has changed.
-- `/home/abmcar/evmone` — the single canonical evmone installation
+- `~/evmone` — the single canonical evmone installation
   (bench, statetest, unittests, evmc CLI all built here).
 
 ## Workflow
 
 1. Keep the following long-lived directories unless the user says otherwise:
-   - `/home/abmcar/DTVM` — repo root
-   - `/home/abmcar/dtvm-baseline` — persistent baseline worktree (see above)
-   - `/home/abmcar/evmone` — canonical evmone installation
+   - the DTVM repo root (current working directory)
+   - `~/dtvm-baseline` — persistent baseline worktree (see above)
+   - `~/evmone` — canonical evmone installation
    - one active branch worktree for the current optimization branch
 2. Do not create temporary detached baseline worktrees. The persistent
-   `/home/abmcar/dtvm-baseline` worktree serves this purpose; refresh it with
+   `~/dtvm-baseline` worktree serves this purpose; refresh it with
    `git fetch upstream && git checkout upstream/main` instead.
 3. Treat `git worktree list` as authoritative for DTVM worktrees.
 4. Benchmarking passes `libdtvmapi.so` as an EVMC command-line argument.
@@ -56,11 +56,11 @@ any circumstances, even during cleanup:
   before configuring it.
 - Remove stale branch worktrees with `rm -rf <path> && git worktree prune`.
   Do not use `git worktree remove` — it fails on worktrees with submodules.
-- Never remove `/home/abmcar/dtvm-baseline` — it is a permanent resource.
+- Never remove `~/dtvm-baseline` — it is a permanent resource.
 
 ## evmone Rules
 
-- `/home/abmcar/evmone` is the single canonical evmone installation.
+- `~/evmone` is the single canonical evmone installation.
   Do not clone additional evmone copies or create `evmone-for-test-*`
   directories.
 - Do not copy `libdtvmapi.so` into the evmone directory. Pass the library
@@ -98,14 +98,11 @@ Never copy .so files. In baseline worktree use build-baseline/ not build/."
 To update the persistent baseline to the latest upstream/main:
 
 ```bash
-git -C /home/abmcar/dtvm-baseline fetch upstream
-git -C /home/abmcar/dtvm-baseline checkout upstream/main
+git -C ~/dtvm-baseline fetch upstream
+git -C ~/dtvm-baseline checkout upstream/main
 # Rebuild only if upstream/main changed since the last build:
-cmake --build /home/abmcar/dtvm-baseline/build-baseline --target dtvmapi -j$(nproc)
+cmake --build ~/dtvm-baseline/build-baseline --target dtvmapi -j$(nproc)
 ```
-
-For the initial build (e.g., on a fresh machine), see
-[references/lab-playbook.md](references/lab-playbook.md).
 
 ## Output Requirements
 
