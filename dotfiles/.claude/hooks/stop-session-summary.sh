@@ -7,8 +7,8 @@ set -euo pipefail
 # Only run in git repos
 git rev-parse --is-inside-work-tree >/dev/null 2>&1 || exit 0
 
-# Derive paths
-PROJECT_SLUG=$(echo "$PWD" | sed 's|/|-|g')
+# Derive paths (bash builtins, no sed forks)
+PROJECT_SLUG="${PWD//\//-}"
 SUMMARY_DIR="$HOME/.claude/projects/$PROJECT_SLUG/session-summaries"
 mkdir -p "$SUMMARY_DIR"
 
@@ -17,11 +17,15 @@ if [ -z "$BRANCH" ]; then
     SHORT_HASH=$(git rev-parse --short HEAD 2>/dev/null || echo "unknown")
     BRANCH="detached-$SHORT_HASH"
 fi
-SANITIZED_BRANCH=$(echo "$BRANCH" | sed 's|/|--|g; s|[^a-zA-Z0-9._-]||g')
+# Sanitize branch: / → --, strip non-alphanumeric (bash builtins)
+SANITIZED_BRANCH="${BRANCH//\//-}"
+SANITIZED_BRANCH="${SANITIZED_BRANCH//[^a-zA-Z0-9._-]/}"
 
-TIMESTAMP=$(date '+%Y-%m-%d-%H-%M-%S')
-SESSION_PREFIX=$(date +%s | tail -c 9)
-FILENAME="${TIMESTAMP}-${SESSION_PREFIX}-${SANITIZED_BRANCH}.md"
+NOW=$(date '+%Y-%m-%d-%H-%M-%S')
+SESSION_PREFIX="${EPOCHSECONDS:-$(date +%s)}"
+SESSION_PREFIX="${SESSION_PREFIX: -8}"
+FILENAME="${NOW}-${SESSION_PREFIX}-${SANITIZED_BRANCH}.md"
+DATE_DISPLAY="${NOW:0:10} ${NOW:11:2}:${NOW:14:2}"
 
 # Gather git state
 GIT_STATUS=$(git status -s 2>/dev/null || echo "(no git status)")
@@ -31,7 +35,7 @@ GIT_DIFF_CACHED=$(git diff --cached --stat 2>/dev/null || echo "(no staged chang
 
 cat > "$SUMMARY_DIR/$FILENAME" << SUMMARY
 # Session Summary: $BRANCH
-**Date:** $(date '+%Y-%m-%d %H:%M')
+**Date:** $DATE_DISPLAY
 **Type:** Auto-generated (git state only — run /session-summary for intelligent summary)
 
 ## Recent Commits

@@ -60,22 +60,7 @@ If conflicts were encountered, write each to the session-issues directory:
 - Derive project slug: `echo "$PWD" | sed 's|/|-|g'`
 - Path: `~/.claude/projects/{project-slug}/session-issues/{YYYY-MM-DD}-{slug}.md`
 - Create directory if needed
-
-Issue file format:
-```
-# Issue: {short description}
-**Date:** {YYYY-MM-DD}
-**Source:** {rule|memory|skill}: {filename}
-
-## Expected (per rule/memory/skill)
-{what it says}
-
-## Actual
-{what reality is}
-
-## Suggested Fix
-{how to update it}
-```
+- Use the issue file format defined in `/session-issues` (sections: Issue title, Date, Source, Expected, Actual, Suggested Fix)
 
 If no conflicts were encountered, say "No consistency issues found." and finish.
 

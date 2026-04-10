@@ -10,21 +10,24 @@ OUTPUT=""
 REPORT="$HOME/.claude/session-check-report.txt"
 if [ -f "$REPORT" ]; then
     if [ "$(uname)" = "Darwin" ]; then
-        AGE=$(( $(date +%s) - $(stat -f %m "$REPORT") ))
+        AGE=$(( ${EPOCHSECONDS:-$(date +%s)} - $(stat -f %m "$REPORT") ))
     else
-        AGE=$(( $(date +%s) - $(stat -c %Y "$REPORT") ))
+        AGE=$(( ${EPOCHSECONDS:-$(date +%s)} - $(stat -c %Y "$REPORT") ))
     fi
     if [ "$AGE" -le 86400 ]; then
-        CONTENT=$(cat "$REPORT")
+        CONTENT=$(<"$REPORT")
         [ -n "$CONTENT" ] && OUTPUT="$CONTENT"
     fi
 fi
 
 # Part 2: Unresolved session issues
-PROJECT_SLUG=$(echo "$PWD" | sed 's|/|-|g')
+PROJECT_SLUG="${PWD//\//-}"
 ISSUES_DIR="$HOME/.claude/projects/$PROJECT_SLUG/session-issues"
 if [ -d "$ISSUES_DIR" ]; then
-    ISSUE_COUNT=$(find "$ISSUES_DIR" -name '*.md' -type f 2>/dev/null | wc -l | tr -d ' ')
+    shopt -s nullglob
+    ISSUE_FILES=("$ISSUES_DIR"/*.md)
+    shopt -u nullglob
+    ISSUE_COUNT=${#ISSUE_FILES[@]}
     if [ "$ISSUE_COUNT" -gt 0 ]; then
         ISSUE_MSG="[issues] $ISSUE_COUNT unresolved rule/memory/skill issue(s) — run /session-issues to review"
         if [ -n "$OUTPUT" ]; then
@@ -36,8 +39,14 @@ $ISSUE_MSG"
     fi
 fi
 
-# Emit combined output
+# Emit combined output — use printf for portable JSON encoding
 [ -z "$OUTPUT" ] && exit 0
-JSON_OUTPUT=$(echo "$OUTPUT" | sed 's/\\/\\\\/g; s/"/\\"/g; :a; N; $!ba; s/\n/\\n/g')
-echo "{\"hookSpecificOutput\":{\"hookEventName\":\"SessionStart\",\"additionalContext\":\"$JSON_OUTPUT\"}}"
+
+# Escape for JSON: backslash, double-quote, then convert newlines
+JSON_OUTPUT="${OUTPUT//\\/\\\\}"
+JSON_OUTPUT="${JSON_OUTPUT//\"/\\\"}"
+JSON_OUTPUT="${JSON_OUTPUT//$'\t'/\\t}"
+JSON_OUTPUT="${JSON_OUTPUT//$'\n'/\\n}"
+
+printf '{"hookSpecificOutput":{"hookEventName":"SessionStart","additionalContext":"%s"}}\n' "$JSON_OUTPUT"
 exit 0
