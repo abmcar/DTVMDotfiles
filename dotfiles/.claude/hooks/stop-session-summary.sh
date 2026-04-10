@@ -56,7 +56,4 @@ $GIT_DIFF_CACHED
 \`\`\`
 SUMMARY
 
-# Also output context for the Stop prompt (memory review + audit still need AI)
-echo "{\"hookSpecificOutput\":{\"hookEventName\":\"Stop\",\"additionalContext\":\"[session-summary] Summary saved to $SUMMARY_DIR/$FILENAME. Now review this session for: (1) Memory: any pain points, user preferences, or workflow corrections worth saving to memory. (2) Consistency audit: any moments where a rule (.claude/rules/), memory file, or skill conflicted with actual reality — if so, write issues to ~/.claude/projects/$PROJECT_SLUG/session-issues/. Be fast and autonomous.\"}}"
-
 exit 0
