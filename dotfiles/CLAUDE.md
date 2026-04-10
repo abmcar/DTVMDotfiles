@@ -42,7 +42,6 @@ with superpowers skills. Simple bug fixes or single-file edits may skip to step 
 - Output: a change document in `docs/changes/YYYY-MM-DD-<slug>/README.md`
   - **Full tier** (`template.md`): cross-module, architecture, new capabilities
   - **Light tier** (`template-light.md`): single-module, well-scoped improvements
-- Update the table in `docs/changes/README.md`
 
 ### 2. Plan
 - Use `superpowers:writing-plans` to create an implementation plan

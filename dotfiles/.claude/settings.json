@@ -51,6 +51,17 @@
         ]
       }
     ],
-    "Stop": []
+    "Stop": [
+      {
+        "hooks": [
+          {
+            "type": "prompt",
+            "prompt": "The session is ending. Execute these three tiers in order. Be concise and fast.\n\nIf not in a git repo, skip all git commands and summarize from conversation context only.\n\n## Tier 1: Save Session Summary\n\n1. Run `git diff --stat`, `git log --oneline -10`, `git status -s` to gather context (skip if not a git repo).\n2. Determine the summary file path:\n   - Project slug: run `echo $PWD | sed 's|/|-|g'`\n   - Branch: run `git branch --show-current` (if empty/detached, use `detached-$(git rev-parse --short HEAD)`)\n   - Sanitize branch: replace `/` with `--`\n   - Session prefix: use the first 8 characters of the current session ID if available, otherwise use `$(date +%s | tail -c 9)`\n   - Full path: `~/.claude/projects/{project-slug}/session-summaries/{YYYY-MM-DD}-{HH-MM-SS}-{session-prefix}-{sanitized-branch}.md`\n3. Create the directory if it doesn't exist: `mkdir -p {dir}`\n4. Write the summary file with sections: What Was Done, Current Status, Next Steps.\n\n## Tier 2: Memory Review\n\nBriefly review this session for:\n- Pain points or frustrations the user expressed\n- User preferences or workflow corrections\n- Non-obvious decisions that should inform future sessions\n\nIf anything qualifies, write to memory per the existing memory conventions. If nothing notable, skip entirely. Do NOT force-write.\n\n## Tier 3: Consistency Audit\n\nReview this session's conversation for any moments where a rule (.claude/rules/), memory file, or skill conflicted with actual reality. Examples:\n- A rule referenced a path that doesn't exist\n- A memory recorded a stale function name or outdated fact\n- A skill assumed a directory structure that has changed\n\nIf conflicts were encountered, write each to `~/.claude/projects/{project-slug}/session-issues/{YYYY-MM-DD}-{slug}.md` with this format:\n\n  `# Issue: {short description}`\n  `**Date:** {YYYY-MM-DD}`\n  `**Source:** {rule|memory|skill}: {filename}`\n  `## Expected (per rule/memory/skill)` — what it says\n  `## Actual` — what reality is\n  `## Suggested Fix` — how to update it\n\nIf no conflicts were encountered, skip silently.\n\nIMPORTANT: Be fast. Do not ask for confirmation. Execute all three tiers autonomously.",
+            "timeout": 120,
+            "statusMessage": "Generating session summary..."
+          }
+        ]
+      }
+    ]
   }
 }
