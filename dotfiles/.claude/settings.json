@@ -3,11 +3,11 @@
     "PreToolUse": [
       {
         "matcher": "Bash",
-        "if": "Bash(git push*)",
         "hooks": [
           {
             "type": "command",
-            "command": "bash .claude/hooks/pre-push-validation.sh",
+            "if": "Bash(git push*)",
+            "command": "d=\"$PWD\"; while [ \"$d\" != \"/\" ] && [ ! -f \"$d/.claude/hooks/pre-push-validation.sh\" ]; do d=\"$(dirname \"$d\")\"; done; [ -f \"$d/.claude/hooks/pre-push-validation.sh\" ] && bash \"$d/.claude/hooks/pre-push-validation.sh\"",
             "timeout": 600,
             "statusMessage": "Running pre-push CI validation (format + build + tests)..."
           }

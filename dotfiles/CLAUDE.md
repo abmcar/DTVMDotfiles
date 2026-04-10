@@ -97,7 +97,7 @@ cd DTVMDotfiles && git add -A && git commit -m "<message>" && git push && cd ..
 
 ## Worktrees
 
-When creating a git worktree, always run `tools/worktree-init.sh <path>` after creation
+When creating a git worktree, run `git -C <path> submodule update --init` after creation
 to initialize submodules (`evmc/`, `tests/wast/spec`). Without this, cmake will fail.
 
 Worktree directories: use `.worktrees/` (project-local, gitignored).
