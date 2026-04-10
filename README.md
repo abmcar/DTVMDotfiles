@@ -29,7 +29,7 @@ DTVMDotfiles/
     ├── .claude/
     │   ├── settings.json       # Claude Code hooks 配置
     │   ├── agents/             # 4 个子 agent（compiler、perf、test、research）
-    │   ├── commands/           # 7 个斜杠命令（/dotfiles、/session-summary 等）
+    │   ├── commands/           # 5 个斜杠命令（/dotfiles、/research-new 等）
     │   ├── hooks/              # 5 个 hook 脚本（CI 验证、同步提醒、session 管理）
     │   └── rules/              # 8 条规则（代码风格、CI 纪律、架构约束等）
     └── perf/                   # 性能测试脚本和 EVM 字节码
