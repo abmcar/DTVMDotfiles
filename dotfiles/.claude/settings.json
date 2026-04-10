@@ -51,17 +51,6 @@
         ]
       }
     ],
-    "Stop": [
-      {
-        "hooks": [
-          {
-            "type": "command",
-            "command": "d=\"$PWD\"; while [ \"$d\" != \"/\" ] && [ ! -f \"$d/.claude/hooks/stop_validation.py\" ]; do d=\"$(dirname \"$d\")\"; done; python3 \"$d/.claude/hooks/stop_validation.py\"",
-            "timeout": 120,
-            "statusMessage": "Running format check..."
-          }
-        ]
-      }
-    ]
+    "Stop": []
   }
 }
