@@ -24,5 +24,12 @@ else
     warn "Source not found: $PARENT_DIR/.git/info/exclude"
 fi
 
+# Sync direction specs if Papers repo exists
+if [[ -x "$PARENT_DIR/docs/research/sync-specs.sh" ]]; then
+    echo ""
+    echo "Syncing direction specs..."
+    bash "$PARENT_DIR/docs/research/sync-specs.sh"
+fi
+
 echo ""
 echo "✓ Store operation complete"
