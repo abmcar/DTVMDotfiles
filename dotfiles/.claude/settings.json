@@ -2,6 +2,15 @@
   "hooks": {
     "PreToolUse": [
       {
+        "matcher": "Edit|Write",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "FILE=$(echo \"$CLAUDE_TOOL_INPUT\" | jq -r '.file_path // empty'); case \"$FILE\" in */evmc/*|*/third_party/*) echo '{\"decision\": \"block\", \"reason\": \"Do not modify evmc/ or third_party/ unless explicitly required\"}'; exit 0;; esac"
+          }
+        ]
+      },
+      {
         "matcher": "Bash",
         "hooks": [
           {
@@ -10,6 +19,24 @@
             "command": "d=\"$PWD\"; while [ \"$d\" != \"/\" ] && [ ! -f \"$d/.claude/hooks/pre-push-validation.sh\" ]; do d=\"$(dirname \"$d\")\"; done; [ -f \"$d/.claude/hooks/pre-push-validation.sh\" ] && bash \"$d/.claude/hooks/pre-push-validation.sh\"",
             "timeout": 600,
             "statusMessage": "Running pre-push CI validation (format + build + tests)..."
+          },
+          {
+            "type": "command",
+            "if": "Bash(git checkout*)",
+            "command": "d=\"$PWD\"; while [ \"$d\" != \"/\" ] && [ ! -f \"$d/.claude/hooks/git-branch-guard.sh\" ]; do d=\"$(dirname \"$d\")\"; done; [ -f \"$d/.claude/hooks/git-branch-guard.sh\" ] && bash \"$d/.claude/hooks/git-branch-guard.sh\"",
+            "timeout": 5
+          },
+          {
+            "type": "command",
+            "if": "Bash(git rebase*)",
+            "command": "d=\"$PWD\"; while [ \"$d\" != \"/\" ] && [ ! -f \"$d/.claude/hooks/git-branch-guard.sh\" ]; do d=\"$(dirname \"$d\")\"; done; [ -f \"$d/.claude/hooks/git-branch-guard.sh\" ] && bash \"$d/.claude/hooks/git-branch-guard.sh\"",
+            "timeout": 5
+          },
+          {
+            "type": "command",
+            "if": "Bash(git switch*)",
+            "command": "d=\"$PWD\"; while [ \"$d\" != \"/\" ] && [ ! -f \"$d/.claude/hooks/git-branch-guard.sh\" ]; do d=\"$(dirname \"$d\")\"; done; [ -f \"$d/.claude/hooks/git-branch-guard.sh\" ] && bash \"$d/.claude/hooks/git-branch-guard.sh\"",
+            "timeout": 5
           }
         ]
       }
@@ -23,6 +50,10 @@
             "command": "d=\"$PWD\"; while [ \"$d\" != \"/\" ] && [ ! -f \"$d/.claude/hooks/check-dotfiles-sync.sh\" ]; do d=\"$(dirname \"$d\")\"; done; bash \"$d/.claude/hooks/check-dotfiles-sync.sh\"",
             "timeout": 5,
             "statusMessage": "Checking dotfiles sync..."
+          },
+          {
+            "type": "command",
+            "command": "FILE=\"$CLAUDE_TOOL_INPUT_FILE_PATH\"; case \"$FILE\" in *.cpp|*.h|*.cc|*.cxx) clang-format -style=file -i \"$FILE\";; esac"
           }
         ]
       },
@@ -43,7 +74,7 @@
         "hooks": [
           {
             "type": "command",
-            "command": "bash .claude/hooks/session-check.sh",
+            "command": "d=\"$PWD\"; while [ \"$d\" != \"/\" ] && [ ! -f \"$d/.claude/hooks/session-check.sh\" ]; do d=\"$(dirname \"$d\")\"; done; [ -f \"$d/.claude/hooks/session-check.sh\" ] && bash \"$d/.claude/hooks/session-check.sh\"",
             "timeout": 15,
             "statusMessage": "Running housekeeping check..."
           }
