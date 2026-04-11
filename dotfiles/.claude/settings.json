@@ -28,11 +28,10 @@
       },
       {
         "matcher": "Bash",
-        "if": "Bash(git push*)",
         "hooks": [
           {
             "type": "command",
-            "command": "u=$(git -C \"$PWD\" remote get-url origin 2>/dev/null); case \"$u\" in */DTVMStack/DTVM|*/DTVMStack/DTVM.git|*/abmcar/DTVM|*/abmcar/DTVM.git) echo '{\"hookSpecificOutput\":{\"hookEventName\":\"PostToolUse\",\"additionalContext\":\"[ci-monitor] Push to DTVM detected. In the BACKGROUND: 1) Run gh run list --limit 1 --json databaseId,status,workflowName,headBranch to find the triggered run. 2) Run gh run watch <id> --exit-status in background. 3) On completion, if failed: gh run view <id> --log-failed and diagnose. If passed: briefly report. Do NOT interrupt your current task for this.\"}}' ;; esac",
+            "command": "payload=$(cat); cmd=$(printf '%s' \"$payload\" | jq -r '.tool_input.command // \"\"'); case \"$cmd\" in \"git push\"*|*\" git push\"*|*\"&& git push\"*|*\"; git push\"*) ;; *) exit 0 ;; esac; u=$(git -C \"$PWD\" remote get-url origin 2>/dev/null); case \"$u\" in *[/:]DTVMStack/DTVM|*[/:]DTVMStack/DTVM.git|*[/:]abmcar/DTVM|*[/:]abmcar/DTVM.git) echo '{\"hookSpecificOutput\":{\"hookEventName\":\"PostToolUse\",\"additionalContext\":\"[ci-monitor] Push to DTVM detected. In the BACKGROUND: 1) Run gh run list --limit 1 --json databaseId,status,workflowName,headBranch to find the triggered run. 2) Run gh run watch <id> --exit-status in background. 3) On completion, if failed: gh run view <id> --log-failed and diagnose. If passed: briefly report. Do NOT interrupt your current task for this.\"}}' ;; esac",
             "timeout": 5,
             "statusMessage": "Checking CI monitor..."
           }
