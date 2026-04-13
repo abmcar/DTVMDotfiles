@@ -30,7 +30,7 @@ DTVMDotfiles/
     │   ├── settings.json       # Claude Code hooks 配置
     │   ├── agents/             # 4 个子 agent（compiler、perf、test、research）
     │   ├── commands/           # 5 个斜杠命令（/dotfiles、/research-new 等）
-    │   ├── hooks/              # 5 个 hook 脚本（CI 验证、同步提醒、session 管理）
+    │   ├── hooks/              # 5 个 hook 脚本（文件守卫、CI 验证、同步提醒、session 管理）
     │   └── rules/              # 8 条规则（代码风格、CI 纪律、架构约束等）
     └── perf/                   # 性能测试脚本和 EVM 字节码
         ├── record_erc20_perf.sh
@@ -156,6 +156,7 @@ bash diff.sh
 
 | 触发时机 | 功能 |
 |---------|------|
+| `PreToolUse` (Edit/Write) | 编辑受管文件前进行守卫检查 |
 | `PreToolUse` (git push) | 在推送前运行完整 CI 流水线（格式检查 + 构建 + 测试） |
 | `PostToolUse` (Edit/Write) | 当受管文件被修改时提醒同步到 DTVMDotfiles |
 | `PostToolUse` (git push) | 推送后自动监控 CI 运行状态 |
