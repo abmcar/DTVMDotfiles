@@ -4,7 +4,7 @@
 # This script clones DTVMDotfiles, releases files, and runs init.sh
 # Usage: ./setup_from_dotfiles.sh [optional-target-directory]
 
-set -e
+set -euo pipefail
 
 # Configuration
 GITHUB_REPO="https://github.com/abmcar/DTVMDotfiles.git"

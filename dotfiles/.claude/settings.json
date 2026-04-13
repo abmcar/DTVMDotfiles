@@ -47,7 +47,7 @@
         "hooks": [
           {
             "type": "command",
-            "command": "d=\"$PWD\"; while [ \"$d\" != \"/\" ] && [ ! -f \"$d/.claude/hooks/check-dotfiles-sync.sh\" ]; do d=\"$(dirname \"$d\")\"; done; bash \"$d/.claude/hooks/check-dotfiles-sync.sh\"",
+            "command": "d=\"$PWD\"; while [ \"$d\" != \"/\" ] && [ ! -f \"$d/.claude/hooks/check-dotfiles-sync.sh\" ]; do d=\"$(dirname \"$d\")\"; done; [ -f \"$d/.claude/hooks/check-dotfiles-sync.sh\" ] && bash \"$d/.claude/hooks/check-dotfiles-sync.sh\"",
             "timeout": 5,
             "statusMessage": "Checking dotfiles sync..."
           },

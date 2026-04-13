@@ -232,41 +232,6 @@ syncCodexPrompts() {
     cp -r "$claude_commands_dir" "$codex_prompts_dir"
 }
 
-# --- Legacy functions (only used by store.sh fallback) ---
-
-copyPath() {
-    local src_path="$1"
-    local dst_path="$2"
-    local dst_dir
-
-    if [ ! -e "$src_path" ]; then
-        warn "Source not found: $src_path"
-        return 1
-    fi
-
-    dst_dir="$(dirname "$dst_path")"
-    mkdir -p "$dst_dir"
-
-    if [ -d "$src_path" ]; then
-        rm -rf "$dst_path"
-        cp -r "$src_path" "$dst_path"
-    else
-        cp -f "$src_path" "$dst_path"
-    fi
-}
-
-syncMirroredItems() {
-    local src_root="$1"
-    local dst_root="$2"
-    local rel_path
-
-    for rel_path in "${MIRRORED_ITEMS[@]}"; do
-        if copyPath "$src_root/$rel_path" "$dst_root/$rel_path"; then
-            echo "  Synced: $rel_path"
-        fi
-    done
-}
-
 # --- Exclude map functions ---
 
 isLiteralExcludePattern() {

@@ -33,7 +33,6 @@ for rel_item in "${MIRRORED_ITEMS[@]}"; do
 done
 
 modified_locally=()
-modified_in_dotfiles=()
 deleted_locally=()
 in_sync=0
 
@@ -86,7 +85,6 @@ print_category() {
 }
 
 print_category "modified locally:" "${modified_locally[@]+"${modified_locally[@]}"}"
-print_category "modified in dotfiles:" "${modified_in_dotfiles[@]+"${modified_in_dotfiles[@]}"}"
 print_category "deleted locally:" "${deleted_locally[@]+"${deleted_locally[@]}"}"
 print_category "new in dotfiles:" "${new_in_dotfiles[@]+"${new_in_dotfiles[@]}"}"
 

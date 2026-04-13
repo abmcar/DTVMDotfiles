@@ -30,7 +30,7 @@ DTVMDotfiles/
     │   ├── settings.json       # Claude Code hooks 配置
     │   ├── agents/             # 4 个子 agent（compiler、perf、test、research）
     │   ├── commands/           # 5 个斜杠命令（/dotfiles、/research-new 等）
-    │   ├── hooks/              # 5 个 hook 脚本（文件守卫、CI 验证、同步提醒、session 管理）
+    │   ├── hooks/              # 4 个 hook 脚本（branch 守卫、CI 验证、同步提醒、session 管理）
     │   └── rules/              # 8 条规则（代码风格、CI 纪律、架构约束等）
     └── perf/                   # 性能测试脚本和 EVM 字节码
         ├── record_erc20_perf.sh
@@ -97,7 +97,7 @@ DTVM/
 
 ```bash
 # 1. 在 DTVM 工作区中修改配置（如 .claude/rules/*.md、CLAUDE.md 等）
-# 2. 收集变更回 dotfiles
+# 2. 收集变更回 dotfiles（同时自动触发 docs/research/sync-specs.sh 同步研究方向 specs）
 cd DTVMDotfiles
 bash store.sh
 
@@ -156,9 +156,10 @@ bash diff.sh
 
 | 触发时机 | 功能 |
 |---------|------|
-| `PreToolUse` (Edit/Write) | 编辑受管文件前进行守卫检查 |
+| `PreToolUse` (Edit/Write) | 阻止修改 `evmc/` 和 `third_party/` 下的文件 |
 | `PreToolUse` (git push) | 在推送前运行完整 CI 流水线（格式检查 + 构建 + 测试） |
-| `PostToolUse` (Edit/Write) | 当受管文件被修改时提醒同步到 DTVMDotfiles |
+| `PreToolUse` (git checkout/rebase/switch) | 分支操作前检查工作区状态，提醒使用 worktree |
+| `PostToolUse` (Edit/Write) | 当受管文件被修改时提醒同步到 DTVMDotfiles；C++ 文件自动 clang-format |
 | `PostToolUse` (git push) | 推送后自动监控 CI 运行状态 |
 | `SessionStart` | 显示缓存的 housekeeping 报告 |
 
