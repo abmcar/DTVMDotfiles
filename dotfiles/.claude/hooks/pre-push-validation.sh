@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 # Pre-push validation: mirrors CI pipeline locally.
 # Runs format check, build, unittests, and statetests before allowing push.
-# Exit non-zero to block the push.
+# Outputs {"decision":"block",...} JSON on failure to block the push via CC hook protocol.
 
 set -euo pipefail
 
@@ -13,12 +13,12 @@ case "$PUSH_REMOTE" in
   *) exit 0 ;;
 esac
 
-# Find repo root
 REPO_ROOT="$(cd "$(dirname "$0")/../.." && pwd)"
 cd "$REPO_ROOT"
 
 SO_PATH="$REPO_ROOT/build/lib/libdtvmapi.so"
 EVMONE_BIN="$HOME/evmone/build/bin"
+LOG_DIR="/tmp"
 
 RED='\033[0;31m'
 GREEN='\033[0;32m'
@@ -27,7 +27,8 @@ NC='\033[0m'
 
 FAILED=0
 
-# CI-faithful cmake flags (superset of evmonetestsuite + evmonestatetestsuite)
+# Single source of truth for CI cmake flags.
+# The cache-check loop below derives its expected values from this array.
 CI_CMAKE_FLAGS=(
   -DCMAKE_BUILD_TYPE=Release
   -DZEN_ENABLE_EVM=ON
@@ -39,7 +40,6 @@ CI_CMAKE_FLAGS=(
   -DZEN_ENABLE_JIT_PRECOMPILE_FALLBACK=ON
 )
 
-# Backup current CMakeCache.txt so we can restore after tests
 CMAKE_CACHE="$REPO_ROOT/build/CMakeCache.txt"
 CMAKE_CACHE_BACKUP=""
 NEEDS_RESTORE=0
@@ -48,7 +48,7 @@ restore_cmake() {
   if [ "$NEEDS_RESTORE" -eq 1 ] && [ -n "$CMAKE_CACHE_BACKUP" ] && [ -f "$CMAKE_CACHE_BACKUP" ]; then
     step "Restoring original cmake configuration"
     cp "$CMAKE_CACHE_BACKUP" "$CMAKE_CACHE"
-    cmake --build build --target dtvmapi -j"$(nproc)" > /tmp/dtvm-restore-build.log 2>&1 || true
+    cmake --build build --target dtvmapi -j"$(nproc)" > "$LOG_DIR/dtvm-restore-build.log" 2>&1 || true
     rm -f "$CMAKE_CACHE_BACKUP"
     pass "Original cmake config restored"
   fi
@@ -56,17 +56,26 @@ restore_cmake() {
 
 trap restore_cmake EXIT
 
-step() {
-  echo -e "\n${YELLOW}▶ $1${NC}" >&2
+step() { echo -e "\n${YELLOW}▶ $1${NC}" >&2; }
+pass() { echo -e "${GREEN}✓ $1${NC}" >&2; }
+fail() { echo -e "${RED}✗ $1${NC}" >&2; FAILED=1; }
+
+block() {
+  echo -e "\n${RED}Pre-push validation FAILED. Push blocked.${NC}" >&2
+  echo "{\"decision\":\"block\",\"reason\":\"Pre-push validation failed: $1\"}"
+  exit 0
 }
 
-pass() {
-  echo -e "${GREEN}✓ $1${NC}" >&2
-}
-
-fail() {
-  echo -e "${RED}✗ $1${NC}" >&2
-  FAILED=1
+run_test() {
+  local label="$1" opts="$2" bin="$3" log="$4"
+  shift 4
+  step "$label"
+  if EVMONE_EXTERNAL_OPTIONS="$opts" "$EVMONE_BIN/$bin" "$@" > "$log" 2>&1; then
+    pass "$label passed"
+  else
+    echo -e "${RED}✗ $label FAILED — see $log${NC}" >&2
+    return 1
+  fi
 }
 
 # 1. Format check
@@ -77,20 +86,17 @@ else
   fail "Format check FAILED — run 'tools/format.sh format' to fix"
 fi
 
-# 2. Ensure cmake config matches CI flags
+# 2. Ensure cmake config matches CI flags (derived from CI_CMAKE_FLAGS)
 step "Checking cmake configuration against CI"
 RECONFIGURE=0
 if [ -f "$CMAKE_CACHE" ]; then
-  for flag_pair in \
-    "ZEN_ENABLE_EVM:BOOL=ON" \
-    "ZEN_ENABLE_SINGLEPASS_JIT:BOOL=OFF" \
-    "ZEN_ENABLE_MULTIPASS_JIT:BOOL=ON" \
-    "ZEN_ENABLE_CPU_EXCEPTION:BOOL=ON" \
-    "ZEN_ENABLE_VIRTUAL_STACK:BOOL=ON" \
-    "ZEN_ENABLE_LIBEVM:BOOL=ON" \
-    "ZEN_ENABLE_JIT_PRECOMPILE_FALLBACK:BOOL=ON"; do
-    key="${flag_pair%%=*}"
-    expected="${flag_pair##*=}"
+  for flag in "${CI_CMAKE_FLAGS[@]}"; do
+    # Skip -DCMAKE_BUILD_TYPE (not a ZEN_ flag, checked differently)
+    case "$flag" in -DCMAKE_BUILD_TYPE=*) continue ;; esac
+    # Parse "-DZEN_ENABLE_FOO=ON" → key="ZEN_ENABLE_FOO:BOOL", expected="ON"
+    kv="${flag#-D}"
+    key="${kv%%=*}:BOOL"
+    expected="${kv##*=}"
     actual=$(grep "^${key}=" "$CMAKE_CACHE" 2>/dev/null | head -1 | cut -d= -f2)
     if [ "$actual" != "$expected" ]; then
       echo -e "  ${YELLOW}${key}: ${actual:-<unset>} → ${expected}${NC}" >&2
@@ -106,13 +112,10 @@ if [ "$RECONFIGURE" -eq 1 ]; then
   cp "$CMAKE_CACHE" "$CMAKE_CACHE.pre-push-backup" 2>/dev/null || true
   CMAKE_CACHE_BACKUP="$CMAKE_CACHE.pre-push-backup"
   NEEDS_RESTORE=1
-  if cmake -S . -B build "${CI_CMAKE_FLAGS[@]}" > /tmp/dtvm-cmake-reconfig.log 2>&1; then
+  if cmake -S . -B build "${CI_CMAKE_FLAGS[@]}" > "$LOG_DIR/dtvm-cmake-reconfig.log" 2>&1; then
     pass "cmake reconfigured with CI flags"
   else
-    fail "cmake reconfigure FAILED — see /tmp/dtvm-cmake-reconfig.log"
-    echo -e "\n${RED}Pre-push validation FAILED. Push blocked.${NC}" >&2
-    echo '{"decision":"block","reason":"Pre-push validation failed: cmake reconfigure failed — see /tmp/dtvm-cmake-reconfig.log"}'
-    exit 0
+    block "cmake reconfigure failed — see $LOG_DIR/dtvm-cmake-reconfig.log"
   fi
 else
   pass "cmake config already matches CI"
@@ -120,65 +123,44 @@ fi
 
 # 3. Build
 step "Building dtvmapi"
-if cmake --build build --target dtvmapi -j"$(nproc)" > /tmp/dtvm-build.log 2>&1; then
-  pass "Build succeeded"
-else
-  fail "Build FAILED — see /tmp/dtvm-build.log"
+if ! cmake --build build --target dtvmapi -j"$(nproc)" > "$LOG_DIR/dtvm-build.log" 2>&1; then
+  block "build failed — see $LOG_DIR/dtvm-build.log"
 fi
-
-# Bail early if build failed (tests can't run without .so)
 if [ ! -f "$SO_PATH" ]; then
-  fail "libdtvmapi.so not found at $SO_PATH — cannot run tests"
-  echo -e "\n${RED}Pre-push validation FAILED. Push blocked.${NC}" >&2
-  echo '{"decision":"block","reason":"Pre-push validation failed: libdtvmapi.so not found — build first"}'
-  exit 0
+  block "libdtvmapi.so not found after build"
 fi
+pass "Build succeeded"
 
-# 4. evmone-unittests (multipass)
-step "evmone-unittests (multipass)"
-if EVMONE_EXTERNAL_OPTIONS="$SO_PATH,mode=multipass" \
-  "$EVMONE_BIN/evmone-unittests" \
-  --gtest_filter="$(paste -sd: tests/evmone_unittests/EVMOneMultipassUnitTestsRunList.txt)" \
-  > /tmp/dtvm-unittest-multipass.log 2>&1; then
-  pass "Multipass unittests passed"
-else
-  fail "Multipass unittests FAILED — see /tmp/dtvm-unittest-multipass.log"
-fi
+# 4. Tests — run all four in parallel
+MULTIPASS_FILTER="$(paste -sd: tests/evmone_unittests/EVMOneMultipassUnitTestsRunList.txt)"
+INTERP_FILTER="$(paste -sd: tests/evmone_unittests/EVMOneInterpreterUnitTestsRunList.txt)"
+STATE_ARGS=(tests/fixtures/fixtures/state_tests --vm external_vm -k fork_Cancun)
 
-# 5. evmone-unittests (interpreter)
-step "evmone-unittests (interpreter)"
-if EVMONE_EXTERNAL_OPTIONS="$SO_PATH,mode=interpreter" \
-  "$EVMONE_BIN/evmone-unittests" \
-  --gtest_filter="$(paste -sd: tests/evmone_unittests/EVMOneInterpreterUnitTestsRunList.txt)" \
-  > /tmp/dtvm-unittest-interpreter.log 2>&1; then
-  pass "Interpreter unittests passed"
-else
-  fail "Interpreter unittests FAILED — see /tmp/dtvm-unittest-interpreter.log"
-fi
+run_test "evmone-unittests (multipass)" \
+  "$SO_PATH,mode=multipass" evmone-unittests "$LOG_DIR/dtvm-unittest-multipass.log" \
+  --gtest_filter="$MULTIPASS_FILTER" &
+PID_UT_MP=$!
 
-# 6. evmone-statetest (multipass, fork_Cancun)
-step "evmone-statetest (multipass, fork_Cancun)"
-if EVMONE_EXTERNAL_OPTIONS="$SO_PATH,mode=multipass,enable_gas_metering=true" \
-  "$EVMONE_BIN/evmone-statetest" \
-  tests/fixtures/fixtures/state_tests \
-  --vm external_vm -k fork_Cancun \
-  > /tmp/dtvm-statetest-multipass.log 2>&1; then
-  pass "Multipass statetests passed"
-else
-  fail "Multipass statetests FAILED — see /tmp/dtvm-statetest-multipass.log"
-fi
+run_test "evmone-unittests (interpreter)" \
+  "$SO_PATH,mode=interpreter" evmone-unittests "$LOG_DIR/dtvm-unittest-interpreter.log" \
+  --gtest_filter="$INTERP_FILTER" &
+PID_UT_INT=$!
 
-# 7. evmone-statetest (interpreter, fork_Cancun)
-step "evmone-statetest (interpreter, fork_Cancun)"
-if EVMONE_EXTERNAL_OPTIONS="$SO_PATH,mode=interpreter,enable_gas_metering=true" \
-  "$EVMONE_BIN/evmone-statetest" \
-  tests/fixtures/fixtures/state_tests \
-  --vm external_vm -k fork_Cancun \
-  > /tmp/dtvm-statetest-interpreter.log 2>&1; then
-  pass "Interpreter statetests passed"
-else
-  fail "Interpreter statetests FAILED — see /tmp/dtvm-statetest-interpreter.log"
-fi
+run_test "evmone-statetest (multipass)" \
+  "$SO_PATH,mode=multipass,enable_gas_metering=true" evmone-statetest "$LOG_DIR/dtvm-statetest-multipass.log" \
+  "${STATE_ARGS[@]}" &
+PID_ST_MP=$!
+
+run_test "evmone-statetest (interpreter)" \
+  "$SO_PATH,mode=interpreter,enable_gas_metering=true" evmone-statetest "$LOG_DIR/dtvm-statetest-interpreter.log" \
+  "${STATE_ARGS[@]}" &
+PID_ST_INT=$!
+
+# Wait for all tests; collect failures from subshell exit codes
+wait "$PID_UT_MP" || FAILED=1
+wait "$PID_UT_INT" || FAILED=1
+wait "$PID_ST_MP" || FAILED=1
+wait "$PID_ST_INT" || FAILED=1
 
 # Summary
 echo "" >&2
@@ -186,8 +168,6 @@ if [ "$FAILED" -eq 0 ]; then
   echo -e "${GREEN}All pre-push checks passed. Push allowed.${NC}" >&2
   exit 0
 else
-  echo -e "${RED}Pre-push validation FAILED. Push blocked.${NC}" >&2
   echo -e "${RED}Fix the issues above, then try pushing again.${NC}" >&2
-  echo '{"decision":"block","reason":"Pre-push validation failed: one or more checks failed — see stderr for details"}'
-  exit 0
+  block "one or more checks failed — see stderr for details"
 fi
