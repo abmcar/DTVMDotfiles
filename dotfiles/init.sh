@@ -10,4 +10,3 @@ pushd tests/wast/spec && git apply ../spec.patch && popd
 git config user.name Abmcar
 git config user.email abmcar@qq.com
 git config push.default current
-# Release test
