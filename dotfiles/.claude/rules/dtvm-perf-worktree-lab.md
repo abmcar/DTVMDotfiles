@@ -54,6 +54,10 @@ any circumstances, even during cleanup:
 - For a branch worktree, use `git worktree add <path> -b <branch-name>`.
 - Always run `git submodule update --init --recursive` in a fresh DTVM worktree
   before configuring it.
+- After submodule init, run `bash DTVMDotfiles/worktree-sync.sh <path>` to
+  symlink dotfiles (rules, commands, hooks, settings) into the worktree.
+  Without this, a Claude Code session in the worktree will lack all project
+  configuration.
 - Remove stale branch worktrees with `rm -rf <path> && git worktree prune`.
   Do not use `git worktree remove` — it fails on worktrees with submodules.
 - Never remove `~/dtvm-baseline` — it is a permanent resource.
@@ -91,7 +95,8 @@ rm -f ~/evmone/libdtvmapi*.so
 
 **Sub-agent mitigation:** When dispatching sub-agents for test/perf work,
 include: "Use ~/evmone/ binaries directly. Never run .ci/run_test_suite.sh.
-Never copy .so files. In baseline worktree use build-baseline/ not build/."
+Never copy .so files. In baseline worktree use build-baseline/ not build/.
+After creating a worktree, run `bash DTVMDotfiles/worktree-sync.sh <path>`."
 
 ## Baseline Refresh
 

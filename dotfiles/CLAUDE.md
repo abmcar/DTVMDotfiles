@@ -103,6 +103,11 @@ cd DTVMDotfiles && git add -A && git commit -m "<message>" && git push && cd ..
 When creating a git worktree, run `git -C <path> submodule update --init` after creation
 to initialize submodules (`evmc/`, `tests/wast/spec`). Without this, cmake will fail.
 
+After submodule init, run `bash DTVMDotfiles/worktree-sync.sh <path>` to symlink
+Claude Code configuration (rules, commands, hooks, settings) into the worktree.
+Without this, a Claude Code session in the worktree will lack all project rules
+and commands.
+
 Worktree directories: use `.worktrees/` (project-local, gitignored).
 
 ## Build & Test

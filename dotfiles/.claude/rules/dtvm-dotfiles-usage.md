@@ -18,11 +18,12 @@ Read these files before answering any workflow question or making changes:
 
 ## Architecture
 
-DTVMDotfiles syncs configuration between machines using three scripts:
+DTVMDotfiles syncs configuration between machines using four scripts:
 
 - **`release.sh`**: `DTVMDotfiles/dotfiles/` → parent DTVM repo (file-level sync + manifest)
 - **`store.sh`**: parent DTVM repo → `DTVMDotfiles/dotfiles/` (manifest-guided)
 - **`diff.sh`**: compare deployed vs dotfiles, detect drift
+- **`worktree-sync.sh`**: symlink dotfiles from parent repo into a git worktree
 
 ### Manifest
 
@@ -47,6 +48,22 @@ All items in `MIRRORED_ITEMS` (defined in `lib/sync_common.sh`):
 - `.agents/skills/` — upstream-tracked skills, managed by the DTVM repo
 - Files in `.claude/` not originating from dotfiles (shown as "unmanaged" in diff.sh)
 
+### Worktree sync
+
+Git worktrees only contain tracked files. Since dotfiles-managed content is
+gitignored, worktrees lack all configuration. `worktree-sync.sh` creates
+symlinks from the worktree back to the main repo, so changes via `release.sh`
+are immediately visible. Run once per worktree after creation:
+
+```bash
+bash DTVMDotfiles/worktree-sync.sh <worktree-path>
+```
+
+The script must be invoked from the main repo (where DTVMDotfiles lives).
+It symlinks `.claude/` subdirectories (rules, commands, hooks, agents),
+settings files, `CLAUDE.md`, `CLAUDE.local.md`, `AGENTS.md`, `GEMINI.md`,
+`init.sh`, and `perf/`. It skips `.claude/skills/` (git-tracked).
+
 ### Additional release.sh behavior
 
 - Generates `.git/info/exclude` from `dotfiles/exclude.map.sh`
@@ -57,7 +74,8 @@ All items in `MIRRORED_ITEMS` (defined in `lib/sync_common.sh`):
 ## Use This Rule For
 
 - Explaining how to bootstrap a workspace with `setup_from_dotfiles.sh`
-- Explaining or editing the `release.sh` / `store.sh` / `diff.sh` workflow
+- Explaining or editing the `release.sh` / `store.sh` / `diff.sh` / `worktree-sync.sh` workflow
+- Syncing dotfiles into a new git worktree
 - Explaining why `.git/info/exclude` contains generated entries
 - Debugging why a dotfiles-managed file did or did not sync
 - Understanding which files are managed vs unmanaged
