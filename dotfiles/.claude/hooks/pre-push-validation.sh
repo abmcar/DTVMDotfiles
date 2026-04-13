@@ -5,16 +5,17 @@
 
 set -euo pipefail
 
+# Only run for pushes to the DTVM repo itself (not DTVMDotfiles, DTVM-Papers, etc.)
+# Check the repo at $PWD (where the push is happening), not the parent DTVM repo.
+PUSH_REMOTE=$(git remote get-url origin 2>/dev/null || true)
+case "$PUSH_REMOTE" in
+  *DTVMStack/DTVM|*DTVMStack/DTVM.git|*abmcar/DTVM|*abmcar/DTVM.git) ;;
+  *) exit 0 ;;
+esac
+
 # Find repo root
 REPO_ROOT="$(cd "$(dirname "$0")/../.." && pwd)"
 cd "$REPO_ROOT"
-
-# Only run for the main DTVM repo (skip submodules, worktrees of other repos)
-REMOTE_URL=$(git remote get-url origin 2>/dev/null || true)
-case "$REMOTE_URL" in
-  *DTVMStack/DTVM*|*abmcar/DTVM*) ;;
-  *) exit 0 ;;  # Not DTVM repo, skip
-esac
 
 SO_PATH="$REPO_ROOT/build/lib/libdtvmapi.so"
 EVMONE_BIN="$HOME/evmone/build/bin"
@@ -56,15 +57,15 @@ restore_cmake() {
 trap restore_cmake EXIT
 
 step() {
-  echo -e "\n${YELLOW}▶ $1${NC}"
+  echo -e "\n${YELLOW}▶ $1${NC}" >&2
 }
 
 pass() {
-  echo -e "${GREEN}✓ $1${NC}"
+  echo -e "${GREEN}✓ $1${NC}" >&2
 }
 
 fail() {
-  echo -e "${RED}✗ $1${NC}"
+  echo -e "${RED}✗ $1${NC}" >&2
   FAILED=1
 }
 
@@ -92,7 +93,7 @@ if [ -f "$CMAKE_CACHE" ]; then
     expected="${flag_pair##*=}"
     actual=$(grep "^${key}=" "$CMAKE_CACHE" 2>/dev/null | head -1 | cut -d= -f2)
     if [ "$actual" != "$expected" ]; then
-      echo -e "  ${YELLOW}${key}: ${actual:-<unset>} → ${expected}${NC}"
+      echo -e "  ${YELLOW}${key}: ${actual:-<unset>} → ${expected}${NC}" >&2
       RECONFIGURE=1
     fi
   done
@@ -109,8 +110,9 @@ if [ "$RECONFIGURE" -eq 1 ]; then
     pass "cmake reconfigured with CI flags"
   else
     fail "cmake reconfigure FAILED — see /tmp/dtvm-cmake-reconfig.log"
-    echo -e "\n${RED}Pre-push validation FAILED. Push blocked.${NC}"
-    exit 1
+    echo -e "\n${RED}Pre-push validation FAILED. Push blocked.${NC}" >&2
+    echo '{"decision":"block","reason":"Pre-push validation failed: cmake reconfigure failed — see /tmp/dtvm-cmake-reconfig.log"}'
+    exit 0
   fi
 else
   pass "cmake config already matches CI"
@@ -127,8 +129,9 @@ fi
 # Bail early if build failed (tests can't run without .so)
 if [ ! -f "$SO_PATH" ]; then
   fail "libdtvmapi.so not found at $SO_PATH — cannot run tests"
-  echo -e "\n${RED}Pre-push validation FAILED. Push blocked.${NC}"
-  exit 1
+  echo -e "\n${RED}Pre-push validation FAILED. Push blocked.${NC}" >&2
+  echo '{"decision":"block","reason":"Pre-push validation failed: libdtvmapi.so not found — build first"}'
+  exit 0
 fi
 
 # 4. evmone-unittests (multipass)
@@ -178,12 +181,13 @@ else
 fi
 
 # Summary
-echo ""
+echo "" >&2
 if [ "$FAILED" -eq 0 ]; then
-  echo -e "${GREEN}All pre-push checks passed. Push allowed.${NC}"
+  echo -e "${GREEN}All pre-push checks passed. Push allowed.${NC}" >&2
   exit 0
 else
-  echo -e "${RED}Pre-push validation FAILED. Push blocked.${NC}"
-  echo -e "${RED}Fix the issues above, then try pushing again.${NC}"
-  exit 1
+  echo -e "${RED}Pre-push validation FAILED. Push blocked.${NC}" >&2
+  echo -e "${RED}Fix the issues above, then try pushing again.${NC}" >&2
+  echo '{"decision":"block","reason":"Pre-push validation failed: one or more checks failed — see stderr for details"}'
+  exit 0
 fi
