@@ -2,14 +2,7 @@
 name: perf-agent
 description: Specialist for performance analysis, benchmarking, and optimization proposals. Use proactively when the task involves profiling, benchmark comparison, or performance investigation.
 model: sonnet
-tools:
-  - Read
-  - Glob
-  - Grep
-  - Bash
-  - Edit
-  - Write
-  - LSP
+tools: all
 maxTurns: 100
 memory: project
 effort: high

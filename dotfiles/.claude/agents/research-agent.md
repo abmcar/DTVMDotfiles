@@ -2,17 +2,7 @@
 name: research-agent
 description: Read-only specialist for codebase exploration, web research, documentation reading, and architecture analysis. Use proactively when you need to gather information before making decisions, or when exploration would pollute the main context.
 model: opus
-tools:
-  - Read
-  - Glob
-  - Grep
-  - Bash
-  - WebSearch
-  - WebFetch
-  - LSP
-disallowedTools:
-  - Edit
-  - Write
+tools: all
 memory: project
 effort: high
 color: green

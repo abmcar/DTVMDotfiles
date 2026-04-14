@@ -2,14 +2,7 @@
 name: test-agent
 description: Specialist for running test suites, CI reproduction, and test result analysis. Use proactively when you need to run evmone-unittests, evmone-statetest, or reproduce CI failures.
 model: sonnet
-tools:
-  - Read
-  - Glob
-  - Grep
-  - Bash
-disallowedTools:
-  - Edit
-  - Write
+tools: all
 maxTurns: 100
 effort: medium
 color: purple
