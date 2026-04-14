@@ -25,7 +25,14 @@ if [ -f "$REPORT" ]; then
     fi
     if [ "$AGE" -le 86400 ]; then
         CONTENT=$(<"$REPORT")
-        [ -n "$CONTENT" ] && OUTPUT="$CONTENT"
+        if [ -n "$CONTENT" ]; then
+            if [ -n "$OUTPUT" ]; then
+                OUTPUT="$OUTPUT
+$CONTENT"
+            else
+                OUTPUT="$CONTENT"
+            fi
+        fi
     fi
 fi
 

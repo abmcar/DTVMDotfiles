@@ -6,7 +6,7 @@
         "hooks": [
           {
             "type": "command",
-            "command": "FILE=$(echo \"$CLAUDE_TOOL_INPUT\" | jq -r '.file_path // empty'); case \"$FILE\" in */evmc/*|*/third_party/*) echo '{\"decision\": \"block\", \"reason\": \"Do not modify evmc/ or third_party/ unless explicitly required\"}'; exit 0;; esac"
+            "command": "INPUT=$(cat); FILE=$(echo \"$INPUT\" | jq -r '.tool_input.file_path // empty'); case \"$FILE\" in */evmc/*|*/third_party/*) echo '{\"decision\": \"block\", \"reason\": \"Do not modify evmc/ or third_party/ unless explicitly required\"}'; exit 0;; esac"
           }
         ]
       },
@@ -53,7 +53,7 @@
           },
           {
             "type": "command",
-            "command": "FILE=\"$CLAUDE_TOOL_INPUT_FILE_PATH\"; case \"$FILE\" in *.cpp|*.h|*.cc|*.cxx) clang-format -style=file -i \"$FILE\";; esac"
+            "command": "INPUT=$(cat); FILE=$(echo \"$INPUT\" | jq -r '.tool_input.file_path // empty'); case \"$FILE\" in *.cpp|*.h|*.cc|*.cxx) clang-format -style=file -i \"$FILE\";; esac"
           }
         ]
       },

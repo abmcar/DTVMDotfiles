@@ -77,7 +77,7 @@ Always run `tools/format.sh format` after editing C/C++ files.
 3. **`.so` naming** — The library must be named `libdtvmapi.so`. EVMC loader derives symbol name from filename; renaming breaks loading.
 4. **Code style** — LLVM conventions: PascalCase variables, camelCase functions. English comments only. See `.claude/rules/cpp-code-style.md`.
 5. **License header** — New `.h`/`.cpp` files must start with the Apache-2.0 header.
-6. **Worktrees** — After creating a git worktree, always run `tools/worktree-init.sh <path>` to initialize submodules. To remove a worktree: `rm -rf <path> && git worktree prune` (not `git worktree remove`, which fails with submodules).
+6. **Worktrees** — After creating a git worktree, run `git -C <path> submodule update --init --recursive` then `bash DTVMDotfiles/worktree-sync.sh <path>` to initialize. To remove: `rm -rf <path> && git worktree prune` (not `git worktree remove`, which fails with submodules).
 
 ## Skills & References
 

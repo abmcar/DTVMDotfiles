@@ -16,13 +16,15 @@ esac
 WORKTREE_PATH="$PWD"
 ACTIONS=""
 
-# Find main repo via git common dir
-MAIN_GIT_DIR="$(git rev-parse --git-common-dir 2>/dev/null)" || exit 0
-MAIN_REPO="$(cd "$MAIN_GIT_DIR/.." && pwd)"
+# Find main repo by walking up (agent worktrees live under <main-repo>/.claude/worktrees/)
+d="$PWD"
+while [ "$d" != "/" ] && [ ! -d "$d/DTVMDotfiles" ]; do d="$(dirname "$d")"; done
+[ "$d" = "/" ] && exit 0
+MAIN_REPO="$d"
 
 # 1. Initialize submodules (evmc/ needed for cmake configure)
 if [ ! -d "$WORKTREE_PATH/evmc/include" ]; then
-    if git submodule update --init 2>/dev/null; then
+    if git submodule update --init evmc 2>/dev/null; then
         ACTIONS="submodules initialized"
     fi
 fi

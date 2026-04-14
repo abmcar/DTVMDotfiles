@@ -21,6 +21,7 @@ DTVM is a deterministic VM with EVM ABI compatibility. Core implementation is in
 - **perf-agent**: Profiling, benchmark analysis, performance comparison
 - **test-agent**: Running test suites, CI reproduction, test result analysis
 - **research-agent**: Codebase exploration, web research, information gathering (read-only)
+- **doc-agent**: Change document creation/update, module spec maintenance
 - Use parallel dispatch when tasks are independent
 - Use sequential dispatch when output from one task feeds into another
 - Standard pipeline: research-agent → compiler-agent → test-agent → perf-agent
