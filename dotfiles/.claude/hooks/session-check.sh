@@ -6,6 +6,15 @@ set -euo pipefail
 
 OUTPUT=""
 
+# Part 0: Auto-bootstrap agent worktrees (submodule init + dotfiles sync)
+BOOTSTRAP_HOOK="$(dirname "${BASH_SOURCE[0]}")/agent-worktree-bootstrap.sh"
+if [ -f "$BOOTSTRAP_HOOK" ]; then
+    BOOTSTRAP_OUT="$(bash "$BOOTSTRAP_HOOK" 2>/dev/null)" || true
+    if [ -n "${BOOTSTRAP_OUT:-}" ]; then
+        OUTPUT="$BOOTSTRAP_OUT"
+    fi
+fi
+
 # Part 1: Cached housekeeping report (from daily cron)
 REPORT="$HOME/.claude/session-check-report.txt"
 if [ -f "$REPORT" ]; then

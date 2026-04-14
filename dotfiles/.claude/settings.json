@@ -70,6 +70,19 @@
         ]
       }
     ],
+    "PostToolUseFailure": [
+      {
+        "matcher": "Bash",
+        "hooks": [
+          {
+            "type": "command",
+            "if": "Bash(cmake --build*)",
+            "command": "echo '{\"hookSpecificOutput\":{\"hookEventName\":\"PostToolUseFailure\",\"additionalContext\":\"Build failed. Focus on the FIRST error only — later errors are usually cascading. Check: 1) Missing include? 2) Type mismatch? 3) Linker error (undefined symbol)? Fix the root cause, not symptoms. Run tools/format.sh check too.\"}}'",
+            "timeout": 5
+          }
+        ]
+      }
+    ],
     "SessionStart": [
       {
         "hooks": [
@@ -82,6 +95,17 @@
         ]
       }
     ],
-    "Stop": []
+    "Stop": [],
+    "PreCompact": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "echo '{\"hookSpecificOutput\":{\"hookEventName\":\"PreCompact\",\"additionalContext\":\"Before compacting, preserve: 1) Full change doc path and its current status. 2) All plan steps and which are completed/in-progress. 3) Current worktree path and branch name. 4) Any test results or benchmark numbers from this session. 5) Key decisions made during brainstorming.\"}}'",
+            "timeout": 5
+          }
+        ]
+      }
+    ]
   }
 }
