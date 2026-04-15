@@ -6,119 +6,68 @@ alwaysApply: false
 
 # DTVM Perf Worktree Lab
 
-Keep the local performance environment minimal and reproducible.
+For CI reproduction see `.claude/rules/dtvm-build-config.md`. For evmone
+benchmark commands see `.claude/commands/dtvm-evmone-benchmark.md`.
 
-Use this rule for local perf iteration workflow, not CI reproduction. For CI
-job flags and `.ci/run_test_suite.sh`, see
-`.claude/rules/dtvm-build-config.md`. For running evmone benchmarks or
-before/after comparisons, see
-`.claude/commands/dtvm-evmone-benchmark.md`.
+## Permanent Resources (never delete, never recreate)
 
-## Permanent Resources (never delete)
+- `~/dtvm-baseline` — git worktree on `upstream/main`, build dir `build-baseline/`.
+  Refresh with `git -C ~/dtvm-baseline fetch upstream && git -C ~/dtvm-baseline checkout upstream/main`;
+  rebuild incrementally only when upstream/main changed:
+  `cmake --build ~/dtvm-baseline/build-baseline --target dtvmapi -j$(nproc)`.
+- `~/evmone` — canonical evmone install (bench, statetest, unittests, evmc CLI).
 
-These two resources are persistent infrastructure. Do not remove them under
-any circumstances, even during cleanup:
+Long-lived directories kept unless the user says otherwise: DTVM repo root,
+`~/dtvm-baseline`, `~/evmone`, and one active branch worktree per optimization
+branch. Never create temporary detached baseline worktrees, additional evmone
+clones, or `evmone-for-test-*` directories; delete any stale
+`evmone-for-test-*` if found. Treat `git worktree list` as authoritative.
 
-- `~/dtvm-baseline` — git worktree tracking `upstream/main`,
-  built at `build-baseline/`. Refresh with `git fetch upstream` + checkout;
-  rebuild incrementally only when upstream/main has changed.
-- `~/evmone` — the single canonical evmone installation
-  (bench, statetest, unittests, evmc CLI all built here).
+## Branch Worktrees
 
-## Workflow
+- **Create**: use the `worktree-bootstrap` skill (wraps
+  `DTVMDotfiles/worktree-init.sh` — submodule init + dotfiles sync in one
+  step). Place worktrees under `.worktrees/` (gitignored). Do NOT use raw
+  `git worktree add` + manual submodule/dotfiles steps. See CLAUDE.md
+  Worktrees section.
+- **Remove**: `rm -rf <path> && git worktree prune`.
+  Do NOT use `git worktree remove` — fails on worktrees with submodules.
+  Never remove `~/dtvm-baseline` — it is a permanent resource.
 
-1. Keep the following long-lived directories unless the user says otherwise:
-   - the DTVM repo root (current working directory)
-   - `~/dtvm-baseline` — persistent baseline worktree (see above)
-   - `~/evmone` — canonical evmone installation
-   - one active branch worktree for the current optimization branch
-2. Do not create temporary detached baseline worktrees. The persistent
-   `~/dtvm-baseline` worktree serves this purpose; refresh it with
-   `git fetch upstream && git checkout upstream/main` instead.
-3. Treat `git worktree list` as authoritative for DTVM worktrees.
-4. Benchmarking passes `libdtvmapi.so` as an EVMC command-line argument.
-   Never copy `.so` files into the evmone directory.
-5. **The `.so` file must be named `libdtvmapi.so`** — never rename it (e.g.
-   `libdtvmapi_loopaware.so`). EVMC loader derives the create-function
-   symbol from the filename (`lib` stripped, extensions removed →
-   `evmc_create_dtvmapi`). A different filename produces a wrong symbol
-   lookup and fails with "EVMC create function not found".
-6. **Always reference the `.so` at its original build path** — do not copy
-   it to `/tmp/` or anywhere else. The baseline and branch builds live in
-   separate worktrees (`dtvm-baseline/build-baseline/lib/libdtvmapi.so`
-   vs `<branch>/build/lib/libdtvmapi.so`), so they never collide.
-   There is no reason to create intermediate copies.
+## libdtvmapi.so Rules
 
-## Worktree Rules
+- **Filename must be `libdtvmapi.so`** — EVMC loader derives
+  `evmc_create_dtvmapi` from the stem; renames break symbol lookup. (Full
+  rationale in `.claude/commands/dtvm-evmone-benchmark.md`.)
+- **Reference the .so at its build path** — never copy to `~/evmone/`,
+  `/tmp/`, or anywhere else. Pass the path as the EVMC VM string to
+  `evmone-bench`.
 
-- For a branch worktree, use `git worktree add <path> -b <branch-name>`.
-- Always run `git submodule update --init --recursive` in a fresh DTVM worktree
-  before configuring it.
-- After submodule init, run `bash DTVMDotfiles/worktree-sync.sh <path>` to
-  symlink dotfiles (rules, commands, hooks, settings) into the worktree.
-  Without this, a Claude Code session in the worktree will lack all project
-  configuration.
-- Remove stale branch worktrees with `rm -rf <path> && git worktree prune`.
-  Do not use `git worktree remove` — it fails on worktrees with submodules.
-- Never remove `~/dtvm-baseline` — it is a permanent resource.
+## Forbidden Artifacts
 
-## evmone Rules
+`.ci/run_test_suite.sh` is for disposable CI containers. **Never run it from
+the DTVM root locally.** If run, it leaves:
 
-- `~/evmone` is the single canonical evmone installation.
-  Do not clone additional evmone copies or create `evmone-for-test-*`
-  directories.
-- Do not copy `libdtvmapi.so` into the evmone directory. Pass the library
-  path as the EVMC VM string argument to `evmone-bench` instead.
-- If stale `evmone-for-test-*` directories appear, delete them.
-
-## Forbidden Artifacts (must not exist)
-
-The CI script `.ci/run_test_suite.sh` is designed for disposable CI
-containers — it clones evmone into the current working directory and copies
-`.so` files into the clone. **Never run this script from the DTVM root
-locally.** If someone does, it creates these artifacts:
-
-| Path | Created by |
-|------|-----------|
-| `<repo>/evmone/` | CI `benchmarksuite` / `evmonetestsuite` |
-| `<repo>/evmone-statetest/` | CI `evmonestatetestsuite` |
-| `<repo>/asmjit/` | evmone `--recurse-submodules` residue |
+| Path | Cause |
+|------|-------|
+| `<repo>/evmone/`, `<repo>/evmone-statetest/`, `<repo>/asmjit/` | CI clone/submodule |
 | `~/evmone/libdtvmapi*.so` | CI `cp build/lib/*` pattern |
-| `<baseline-worktree>/build/` | Agent using wrong build dir name |
+| `<baseline-worktree>/build/` | wrong build dir name (should be `build-baseline/`) |
 
-If any of these exist, delete them immediately:
+Delete if present:
 ```bash
-# Run from the DTVM repo root
 rm -rf evmone/ evmone-statetest/ asmjit/
 rm -f ~/evmone/libdtvmapi*.so
 ```
 
-**Sub-agent mitigation:** When dispatching sub-agents for test/perf work,
-include: "Use ~/evmone/ binaries directly. Never run .ci/run_test_suite.sh.
-Never copy .so files. In baseline worktree use build-baseline/ not build/.
-After creating a worktree, run `bash DTVMDotfiles/worktree-sync.sh <path>`."
+## Sub-agent Dispatch
 
-## Baseline Refresh
-
-To update the persistent baseline to the latest upstream/main:
-
-```bash
-git -C ~/dtvm-baseline fetch upstream
-git -C ~/dtvm-baseline checkout upstream/main
-# Rebuild only if upstream/main changed since the last build:
-cmake --build ~/dtvm-baseline/build-baseline --target dtvmapi -j$(nproc)
-```
+When dispatching test/perf sub-agents, include verbatim:
+"Use ~/evmone/ binaries directly. Never run .ci/run_test_suite.sh. Never copy
+.so files. In baseline worktree use build-baseline/ not build/. Create
+worktrees via the `worktree-bootstrap` skill, never raw `git worktree add`."
 
 ## Output Requirements
 
-When using this rule, always report:
-
-- which directories are being kept
-- which directories are being created
-- which directories are being removed
-- which worktree is the active branch worktree
-
-## References
-
-- See `.claude/commands/dtvm-evmone-benchmark.md` for benchmark run commands
-  and before/after comparison workflow.
+When using this rule, always report which directories are being kept, created,
+removed, and which worktree is the active branch worktree.
