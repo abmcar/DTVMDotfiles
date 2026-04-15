@@ -102,7 +102,9 @@ create_link() {
 mkdir -p "$WORKTREE_PATH/.claude"
 
 # Managed directories — symlink each one
-for dir in rules commands hooks agents; do
+# (skills is auto-generated via .agents/tooling/generate_skill_mirrors.py
+# and gitignored at repo level; symlink so worktrees inherit mirrors)
+for dir in rules commands hooks agents skills; do
     create_link "$WORKTREE_PATH/.claude/$dir" "$MAIN_REPO/.claude/$dir"
 done
 
@@ -111,8 +113,12 @@ for file in settings.json settings.local.json; do
     create_link "$WORKTREE_PATH/.claude/$file" "$MAIN_REPO/.claude/$file"
 done
 
-# Report skipped items
-printf "  - .claude/skills/ (git-tracked, skipped)\n"
+# Personal skill SSOT (untracked, dotfiles-managed — upstream skills come
+# via git). Without this link, Skill-tool invocation inside a worktree
+# would fail to load the full source content.
+mkdir -p "$WORKTREE_PATH/.agents/skills"
+create_link "$WORKTREE_PATH/.agents/skills/worktree-bootstrap" \
+    "$MAIN_REPO/.agents/skills/worktree-bootstrap"
 
 # --- Root-level files ---
 

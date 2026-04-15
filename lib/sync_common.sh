@@ -31,6 +31,7 @@ declare -agr MIRRORED_ITEMS=(
     "perf/erc20.evm.hex"
     "perf/fib.evm.hex"
     "perf/fibr.evm.hex"
+    ".agents/skills/worktree-bootstrap"
 )
 
 excludeHeader() {
