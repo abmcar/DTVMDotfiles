@@ -1,6 +1,7 @@
 #!/bin/bash
 # Auto-initialize agent worktrees created by Claude Code's isolation:"worktree" mode.
-# Ensures submodules and dotfiles are available for build/test operations.
+# Delegates to DTVMDotfiles/worktree-init.sh — the single source of truth shared
+# with the `worktree-bootstrap` skill.
 #
 # Called automatically from session-check.sh on SessionStart.
 # Can also be run standalone: bash .claude/hooks/agent-worktree-bootstrap.sh
@@ -13,31 +14,16 @@ case "$PWD" in
     *) exit 0 ;;
 esac
 
-WORKTREE_PATH="$PWD"
-ACTIONS=""
+# Warm-path: already bootstrapped (dotfiles synced + evmc initialized)
+[ -L "$PWD/.claude/rules" ] && [ -e "$PWD/evmc/include" ] && exit 0
 
 # Find main repo by walking up (agent worktrees live under <main-repo>/.claude/worktrees/)
 d="$PWD"
 while [ "$d" != "/" ] && [ ! -d "$d/DTVMDotfiles" ]; do d="$(dirname "$d")"; done
 [ "$d" = "/" ] && exit 0
-MAIN_REPO="$d"
 
-# 1. Initialize submodules (evmc/ needed for cmake configure)
-if [ ! -d "$WORKTREE_PATH/evmc/include" ]; then
-    if git submodule update --init evmc 2>/dev/null; then
-        ACTIONS="submodules initialized"
-    fi
-fi
+INIT_SCRIPT="$d/DTVMDotfiles/worktree-init.sh"
+[ -f "$INIT_SCRIPT" ] || exit 0
 
-# 2. Sync dotfiles from main repo (rules, commands, hooks, settings)
-SYNC_SCRIPT="$MAIN_REPO/DTVMDotfiles/worktree-sync.sh"
-if [ -f "$SYNC_SCRIPT" ] && [ ! -L "$WORKTREE_PATH/.claude/rules" ]; then
-    if bash "$SYNC_SCRIPT" "$WORKTREE_PATH" >/dev/null 2>&1; then
-        ACTIONS="${ACTIONS:+$ACTIONS, }dotfiles synced"
-    fi
-fi
-
-if [ -n "$ACTIONS" ]; then
-    echo "[worktree-bootstrap] $ACTIONS"
-fi
+bash "$INIT_SCRIPT" --minimal "$PWD" || true
 exit 0

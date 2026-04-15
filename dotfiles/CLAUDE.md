@@ -30,8 +30,9 @@ DTVM is a deterministic VM with EVM ABI compatibility. Core implementation is in
   When a task requires sub-dispatching (e.g., build + test in one agent),
   use `subagent_type: "general-purpose"` with role constraints in the prompt
 - Agent worktrees (`isolation: "worktree"`) are auto-bootstrapped by the
-  SessionStart hook (submodule init + dotfiles sync). As fallback, include
-  in the agent prompt: "Run `git submodule update --init` before any build."
+  SessionStart hook, which delegates to `DTVMDotfiles/worktree-init.sh`
+  (submodule init + dotfiles sync). As fallback, include in the agent
+  prompt: "Run `bash DTVMDotfiles/worktree-init.sh .` before any build."
 
 ### Research First (EnterPlanMode)
 - New features, architecture changes, or breaking changes
@@ -58,10 +59,12 @@ with superpowers skills. Simple bug fixes or single-file edits may skip to step 
 ### 3. Execute
 - Use `superpowers:executing-plans` or `superpowers:subagent-driven-development`
 - Apply `superpowers:test-driven-development` where applicable
-- **MUST** use `superpowers:using-git-worktrees` when adding experimental changes
+- **MUST** use the `worktree-bootstrap` skill when adding experimental changes
   (performance optimizations, algorithm changes, SPP activation, etc.) on a branch
   that already has an open PR or reviewed commits. Never experiment directly on a
-  branch with work you can't afford to lose.
+  branch with work you can't afford to lose. Do **not** use the upstream
+  `superpowers:using-git-worktrees` skill in this repo — it does not init
+  submodules or sync dotfiles and will leave the worktree unusable.
 - After each logical unit: build gate → test gate → format gate
 
 ### 4. Verify
@@ -107,13 +110,10 @@ cd DTVMDotfiles && git add -A && git commit -m "<message>" && git push && cd ..
 
 ## Worktrees
 
-When creating a git worktree, run `git -C <path> submodule update --init` after creation
-to initialize submodules (`evmc/`, `tests/wast/spec`). Without this, cmake will fail.
-
-After submodule init, run `bash DTVMDotfiles/worktree-sync.sh <path>` to symlink
-Claude Code configuration (rules, commands, hooks, settings) into the worktree.
-Without this, a Claude Code session in the worktree will lack all project rules
-and commands.
+Always create DTVM worktrees via the `worktree-bootstrap` skill. It wraps
+`DTVMDotfiles/worktree-init.sh`, which handles submodule init + dotfiles
+symlink in one step. The same script backs the SessionStart hook for agent
+worktrees, so manual and agent flows behave identically.
 
 Worktree directories: use `.worktrees/` (project-local, gitignored).
 
