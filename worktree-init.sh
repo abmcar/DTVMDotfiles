@@ -29,9 +29,12 @@ fi
 WORKTREE_PATH="$(cd "$1" && pwd)"
 ACTIONS=()
 
-# Share submodule .git/modules cache across worktrees (idempotent, worktrees share .git/config).
-git -C "$WORKTREE_PATH" config submodule.alternateLocation superproject
-git -C "$WORKTREE_PATH" config submodule.alternateErrorStrategy info
+# Reuse main repo's submodule clones across worktrees instead of re-cloning per worktree.
+if [ "$(git -C "$WORKTREE_PATH" config --get submodule.alternateLocation 2>/dev/null)" != "superproject" ]; then
+    git -C "$WORKTREE_PATH" config submodule.alternateLocation superproject
+    git -C "$WORKTREE_PATH" config submodule.alternateErrorStrategy info
+    ACTIONS+=("submodule alternate enabled")
+fi
 
 if [ $MINIMAL -eq 1 ]; then
     if [ ! -d "$WORKTREE_PATH/evmc/include" ]; then
