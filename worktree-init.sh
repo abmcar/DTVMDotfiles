@@ -29,6 +29,10 @@ fi
 WORKTREE_PATH="$(cd "$1" && pwd)"
 ACTIONS=()
 
+# Share submodule .git/modules cache across worktrees (idempotent, worktrees share .git/config).
+git -C "$WORKTREE_PATH" config submodule.alternateLocation superproject
+git -C "$WORKTREE_PATH" config submodule.alternateErrorStrategy info
+
 if [ $MINIMAL -eq 1 ]; then
     if [ ! -d "$WORKTREE_PATH/evmc/include" ]; then
         if git -C "$WORKTREE_PATH" submodule update --init evmc >/dev/null 2>&1; then
