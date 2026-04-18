@@ -16,26 +16,26 @@
           {
             "type": "command",
             "if": "Bash(git push*)",
-            "command": "d=\"$PWD\"; while [ \"$d\" != \"/\" ] && [ ! -f \"$d/.claude/hooks/pre-push-validation.sh\" ]; do d=\"$(dirname \"$d\")\"; done; [ -f \"$d/.claude/hooks/pre-push-validation.sh\" ] && bash \"$d/.claude/hooks/pre-push-validation.sh\"",
+            "command": "INPUT=$(cat); CMD=$(echo \"$INPUT\" | jq -r '.tool_input.command // empty' 2>/dev/null); case \"$CMD\" in *'git push'*) d=\"$PWD\"; while [ \"$d\" != \"/\" ] && [ ! -f \"$d/.claude/hooks/pre-push-validation.sh\" ]; do d=\"$(dirname \"$d\")\"; done; [ -f \"$d/.claude/hooks/pre-push-validation.sh\" ] && bash \"$d/.claude/hooks/pre-push-validation.sh\" ;; esac",
             "timeout": 600,
             "statusMessage": "Running pre-push CI validation (format + build + tests)..."
           },
           {
             "type": "command",
             "if": "Bash(git checkout*)",
-            "command": "d=\"$PWD\"; while [ \"$d\" != \"/\" ] && [ ! -f \"$d/.claude/hooks/git-branch-guard.sh\" ]; do d=\"$(dirname \"$d\")\"; done; [ -f \"$d/.claude/hooks/git-branch-guard.sh\" ] && bash \"$d/.claude/hooks/git-branch-guard.sh\"",
+            "command": "INPUT=$(cat); CMD=$(echo \"$INPUT\" | jq -r '.tool_input.command // empty' 2>/dev/null); case \"$CMD\" in *'git checkout'*|*'git -C '*' checkout'*) d=\"$PWD\"; while [ \"$d\" != \"/\" ] && [ ! -f \"$d/.claude/hooks/git-branch-guard.sh\" ]; do d=\"$(dirname \"$d\")\"; done; [ -f \"$d/.claude/hooks/git-branch-guard.sh\" ] && bash \"$d/.claude/hooks/git-branch-guard.sh\" ;; esac",
             "timeout": 5
           },
           {
             "type": "command",
             "if": "Bash(git rebase*)",
-            "command": "d=\"$PWD\"; while [ \"$d\" != \"/\" ] && [ ! -f \"$d/.claude/hooks/git-branch-guard.sh\" ]; do d=\"$(dirname \"$d\")\"; done; [ -f \"$d/.claude/hooks/git-branch-guard.sh\" ] && bash \"$d/.claude/hooks/git-branch-guard.sh\"",
+            "command": "INPUT=$(cat); CMD=$(echo \"$INPUT\" | jq -r '.tool_input.command // empty' 2>/dev/null); case \"$CMD\" in *'git rebase'*) d=\"$PWD\"; while [ \"$d\" != \"/\" ] && [ ! -f \"$d/.claude/hooks/git-branch-guard.sh\" ]; do d=\"$(dirname \"$d\")\"; done; [ -f \"$d/.claude/hooks/git-branch-guard.sh\" ] && bash \"$d/.claude/hooks/git-branch-guard.sh\" ;; esac",
             "timeout": 5
           },
           {
             "type": "command",
             "if": "Bash(git switch*)",
-            "command": "d=\"$PWD\"; while [ \"$d\" != \"/\" ] && [ ! -f \"$d/.claude/hooks/git-branch-guard.sh\" ]; do d=\"$(dirname \"$d\")\"; done; [ -f \"$d/.claude/hooks/git-branch-guard.sh\" ] && bash \"$d/.claude/hooks/git-branch-guard.sh\"",
+            "command": "INPUT=$(cat); CMD=$(echo \"$INPUT\" | jq -r '.tool_input.command // empty' 2>/dev/null); case \"$CMD\" in *'git switch'*) d=\"$PWD\"; while [ \"$d\" != \"/\" ] && [ ! -f \"$d/.claude/hooks/git-branch-guard.sh\" ]; do d=\"$(dirname \"$d\")\"; done; [ -f \"$d/.claude/hooks/git-branch-guard.sh\" ] && bash \"$d/.claude/hooks/git-branch-guard.sh\" ;; esac",
             "timeout": 5
           }
         ]
@@ -63,7 +63,7 @@
           {
             "type": "command",
             "if": "Bash(git push*)",
-            "command": "u=$(git -C \"$PWD\" remote get-url origin 2>/dev/null); case \"$u\" in *[/:]DTVMStack/DTVM|*[/:]DTVMStack/DTVM.git|*[/:]abmcar/DTVM|*[/:]abmcar/DTVM.git) echo '{\"hookSpecificOutput\":{\"hookEventName\":\"PostToolUse\",\"additionalContext\":\"[ci-monitor] Push to DTVM detected. In the BACKGROUND: 1) Run gh run list --limit 1 --json databaseId,status,workflowName,headBranch to find the triggered run. 2) Run gh run watch <id> --exit-status in background. 3) On completion, if failed: gh run view <id> --log-failed and diagnose. If passed: briefly report. Do NOT interrupt your current task for this.\"}}' ;; esac",
+            "command": "INPUT=$(cat); CMD=$(echo \"$INPUT\" | jq -r '.tool_input.command // empty' 2>/dev/null); case \"$CMD\" in *'git push'*) u=$(git -C \"$PWD\" remote get-url origin 2>/dev/null); case \"$u\" in *[/:]DTVMStack/DTVM|*[/:]DTVMStack/DTVM.git|*[/:]abmcar/DTVM|*[/:]abmcar/DTVM.git) echo '{\"hookSpecificOutput\":{\"hookEventName\":\"PostToolUse\",\"additionalContext\":\"[ci-monitor] Push to DTVM detected. In the BACKGROUND: 1) Run gh run list --limit 1 --json databaseId,status,workflowName,headBranch to find the triggered run. 2) Run gh run watch <id> --exit-status in background. 3) On completion, if failed: gh run view <id> --log-failed and diagnose. If passed: briefly report. Do NOT interrupt your current task for this.\"}}' ;; esac ;; esac",
             "timeout": 5,
             "statusMessage": "Checking CI monitor..."
           }
