@@ -41,10 +41,9 @@ bash DTVMDotfiles/worktree-init.sh "$WORKTREE_PATH"
 
 Runs recursive submodule init (`evmc/`, `tests/wast/spec`), symlinks
 `.claude/` config + `CLAUDE.md` + utility scripts from the main repo, and
-hardlinks CMake FetchContent sources from the main build's `_deps/` (saves
-~800MB re-download per worktree). The same script backs the SessionStart
-hook for agent worktrees, so behavior is identical across manual and agent
-paths.
+hardlinks CMake FetchContent sources from the main build's `_deps/` to
+skip re-download. The same script backs the SessionStart hook for agent
+worktrees, so behavior is identical across manual and agent paths.
 
 ### 3. CMake configure
 
@@ -67,8 +66,8 @@ cmake --build "$WORKTREE_PATH/build" --target dtvmapi -j$(nproc)
 ls "$WORKTREE_PATH/build/lib/libdtvmapi.so"
 ```
 
-Compilation benefits from `ccache` (via `CMAKE_C/CXX_COMPILER_LAUNCHER`
-exported from `~/.zshrc`) — same object files across worktrees hit cache.
+Compilation benefits from `ccache` when `CMAKE_C/CXX_COMPILER_LAUNCHER` is
+exported from your shell rc — same object files across worktrees hit cache.
 
 ## Output
 
