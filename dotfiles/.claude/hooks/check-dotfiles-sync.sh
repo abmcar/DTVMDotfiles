@@ -6,7 +6,7 @@ set -euo pipefail
 
 INPUT=$(cat)
 # Extract file_path without jq for lower overhead on every Edit/Write
-FILE_PATH=$(echo "$INPUT" | grep -oP '"file_path"\s*:\s*"\K[^"]*' | head -1)
+FILE_PATH=$(echo "$INPUT" | grep -oP '"file_path"\s*:\s*"\K[^"]*' | head -1) || true
 
 [ -z "$FILE_PATH" ] && exit 0
 
