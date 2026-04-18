@@ -33,16 +33,18 @@ Existing branch:
 git worktree add "$WORKTREE_PATH" "$BRANCH"
 ```
 
-### 2. Init submodules + sync dotfiles
+### 2. Init submodules + sync dotfiles + seed deps
 
 ```bash
 bash DTVMDotfiles/worktree-init.sh "$WORKTREE_PATH"
 ```
 
-Runs recursive submodule init (`evmc/`, `tests/wast/spec`) and symlinks
-`.claude/` config + `CLAUDE.md` + utility scripts from the main repo. The
-same script backs the SessionStart hook for agent worktrees, so behavior
-is identical across manual and agent paths.
+Runs recursive submodule init (`evmc/`, `tests/wast/spec`), symlinks
+`.claude/` config + `CLAUDE.md` + utility scripts from the main repo, and
+hardlinks CMake FetchContent sources from the main build's `_deps/` (saves
+~800MB re-download per worktree). The same script backs the SessionStart
+hook for agent worktrees, so behavior is identical across manual and agent
+paths.
 
 ### 3. CMake configure
 
@@ -56,12 +58,17 @@ Adjust flags per task:
 - Release: `-DCMAKE_BUILD_TYPE=Release`
 - CI-faithful EVM build: see `.claude/rules/dtvm-build-config.md`
 
+CMake finds the pre-seeded `*-src/` under `build/_deps/` and skips download.
+
 ### 4. Verify
 
 ```bash
 cmake --build "$WORKTREE_PATH/build" --target dtvmapi -j$(nproc)
 ls "$WORKTREE_PATH/build/lib/libdtvmapi.so"
 ```
+
+Compilation benefits from `ccache` (via `CMAKE_C/CXX_COMPILER_LAUNCHER`
+exported from `~/.zshrc`) — same object files across worktrees hit cache.
 
 ## Output
 

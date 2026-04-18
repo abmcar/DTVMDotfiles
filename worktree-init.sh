@@ -55,6 +55,31 @@ if bash "$SCRIPT_DIR/worktree-sync.sh" "$WORKTREE_PATH" >/dev/null 2>&1; then
     ACTIONS+=("dotfiles synced")
 fi
 
+# Seed CMake FetchContent sources from main build to skip ~800MB re-download.
+# Uses hardlinks (cp -al) for zero disk dup; falls back to full copy if
+# hardlink fails (e.g., cross-filesystem). CMake FetchContent does not read
+# FETCHCONTENT_BASE_DIR from env, so manual seeding is the only reliable
+# cross-worktree source cache.
+MAIN_DEPS="$(dirname "$SCRIPT_DIR")/build/_deps"
+if [ -d "$MAIN_DEPS" ]; then
+    mkdir -p "$WORKTREE_PATH/build/_deps"
+    SEEDED=0
+    for src in "$MAIN_DEPS"/*-src; do
+        [ -d "$src" ] || continue
+        name="$(basename "$src")"
+        target="$WORKTREE_PATH/build/_deps/$name"
+        [ -e "$target" ] && continue
+        if cp -al "$src" "$target" 2>/dev/null; then
+            SEEDED=$((SEEDED + 1))
+        elif rm -rf "$target" 2>/dev/null && cp -a "$src" "$target" 2>/dev/null; then
+            SEEDED=$((SEEDED + 1))
+        fi
+    done
+    if [ $SEEDED -gt 0 ]; then
+        ACTIONS+=("fetchcontent seeded ($SEEDED dep(s))")
+    fi
+fi
+
 if [ ${#ACTIONS[@]} -gt 0 ]; then
     ( IFS=', '; echo "[worktree-init] ${ACTIONS[*]}" )
 fi
