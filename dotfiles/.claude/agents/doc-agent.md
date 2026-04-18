@@ -2,7 +2,6 @@
 name: doc-agent
 description: Maintains change documents and module documentation. Use when code changes need corresponding doc updates.
 model: sonnet
-tools: all
 maxTurns: 50
 memory: project
 effort: high
