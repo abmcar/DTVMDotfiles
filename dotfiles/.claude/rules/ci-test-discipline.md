@@ -32,7 +32,8 @@ When local tests pass but CI fails, follow this protocol — do not skip steps:
 1. `gh run view <id> --log-failed` — get the exact CI failure output.
 2. Compare `build/CMakeCache.txt` against the CI workflow env vars in
    `.github/workflows/dtvm_evm_test_x86.yml`. Look for flag differences
-   (`CPU_EXCEPTION`, `VIRTUAL_STACK`, `LIBEVM`, `JIT_PRECOMPILE_FALLBACK`).
+   (`ZEN_ENABLE_CPU_EXCEPTION`, `ZEN_ENABLE_VIRTUAL_STACK`, `ZEN_ENABLE_LIBEVM`,
+   `ZEN_ENABLE_JIT_PRECOMPILE_FALLBACK`).
 3. If flags differ, reconfigure locally with CI flags (see
    `.claude/rules/dtvm-build-config.md`) and re-test.
 4. If flags match and the failure still does not reproduce locally, **report

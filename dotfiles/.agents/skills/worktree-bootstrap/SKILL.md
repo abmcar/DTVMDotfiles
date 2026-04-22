@@ -35,6 +35,10 @@ git worktree add "$WORKTREE_PATH" "$BRANCH"
 
 ### 2. Init submodules + sync dotfiles + seed deps
 
+The worktree must already exist from step 1 — `worktree-init.sh` is a
+post-creation initializer, not an end-to-end bootstrapper. It `cd`s into
+the path you pass.
+
 ```bash
 bash DTVMDotfiles/worktree-init.sh "$WORKTREE_PATH"
 ```
@@ -85,4 +89,4 @@ git worktree prune
 ```
 
 Do NOT use `git worktree remove` — it fails on worktrees with submodules.
-Never remove `~/dtvm-baseline` — it is a permanent resource.
+Never remove the permanent baseline worktree (see `.claude/rules/dtvm-perf-worktree-lab.md` for its location).

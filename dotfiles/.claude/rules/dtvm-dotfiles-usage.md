@@ -18,12 +18,14 @@ Read these files before answering any workflow question or making changes:
 
 ## Architecture
 
-DTVMDotfiles syncs configuration between machines using four scripts:
+DTVMDotfiles syncs configuration between machines using these scripts:
 
 - **`release.sh`**: `DTVMDotfiles/dotfiles/` → parent DTVM repo (file-level sync + manifest)
 - **`store.sh`**: parent DTVM repo → `DTVMDotfiles/dotfiles/` (manifest-guided)
 - **`diff.sh`**: compare deployed vs dotfiles, detect drift
 - **`worktree-sync.sh`**: symlink dotfiles from parent repo into a git worktree
+- **`worktree-init.sh`**: submodule init + dotfiles sync + FetchContent seed for a newly-created worktree (backs the SessionStart hook)
+- **`setup_from_dotfiles.sh`**: first-time bootstrap of a fresh DTVM workspace from `DTVMDotfiles/`
 
 ### Manifest
 
@@ -42,6 +44,7 @@ All items in `MIRRORED_ITEMS` (defined in `lib/sync_common.sh`):
 - `CLAUDE.md` — development guide (authority source)
 - `CLAUDE.local.md` — local environment config
 - `init.sh`, `perf/*.sh`, `perf/*.hex` — utility scripts
+- `.agents/skills/worktree-bootstrap/` — personal worktree-bootstrap skill SSOT
 
 ### What does NOT get synced
 

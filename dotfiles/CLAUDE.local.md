@@ -28,9 +28,10 @@
 - Setup: `git clone https://github.com/abmcar/DTVM-Papers docs/research`
 
 ## Difftest
-- Code: `tools/difftest/`
+- Code: `docs/research/directions/peephole-optimization/submissions/experiments/e4-cross-vm-diff/` (`run_diff.py`, `sample_fixtures.py`)
+- Prerequisites: `PEEPHOLE_WITH` / `PEEPHOLE_WITHOUT` / `EVMONE_STATETEST` env vars
 - evmone CLI: `/home/abmcar/evmone/build/bin/evmc run --vm /home/abmcar/evmone/build/lib/libevmone.so`
-- Quick run: `python3 -m tools.difftest.evm_difftest --dtvm ./build/dtvm --seeds-only -v`
+- Quick run: `cd docs/research/directions/peephole-optimization/submissions/experiments/e4-cross-vm-diff && python3 run_diff.py --corpus corpus/fixtures-700 --out e4_report.json`
 
 ## Git Remotes
 - `origin` = github.com/abmcar/DTVM (personal fork)
