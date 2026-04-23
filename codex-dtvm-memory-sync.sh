@@ -329,6 +329,46 @@ write_memory_index() {
     HASHES["resources/MEMORY.md"]="$(hash_file "$target")"
 }
 
+# --- Drift detection in --check mode (spec §Behavior rule 9) ---
+# Extracts a labelled bullet field from a stamp in instructions.md.
+# Usage: extract_stamp_field <instructions.md> "<field-label>"
+extract_stamp_field() {
+    local file="$1" label="$2"
+    [ -f "$file" ] || { echo ""; return; }
+    grep -m1 -E "^- ${label}:.*" "$file" | sed -E "s/^- ${label}:[[:space:]]*//"
+}
+
+if [ "$MODE" = "check" ]; then
+    # Both extensions must exist.
+    for ext_dir in "$EXT_SHARED_DIR" "$EXT_LOCAL_DIR"; do
+        if [ ! -f "$ext_dir/instructions.md" ]; then
+            log "drift: missing $ext_dir/instructions.md"
+            exit "$EXIT_DRIFT"
+        fi
+    done
+    # Shared count + newest mtime.
+    stored_count="$(extract_stamp_field "$EXT_SHARED_DIR/instructions.md" 'Source count \(shared\)')"
+    if [ "$stored_count" != "${#SHARED_FILES[@]}" ]; then
+        log "drift: shared count stored=$stored_count actual=${#SHARED_FILES[@]}"
+        exit "$EXIT_DRIFT"
+    fi
+    stored_mtime="$(extract_stamp_field "$EXT_SHARED_DIR/instructions.md" 'Newest source-file mtime')"
+    actual_mtime_raw="$(find "$CC_MEMORY_DIR" -maxdepth 1 -type f -name '*.md' -printf '%T@\n' \
+        | sort -nr | head -1 | awk '{printf "%d", $1}')"
+    actual_mtime="$(date -u -d "@$actual_mtime_raw" +%Y-%m-%dT%H:%M:%SZ)"
+    if [ "$stored_mtime" != "$actual_mtime" ]; then
+        log "drift: stored_mtime=$stored_mtime actual=$actual_mtime"
+        exit "$EXIT_DRIFT"
+    fi
+    # Local count.
+    stored_local="$(extract_stamp_field "$EXT_LOCAL_DIR/instructions.md" 'Source count \(local\)')"
+    if [ "$stored_local" != "${#LOCAL_FILES[@]}" ]; then
+        log "drift: local count stored=$stored_local actual=${#LOCAL_FILES[@]}"
+        exit "$EXIT_DRIFT"
+    fi
+    exit "$EXIT_OK"
+fi
+
 # --- Main sync: shared extension ---
 mkdir -p "$EXT_SHARED_DIR/resources"
 load_hashes "$EXT_SHARED_DIR"
