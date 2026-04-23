@@ -70,6 +70,16 @@ if [ ! -d "$CC_MEMORY_DIR" ]; then
     exit "$EXIT_NO_SOURCE"
 fi
 
+# --- Concurrency lock (spec §Behavior rule 7) ---
+# Held for the full run. Second invocation fails fast.
+mkdir -p "$EXT_SHARED_DIR"
+LOCK_FILE="$EXT_SHARED_DIR/.sync.lock"
+exec {LOCK_FD}>"$LOCK_FILE"
+if ! flock -n -x "$LOCK_FD"; then
+    die "another codex-dtvm-memory-sync.sh is running (lock: $LOCK_FILE)"
+fi
+log "acquired lock on $LOCK_FILE"
+
 # --- Snapshot-then-read (spec §Behavior rule 2) ---
 SNAP="$(mktemp -d -t dtvm-memory-snapshot.XXXXXX)"
 trap 'rm -rf "$SNAP"' EXIT INT TERM HUP
