@@ -135,3 +135,82 @@ save_hashes() {
     done
     mv "$tmp" "$hashfile"
 }
+
+# --- Atomic per-file write (spec §Behavior rule 5) ---
+# Same-dir tmp → mv is POSIX-atomic on the same filesystem.
+# Usage: _write <src> <target> <hash_key> <hash_value>
+_write() {
+    local src="$1" target="$2" key="$3" hash="$4"
+    mkdir -p "$(dirname "$target")"
+    local tmp="$target.tmp.$$"
+    cp -a "$src" "$tmp"
+    mv "$tmp" "$target"
+    HASHES["$key"]="$hash"
+    log "wrote $target"
+}
+
+# --- Hash-guarded write (spec §Behavior rule 4 decision table) ---
+# Returns: 0 on write, 10 on skip-unchanged, 4 on refused (EXIT_GUARD_REFUSED).
+guarded_write() {
+    local src="$1" ext_dir="$2" rel="$3"
+    local target="$ext_dir/resources/$rel"
+    local key="resources/$rel"
+    local h_new h_target h_recorded
+    h_new="$(hash_file "$src")"
+    h_target="$(hash_file "$target")"
+    h_recorded="${HASHES[$key]-}"
+
+    # Case 1: first run — neither target nor recorded hash exists.
+    if [ -z "$h_target" ] && [ -z "$h_recorded" ]; then
+        _write "$src" "$target" "$key" "$h_new"
+        return 0
+    fi
+    # Case 2: unchanged — target matches recorded, new content matches target.
+    if [ -n "$h_recorded" ] && [ "$h_target" = "$h_recorded" ] && [ "$h_new" = "$h_target" ]; then
+        log "skip unchanged: $rel"
+        return 10
+    fi
+    # Case 3: legitimate update — target matches recorded; new content differs.
+    if [ -n "$h_recorded" ] && [ "$h_target" = "$h_recorded" ]; then
+        _write "$src" "$target" "$key" "$h_new"
+        return 0
+    fi
+    # Case 4/5: externally modified (recorded differs) OR untracked foreign file.
+    if [ "$FORCE" -eq 1 ]; then
+        warn "forced overwrite of externally-modified $target"
+        _write "$src" "$target" "$key" "$h_new"
+        return 0
+    fi
+    warn "refuse: $target was externally modified (rerun with --force to overwrite)"
+    return "$EXIT_GUARD_REFUSED"
+}
+
+# --- Main sync: shared extension ---
+mkdir -p "$EXT_SHARED_DIR/resources"
+load_hashes "$EXT_SHARED_DIR"
+for f in "${SHARED_FILES[@]}"; do
+    rel="$(basename "$f")"
+    rc=0
+    guarded_write "$f" "$EXT_SHARED_DIR" "$rel" || rc=$?
+    case "$rc" in
+        0|10) ;;               # write / skip-unchanged
+        *) exit "$rc";;        # 4 (refused) or other error
+    esac
+done
+save_hashes "$EXT_SHARED_DIR"
+
+# --- Main sync: local extension ---
+mkdir -p "$EXT_LOCAL_DIR/resources"
+load_hashes "$EXT_LOCAL_DIR"
+for f in "${LOCAL_FILES[@]}"; do
+    rel="$(basename "$f")"
+    rc=0
+    guarded_write "$f" "$EXT_LOCAL_DIR" "$rel" || rc=$?
+    case "$rc" in
+        0|10) ;;
+        *) exit "$rc";;
+    esac
+done
+save_hashes "$EXT_LOCAL_DIR"
+
+log "sync complete: ${#SHARED_FILES[@]} shared + ${#LOCAL_FILES[@]} local"
