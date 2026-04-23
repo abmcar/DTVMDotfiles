@@ -79,3 +79,25 @@ log "snapshot dir: $SNAP"
 # Trailing /. copies contents, not the parent dir itself.
 cp -aL "$CC_MEMORY_DIR/." "$SNAP/"
 log "snapshot populated from $CC_MEMORY_DIR"
+
+# --- Filter & route (spec §Behavior rule 3) ---
+# - Skip hidden files (.consolidate-lock etc.) and non-*.md.
+# - Route *.local.md to the -local extension, others to shared.
+declare -a SHARED_FILES=()
+declare -a LOCAL_FILES=()
+
+while IFS= read -r -d '' f; do
+    name="$(basename "$f")"
+    case "$name" in
+        .*)          continue;;
+        *.local.md)  LOCAL_FILES+=("$f");;
+        *.md)        SHARED_FILES+=("$f");;
+    esac
+done < <(find "$SNAP" -maxdepth 1 -type f -name '*.md' -print0)
+
+log "filtered: ${#SHARED_FILES[@]} shared + ${#LOCAL_FILES[@]} local"
+
+if [ "${#SHARED_FILES[@]}" -eq 0 ] && [ "${#LOCAL_FILES[@]}" -eq 0 ]; then
+    warn "source dir contains no *.md files — nothing to sync"
+    exit "$EXIT_OK"
+fi
