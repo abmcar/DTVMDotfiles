@@ -101,3 +101,37 @@ if [ "${#SHARED_FILES[@]}" -eq 0 ] && [ "${#LOCAL_FILES[@]}" -eq 0 ]; then
     warn "source dir contains no *.md files — nothing to sync"
     exit "$EXIT_OK"
 fi
+
+# --- Hash helpers (spec §Behavior rule 4) ---
+# Usage: hash_file <path>  -> prints 64-char hex sha256, or empty if missing.
+hash_file() {
+    [ -f "$1" ] || { echo ""; return; }
+    sha256sum -- "$1" | awk '{print $1}'
+}
+
+# Global associative array for current extension's recorded hashes.
+declare -A HASHES
+
+# Usage: load_hashes <ext_dir>  -> populates HASHES from <ext>/.sync-hash.
+# Lines: "<relpath>\t<sha256>". Empty/missing file → empty HASHES.
+load_hashes() {
+    HASHES=()
+    local hashfile="$1/.sync-hash"
+    [ -f "$hashfile" ] || return 0
+    while IFS=$'\t' read -r rel sha; do
+        [ -z "$rel" ] && continue
+        HASHES["$rel"]="$sha"
+    done < "$hashfile"
+}
+
+# Usage: save_hashes <ext_dir>  -> writes HASHES atomically to .sync-hash.
+save_hashes() {
+    local ext_dir="$1"
+    local hashfile="$ext_dir/.sync-hash"
+    local tmp="$hashfile.tmp.$$"
+    : > "$tmp"
+    for rel in "${!HASHES[@]}"; do
+        printf '%s\t%s\n' "$rel" "${HASHES[$rel]}" >> "$tmp"
+    done
+    mv "$tmp" "$hashfile"
+}
