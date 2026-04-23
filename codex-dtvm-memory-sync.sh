@@ -185,6 +185,60 @@ guarded_write() {
     return "$EXIT_GUARD_REFUSED"
 }
 
+# --- Pruning with bidirectional guard (spec §Behavior rule 6) ---
+# Removes resources/<name>.md not in $KEEP (newline-separated basenames).
+# Refuses to delete files that are untracked or externally modified,
+# unless --force.
+prune_ext() {
+    local ext_dir="$1"
+    local keep="$2"
+    local resdir="$ext_dir/resources"
+    [ -d "$resdir" ] || return 0
+    while IFS= read -r -d '' f; do
+        local existing key h_cur h_rec
+        existing="$(basename "$f")"
+        # Keep MEMORY.md (written separately in Task 7, not tracked as CC source).
+        [ "$existing" = "MEMORY.md" ] && continue
+        if grep -qxF "$existing" <<< "$keep"; then
+            continue
+        fi
+        key="resources/$existing"
+        h_cur="$(hash_file "$f")"
+        h_rec="${HASHES[$key]-}"
+        if [ -z "$h_rec" ]; then
+            if [ "$FORCE" -eq 1 ]; then
+                warn "forced delete of untracked $f"
+                rm -- "$f"
+            else
+                warn "refuse: untracked foreign file $f (--force to delete)"
+                return "$EXIT_GUARD_REFUSED"
+            fi
+        elif [ "$h_cur" != "$h_rec" ]; then
+            if [ "$FORCE" -eq 1 ]; then
+                warn "forced delete of externally-modified $f"
+                rm -- "$f"
+                unset 'HASHES[$key]'
+            else
+                warn "refuse: externally-modified $f (--force to delete)"
+                return "$EXIT_GUARD_REFUSED"
+            fi
+        else
+            log "prune: $f"
+            rm -- "$f"
+            unset 'HASHES[$key]'
+        fi
+    done < <(find "$resdir" -maxdepth 1 -type f -name '*.md' -print0)
+}
+
+# Build KEEP lists (basenames, one per line) for prune.
+build_keep_list() {
+    local -n arr="$1"
+    local item
+    for item in "${arr[@]}"; do
+        basename "$item"
+    done
+}
+
 # --- Main sync: shared extension ---
 mkdir -p "$EXT_SHARED_DIR/resources"
 load_hashes "$EXT_SHARED_DIR"
@@ -197,6 +251,8 @@ for f in "${SHARED_FILES[@]}"; do
         *) exit "$rc";;        # 4 (refused) or other error
     esac
 done
+SHARED_KEEP="$(build_keep_list SHARED_FILES)"
+prune_ext "$EXT_SHARED_DIR" "$SHARED_KEEP" || exit "$?"
 save_hashes "$EXT_SHARED_DIR"
 
 # --- Main sync: local extension ---
@@ -211,6 +267,8 @@ for f in "${LOCAL_FILES[@]}"; do
         *) exit "$rc";;
     esac
 done
+LOCAL_KEEP="$(build_keep_list LOCAL_FILES)"
+prune_ext "$EXT_LOCAL_DIR" "$LOCAL_KEEP" || exit "$?"
 save_hashes "$EXT_LOCAL_DIR"
 
 log "sync complete: ${#SHARED_FILES[@]} shared + ${#LOCAL_FILES[@]} local"
