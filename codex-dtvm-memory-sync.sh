@@ -63,3 +63,19 @@ EOF
         *) die "unknown arg: $1";;
     esac
 done
+
+# --- Bootstrap guard (spec §Behavior rule 1) ---
+if [ ! -d "$CC_MEMORY_DIR" ]; then
+    warn "skip: no CC memory at $CC_MEMORY_DIR"
+    exit "$EXIT_NO_SOURCE"
+fi
+
+# --- Snapshot-then-read (spec §Behavior rule 2) ---
+SNAP="$(mktemp -d -t dtvm-memory-snapshot.XXXXXX)"
+trap 'rm -rf "$SNAP"' EXIT INT TERM HUP
+log "snapshot dir: $SNAP"
+
+# -L dereferences symlinks; -a preserves perms/times.
+# Trailing /. copies contents, not the parent dir itself.
+cp -aL "$CC_MEMORY_DIR/." "$SNAP/"
+log "snapshot populated from $CC_MEMORY_DIR"
