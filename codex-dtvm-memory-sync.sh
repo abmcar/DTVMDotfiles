@@ -13,7 +13,18 @@ readonly EXIT_NO_SOURCE=3
 readonly EXIT_GUARD_REFUSED=4
 
 # --- Paths (env override allowed for testing; see --help) ---
-CC_MEMORY_DIR="${CODEX_DTVM_MEMORY_DIR_OVERRIDE:-${HOME}/.claude/projects/-home-abmcar-DTVM/memory}"
+# Derive CC project memory path from the DTVM repo location so this script
+# works on any machine without hardcoding the home prefix. CC encodes a
+# project's absolute cwd as an entry under ~/.claude/projects/ by replacing
+# every '/' with '-' (leading '/' becomes leading '-'). Assumes DTVM repo
+# lives at $HOME/DTVM (convention across machines; override via env if not).
+_compute_cc_memory_path() {
+    local proj="${HOME}/DTVM"
+    local encoded
+    encoded="$(printf '%s' "$proj" | sed 's|/|-|g')"
+    printf '%s/.claude/projects/%s/memory' "$HOME" "$encoded"
+}
+CC_MEMORY_DIR="${CODEX_DTVM_MEMORY_DIR_OVERRIDE:-$(_compute_cc_memory_path)}"
 readonly CODEX_EXT_ROOT="${HOME}/.codex/memories/memories_extensions"
 readonly EXT_SHARED_DIR="${CODEX_EXT_ROOT}/dtvm-cc-memory"
 readonly EXT_LOCAL_DIR="${CODEX_EXT_ROOT}/dtvm-cc-memory-local"
