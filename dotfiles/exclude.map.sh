@@ -8,6 +8,7 @@ declare -Ag DTVM_EXCLUDE_MAP=(
     [\*.so]=managed
     [.agents/skills/worktree-bootstrap]=managed
     [.claude]=managed
+    [.omx/]=managed
     [.worktrees]=managed
     [AGENTS.md]=managed
     [ALL_STATE_TESTS]=managed

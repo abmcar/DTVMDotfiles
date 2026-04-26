@@ -10,9 +10,16 @@ alwaysApply: false
 
 # Dotfiles Portability Constraint
 
-Files under `.claude/`, `CLAUDE.md`, and `CLAUDE.local.md` are synced across
-machines via DTVMDotfiles. **Never write machine-specific absolute paths**
+Files under `.claude/` and `CLAUDE.md` are synced across machines via
+DTVMDotfiles. **Never write machine-specific absolute paths**
 (e.g. `/home/abmcar/DTVM/...`, `/Users/foo/...`) in these files.
+
+`CLAUDE.local.md` is also listed in `MIRRORED_ITEMS` (see
+`DTVMDotfiles/lib/sync_common.sh`), but in practice it diverges per machine
+and is treated as single-user state. Absolute paths are tolerated there —
+just be aware that `store.sh`/`release.sh` round-trips can carry WSL2 paths
+to Mac and vice versa, so prefer `~/`-relative when the same content makes
+sense on both machines.
 
 ## Allowed path styles
 
@@ -24,7 +31,7 @@ machines via DTVMDotfiles. **Never write machine-specific absolute paths**
 
 ## Where absolute paths ARE acceptable
 
-- `CLAUDE.local.md` — machine-specific, not synced
+- `CLAUDE.local.md` — machine-specific in practice (single-user state)
 - Memory files (`~/.claude/projects/*/memory/`) — per-machine
 
 ## Common mistake
