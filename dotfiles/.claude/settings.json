@@ -16,7 +16,7 @@
           {
             "type": "command",
             "if": "Bash(git push*)",
-            "command": "INPUT=$(cat); CMD=$(echo \"$INPUT\" | jq -r '.tool_input.command // empty' 2>/dev/null); case \"$CMD\" in *'git push'*) d=\"$PWD\"; while [ \"$d\" != \"/\" ] && [ ! -f \"$d/.claude/hooks/pre-push-validation.sh\" ]; do d=\"$(dirname \"$d\")\"; done; [ -f \"$d/.claude/hooks/pre-push-validation.sh\" ] && bash \"$d/.claude/hooks/pre-push-validation.sh\" ;; esac",
+            "command": "INPUT=$(cat); CMD=$(echo \"$INPUT\" | jq -r '.tool_input.command // empty' 2>/dev/null); case \"$CMD\" in *'git push'*) d=\"$PWD\"; while [ \"$d\" != \"/\" ] && [ ! -f \"$d/.claude/hooks/pre-push-validation.sh\" ]; do d=\"$(dirname \"$d\")\"; done; [ -f \"$d/.claude/hooks/pre-push-validation.sh\" ] && CMD=\"$CMD\" PUSH_PWD_HINT=\"$PWD\" bash \"$d/.claude/hooks/pre-push-validation.sh\" ;; esac",
             "timeout": 600,
             "statusMessage": "Running pre-push CI validation (format + build + tests)..."
           },
@@ -91,6 +91,15 @@
             "command": "d=\"$PWD\"; while [ \"$d\" != \"/\" ] && [ ! -f \"$d/.claude/hooks/session-check.sh\" ]; do d=\"$(dirname \"$d\")\"; done; [ -f \"$d/.claude/hooks/session-check.sh\" ] && bash \"$d/.claude/hooks/session-check.sh\"",
             "timeout": 15,
             "statusMessage": "Running housekeeping check..."
+          }
+        ]
+      },
+      {
+        "matcher": "",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "node \"/home/abmcar/.claude/plugins/cache/oh-my-paper/omp/1.0.0/scripts/on-session-start.mjs\""
           }
         ]
       }

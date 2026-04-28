@@ -5,16 +5,62 @@
 
 set -euo pipefail
 
+# P0-C: bypass mechanisms
+# Substring match is safe: git refnames cannot contain consecutive '--'
+# (per `git check-ref-format`), so no false positives from branch names.
+case "${CMD:-}" in
+  *--no-verify*) echo "[pre-push] --no-verify in command, skipping." >&2; exit 0 ;;
+esac
+if [ "${DTVM_SKIP_PRE_PUSH:-}" = "1" ]; then
+  echo "[pre-push] DTVM_SKIP_PRE_PUSH=1, skipping." >&2
+  exit 0
+fi
+
+# P0-A: derive REPO_ROOT from the push's effective cwd.
+# Parse $CMD for an inline `cd <dir> &&` or `git -C <dir>`; fall back to $PUSH_PWD_HINT.
+EFFECTIVE_PWD="${PUSH_PWD_HINT:-$PWD}"
+_cmd="${CMD:-}"
+if [[ "$_cmd" =~ ^[[:space:]]*cd[[:space:]]+([^[:space:]]+)[[:space:]]+\&\& ]]; then
+  EFFECTIVE_PWD="${BASH_REMATCH[1]}"
+elif [[ "$_cmd" =~ git[[:space:]]+-C[[:space:]]+([^[:space:]]+) ]]; then
+  _gitC="${BASH_REMATCH[1]}"
+  case "$_gitC" in
+    /*) EFFECTIVE_PWD="$_gitC" ;;
+    *)  EFFECTIVE_PWD="${PUSH_PWD_HINT:-$PWD}/$_gitC" ;;
+  esac
+fi
+
+REPO_ROOT=$(git -C "$EFFECTIVE_PWD" rev-parse --show-toplevel 2>/dev/null) || exit 0
+cd "$REPO_ROOT"
+
 # Only run for pushes to the DTVM repo itself (not DTVMDotfiles, DTVM-Papers, etc.)
-# Check the repo at $PWD (where the push is happening), not the parent DTVM repo.
 PUSH_REMOTE=$(git remote get-url origin 2>/dev/null || true)
 case "$PUSH_REMOTE" in
   *DTVMStack/DTVM|*DTVMStack/DTVM.git|*abmcar/DTVM|*abmcar/DTVM.git) ;;
   *) exit 0 ;;
 esac
 
-REPO_ROOT="$(cd "$(dirname "$0")/../.." && pwd)"
-cd "$REPO_ROOT"
+# P0-B: docs-only short-circuit. Diff range must match what's actually being pushed:
+# prefer @{push} (git's native "where I'd push to" ref); fall back to origin/<current-branch>.
+# If neither resolves, skip the docs check entirely (let validation run).
+# First push of a new branch: no @{push}, no origin/<branch> → PUSH_BASE empty,
+# fall through to full validation. This is the safe default; do NOT change it.
+PUSH_BASE=""
+if _b=$(git rev-parse --verify -q '@{push}' 2>/dev/null); then
+  PUSH_BASE="$_b"
+elif _br=$(git rev-parse --abbrev-ref HEAD 2>/dev/null) && [ -n "$_br" ] && \
+     _b=$(git rev-parse --verify -q "origin/$_br" 2>/dev/null); then
+  PUSH_BASE="$_b"
+fi
+
+if [ -n "$PUSH_BASE" ]; then
+  CHANGED=$(git diff --name-only "$PUSH_BASE..HEAD" 2>/dev/null || true)
+  if [ -n "$CHANGED" ] && ! printf '%s\n' "$CHANGED" | grep -qvE '^(docs/|[^/]*\.md$|CHANGELOG(\.md)?$)'; then
+    echo "[pre-push] docs-only diff vs ${PUSH_BASE:0:12}, skipping build/tests:" >&2
+    printf '  %s\n' "$CHANGED" >&2
+    exit 0
+  fi
+fi
 
 SO_PATH="$REPO_ROOT/build/lib/libdtvmapi.so"
 EVMONE_BIN="$HOME/evmone/build/bin"
