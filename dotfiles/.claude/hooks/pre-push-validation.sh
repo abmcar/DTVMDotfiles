@@ -55,7 +55,9 @@ fi
 
 if [ -n "$PUSH_BASE" ]; then
   CHANGED=$(git diff --name-only "$PUSH_BASE..HEAD" 2>/dev/null || true)
-  if [ -n "$CHANGED" ] && ! printf '%s\n' "$CHANGED" | grep -qvE '^(docs/|[^/]*\.md$|CHANGELOG(\.md)?$)'; then
+  # Allowlist: docs/, paper/ (LaTeX/PDF — never touches C++ build/tests),
+  # top-level .md, CHANGELOG. Anything else → full validation.
+  if [ -n "$CHANGED" ] && ! printf '%s\n' "$CHANGED" | grep -qvE '^(docs/|paper/|[^/]*\.md$|CHANGELOG(\.md)?$)'; then
     echo "[pre-push] docs-only diff vs ${PUSH_BASE:0:12}, skipping build/tests:" >&2
     printf '  %s\n' "$CHANGED" >&2
     exit 0
