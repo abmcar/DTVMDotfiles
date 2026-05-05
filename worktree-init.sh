@@ -60,12 +60,20 @@ fi
 # edit stays per-worktree and never gets staged. Without this hook, cmake in
 # the worktree ignores FETCHCONTENT_BASE_DIR (skip-worktree is per-worktree
 # git index state, not inherited from main). Idempotent.
+#
+# Rollback (per worktree, three steps — skip any one and the worktree looks
+# clean but is not actually restored):
+#   git -C <worktree> update-index --no-skip-worktree CMakeLists.txt
+#   git -C <worktree> checkout -- CMakeLists.txt
+#   # confirm: git -C <worktree> ls-files -v CMakeLists.txt   (expect "H")
 MAIN_CML="$(dirname "$SCRIPT_DIR")/CMakeLists.txt"
 WT_CML="$WORKTREE_PATH/CMakeLists.txt"
 if [ -f "$MAIN_CML" ] && [ -f "$WT_CML" ] && \
    ! grep -q FETCHCONTENT_BASE_DIR "$WT_CML"; then
     PATCH="$(sed -n '/^# Local dev hook: honor FETCHCONTENT_BASE_DIR/,/^endif()/p' "$MAIN_CML")"
-    if [ -n "$PATCH" ]; then
+    if [ -z "$PATCH" ]; then
+        echo "[worktree-init] WARN: FETCHCONTENT marker not found in $MAIN_CML; cmake hook NOT injected (worktree will re-download FetchContent deps)" >&2
+    else
         awk -v patch="$PATCH" '
             /^project\(ZetaEngine/ { print; print ""; print patch; next }
             { print }
@@ -74,6 +82,8 @@ if [ -f "$MAIN_CML" ] && [ -f "$WT_CML" ] && \
         if grep -q FETCHCONTENT_BASE_DIR "$WT_CML"; then
             git -C "$WORKTREE_PATH" update-index --skip-worktree CMakeLists.txt
             ACTIONS+=("fetchcontent cmake hook injected")
+        else
+            echo "[worktree-init] WARN: project(ZetaEngine ...) anchor not found in $WT_CML; cmake hook NOT injected" >&2
         fi
     fi
 fi
