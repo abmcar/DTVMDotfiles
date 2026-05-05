@@ -55,10 +55,31 @@ if bash "$SCRIPT_DIR/worktree-sync.sh" "$WORKTREE_PATH" >/dev/null 2>&1; then
     ACTIONS+=("dotfiles synced")
 fi
 
-# Seed CMake FetchContent sources from main build. CMake does not read
-# FETCHCONTENT_BASE_DIR from env, so manual seeding is the only reliable
-# cross-worktree source cache. Hardlink first; fall back to copy on
-# cross-filesystem failure (rm first to avoid partial cp -al state).
+# Local FetchContent shared-cache hook: copy the env-aware CACHE block from
+# main repo's CMakeLists.txt into this worktree, then skip-worktree it so the
+# edit stays per-worktree and never gets staged. Without this hook, cmake in
+# the worktree ignores FETCHCONTENT_BASE_DIR (skip-worktree is per-worktree
+# git index state, not inherited from main). Idempotent.
+MAIN_CML="$(dirname "$SCRIPT_DIR")/CMakeLists.txt"
+WT_CML="$WORKTREE_PATH/CMakeLists.txt"
+if [ -f "$MAIN_CML" ] && [ -f "$WT_CML" ] && \
+   grep -q FETCHCONTENT_BASE_DIR "$MAIN_CML" && \
+   ! grep -q FETCHCONTENT_BASE_DIR "$WT_CML"; then
+    PATCH="$(sed -n '/^# Local dev hook: honor FETCHCONTENT_BASE_DIR/,/^endif()/p' "$MAIN_CML")"
+    if [ -n "$PATCH" ]; then
+        awk -v patch="$PATCH" '
+            /^project\(ZetaEngine/ { print; print ""; print patch; next }
+            { print }
+        ' "$WT_CML" > "$WT_CML.new" && mv "$WT_CML.new" "$WT_CML"
+        git -C "$WORKTREE_PATH" update-index --skip-worktree CMakeLists.txt
+        ACTIONS+=("fetchcontent cmake hook injected")
+    fi
+fi
+
+# Backup: hardlink FetchContent sources from main build/_deps into the
+# worktree's build/_deps. Redundant with the env-var hook above, but covers
+# the case where FETCHCONTENT_BASE_DIR is unset. Hardlink first; fall back
+# to copy on cross-filesystem failure (rm first to avoid partial cp -al state).
 MAIN_DEPS="$(dirname "$SCRIPT_DIR")/build/_deps"
 if [ -d "$MAIN_DEPS" ]; then
     mkdir -p "$WORKTREE_PATH/build/_deps"
