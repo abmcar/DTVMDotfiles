@@ -63,7 +63,6 @@ fi
 MAIN_CML="$(dirname "$SCRIPT_DIR")/CMakeLists.txt"
 WT_CML="$WORKTREE_PATH/CMakeLists.txt"
 if [ -f "$MAIN_CML" ] && [ -f "$WT_CML" ] && \
-   grep -q FETCHCONTENT_BASE_DIR "$MAIN_CML" && \
    ! grep -q FETCHCONTENT_BASE_DIR "$WT_CML"; then
     PATCH="$(sed -n '/^# Local dev hook: honor FETCHCONTENT_BASE_DIR/,/^endif()/p' "$MAIN_CML")"
     if [ -n "$PATCH" ]; then
@@ -71,8 +70,11 @@ if [ -f "$MAIN_CML" ] && [ -f "$WT_CML" ] && \
             /^project\(ZetaEngine/ { print; print ""; print patch; next }
             { print }
         ' "$WT_CML" > "$WT_CML.new" && mv "$WT_CML.new" "$WT_CML"
-        git -C "$WORKTREE_PATH" update-index --skip-worktree CMakeLists.txt
-        ACTIONS+=("fetchcontent cmake hook injected")
+        # Verify awk anchor actually matched before committing to skip-worktree
+        if grep -q FETCHCONTENT_BASE_DIR "$WT_CML"; then
+            git -C "$WORKTREE_PATH" update-index --skip-worktree CMakeLists.txt
+            ACTIONS+=("fetchcontent cmake hook injected")
+        fi
     fi
 fi
 
