@@ -33,7 +33,6 @@ Follow the conventions defined in `commitlint.config.js`.
 - `core` - Core engine code
 - `runtime` - Runtime library
 - `compiler` - Compiler related
-- `evm` - EVM interpreter and handlers
 - `examples` - Example code
 - `docs` - Documentation related
 - `tools` - Tool related
@@ -44,7 +43,7 @@ Follow the conventions defined in `commitlint.config.js`.
 - `` (empty) - No specific scope
 
 ## Rules
-- Header must not exceed 100 characters
+- Header must not exceed 120 characters
 - Subject must not end with a period
 - Type must be lowercase
 - Use imperative mood in subject (e.g., "add feature" not "added feature")
