@@ -93,15 +93,6 @@
             "statusMessage": "Running housekeeping check..."
           }
         ]
-      },
-      {
-        "matcher": "",
-        "hooks": [
-          {
-            "type": "command",
-            "command": "node \"/home/abmcar/.claude/plugins/cache/oh-my-paper/omp/1.0.0/scripts/on-session-start.mjs\""
-          }
-        ]
       }
     ],
     "Stop": [],
