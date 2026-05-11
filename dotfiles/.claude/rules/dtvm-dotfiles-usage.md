@@ -41,10 +41,17 @@ tracking every managed file path and its content hash (sha256, first 12 chars).
 
 All items in `MIRRORED_ITEMS` (defined in `lib/sync_common.sh`):
 - `.claude/` — rules, commands, agents, hooks, settings
-- `CLAUDE.md` — development guide (authority source)
+- `CLAUDE.md` — DTVM **project**-level development guide (authority source for project rules)
 - `CLAUDE.local.md` — local environment config
 - `init.sh`, `perf/*.sh`, `perf/*.hex` — utility scripts
 - `.agents/skills/worktree-bootstrap/` — personal worktree-bootstrap skill SSOT
+
+> **Two CLAUDE.md authority chains** — Project-level `~/DTVM/CLAUDE.md` is owned by
+> DTVMDotfiles (this system). User-level `~/.claude/CLAUDE.md` is owned by
+> [claude-sync](https://github.com/abmcar/claude-sync) (separate system) and is NOT
+> managed by DTVMDotfiles. The user-level file `@~/`-imports `CLAUDE.shared.md` +
+> `CLAUDE.local.md` from claude-sync. Per Claude Code docs, both chains load at
+> session start; more-specific (project) overrides broader (user).
 
 ### What does NOT get synced
 
