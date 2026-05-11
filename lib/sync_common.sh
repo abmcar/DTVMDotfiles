@@ -120,10 +120,35 @@ readManifest() {
     done < "$manifest_path"
 }
 
+copy_with_gate() {
+    local src="$1" dst="$2" old_hash="${3:-}"
+    if [ -f "$dst" ] && [ -n "$old_hash" ]; then
+        local current_hash
+        current_hash="$(fileHash "$dst")"
+        if [ "$current_hash" != "$old_hash" ]; then
+            if [ "${RELEASE_FORCE:-0}" != "1" ]; then
+                echo "[release] ABORT: $dst was modified locally" >&2
+                echo "  expected hash $old_hash (from OldManifest)" >&2
+                echo "  actual hash   $current_hash" >&2
+                echo "  Fix: bash DTVMDotfiles/store.sh   # then retry release.sh" >&2
+                echo "  Or:  RELEASE_FORCE=1 bash DTVMDotfiles/release.sh   # overwrite" >&2
+                return 1
+            fi
+            echo "[release] WARN: overwriting locally-modified $dst" >&2
+        fi
+    fi
+    if [ "${RELEASE_CHECK:-0}" = "1" ]; then
+        echo "[release-dry] WOULD copy $src → $dst"
+        return 0
+    fi
+    cp -f "$src" "$dst"
+}
+
 syncMirroredItemsWithManifest() {
     local src_root="$1"
     local dst_root="$2"
     local -n smiwm_out_ref="$3"
+    local -n smiwm_old_ref="$4"
     local rel_item files rel_file
 
     smiwm_out_ref=()
@@ -141,7 +166,7 @@ syncMirroredItemsWithManifest() {
                 continue
             fi
             mkdir -p "$(dirname "$dst_root/$rel_file")"
-            cp -f "$src_root/$rel_file" "$dst_root/$rel_file"
+            copy_with_gate "$src_root/$rel_file" "$dst_root/$rel_file" "${smiwm_old_ref[$rel_file]:-}" || return 1
             smiwm_out_ref["$rel_file"]="$(fileHash "$dst_root/$rel_file")"
         done <<< "$files"
 
@@ -228,9 +253,13 @@ syncCodexPrompts() {
     fi
 
     echo "  Synced: .claude/commands → $codex_prompts_dir"
-    mkdir -p "$(dirname "$codex_prompts_dir")"
-    rm -rf "$codex_prompts_dir"
-    cp -r "$claude_commands_dir" "$codex_prompts_dir"
+    mkdir -p "$codex_prompts_dir"
+    # File-level overwrite preserves user-added prompts not present in
+    # claude_commands_dir. Tradeoff: deletes-in-source no longer prune destination.
+    for f in "$claude_commands_dir"/*.md; do
+        [ -f "$f" ] || continue
+        cp -f "$f" "$codex_prompts_dir/$(basename "$f")"
+    done
 }
 
 # --- Exclude map functions ---

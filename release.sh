@@ -20,7 +20,7 @@ declare -A OldManifest=()
 readManifest "$MANIFEST_PATH" OldManifest 2>/dev/null || true
 
 declare -A NewManifest=()
-syncMirroredItemsWithManifest "$DOTFILES_DIR" "$PARENT_DIR" NewManifest
+syncMirroredItemsWithManifest "$DOTFILES_DIR" "$PARENT_DIR" NewManifest OldManifest
 
 if [ "${#OldManifest[@]}" -gt 0 ]; then
     cleanRemovedFiles "$PARENT_DIR" OldManifest NewManifest
