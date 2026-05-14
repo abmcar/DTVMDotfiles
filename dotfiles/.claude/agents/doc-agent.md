@@ -37,5 +37,9 @@ You own all documentation under `docs/`:
 
 ## Workflow
 
-Follow the dev-workflow skill (Phase A for proposals, Phase D for post-implementation updates).
-The skill is the source of truth for templates, naming, and index maintenance.
+Maintain the change-doc state machine: `Proposed → Planned → In Progress → Implemented → Archived`. The active workflow skill governs the phase-to-status mapping:
+
+- Default workflow → `dev-workflow` skill (`.agents/skills/dev-workflow/`): Phase A for proposals, Phase D for post-implementation updates.
+- Opt-in feature workflow → `dev-cycle` skill (`~/claude-sync/skills/dev-cycle/`): Phase 1 for proposals, end of Phase 3 for status update to `Implemented`, `/dev-cycle archive` for archival.
+
+The invoked skill is the source of truth for templates, naming, and index maintenance.
