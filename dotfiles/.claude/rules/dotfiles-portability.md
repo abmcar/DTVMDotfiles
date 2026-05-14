@@ -14,12 +14,11 @@ Files under `.claude/` and `CLAUDE.md` are synced across machines via
 DTVMDotfiles. **Never write machine-specific absolute paths**
 (e.g. `/home/abmcar/DTVM/...`, `/Users/foo/...`) in these files.
 
-`CLAUDE.local.md` is also listed in `MIRRORED_ITEMS` (see
-`DTVMDotfiles/lib/sync_common.sh`), but in practice it diverges per machine
-and is treated as single-user state. Absolute paths are tolerated there —
-just be aware that `store.sh`/`release.sh` round-trips can carry WSL2 paths
-to Mac and vice versa, so prefer `~/`-relative when the same content makes
-sense on both machines.
+`CLAUDE.local.md` is **not** in `MIRRORED_ITEMS` (since 2026-05-14). It is
+bootstrapped once from `DTVMDotfiles/dotfiles/CLAUDE.local.md.template` by
+`setup_from_dotfiles.sh` on first deploy, then maintained per-machine.
+`release.sh` / `store.sh` do not touch it. The `.template` file uses
+`~/`-relative paths so the skeleton is portable; per-machine edits stay local.
 
 ## Allowed path styles
 
@@ -31,7 +30,7 @@ sense on both machines.
 
 ## Where absolute paths ARE acceptable
 
-- `CLAUDE.local.md` — machine-specific in practice (single-user state)
+- `CLAUDE.local.md` — machine-specific (single-user state, NOT in MIRRORED_ITEMS)
 - Memory files (`~/.claude/projects/*/memory/`) — per-machine
 
 ## Common mistake

@@ -1,6 +1,7 @@
 #!/bin/bash
 # PostToolUse hook: warn when a DTVMDotfiles-managed file is modified.
-# Managed items (excluding perf/): .claude/, CLAUDE.md, CLAUDE.local.md, init.sh
+# Managed items (excluding perf/): .claude/, CLAUDE.md, init.sh
+# (CLAUDE.local.md is per-machine since 2026-05-14, not managed)
 
 set -euo pipefail
 
@@ -22,7 +23,7 @@ REL_PATH="${FILE_PATH#"$REPO_ROOT"/}"
 # Check against managed items (no perf/)
 MANIFEST="$REPO_ROOT/.claude/.dtvm-manifest.json"
 case "$REL_PATH" in
-    .claude/*|CLAUDE.md|CLAUDE.local.md|init.sh)
+    .claude/*|CLAUDE.md|init.sh)
         # store.sh is manifest-guided — only files in the manifest will be picked up.
         # New files in managed directories need a one-time bootstrap via release.sh.
         if [ -f "$MANIFEST" ] && grep -q "\"$REL_PATH\":" "$MANIFEST"; then

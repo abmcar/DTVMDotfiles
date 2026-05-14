@@ -122,7 +122,7 @@ create_link "$WORKTREE_PATH/.agents/skills/worktree-bootstrap" \
 
 # --- Root-level files ---
 
-for file in CLAUDE.md CLAUDE.local.md AGENTS.md GEMINI.md init.sh; do
+for file in CLAUDE.md AGENTS.md GEMINI.md init.sh; do
     create_link "$WORKTREE_PATH/$file" "$MAIN_REPO/$file"
 done
 

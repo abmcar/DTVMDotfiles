@@ -26,7 +26,7 @@ DTVM is a deterministic VM with EVM ABI compatibility. Core implementation is in
 - Use sequential dispatch when output from one task feeds into another
 - Standard pipeline: research-agent → compiler-agent → test-agent → perf-agent
 - Builder-Validator: compiler-agent implements, test-agent validates correctness (no Edit/Write), perf-agent validates performance
-- Specialized agents (compiler, test, perf, research) cannot spawn sub-agents.
+- Specialized agents (compiler, doc, perf, research, test) cannot spawn sub-agents.
   When a task requires sub-dispatching (e.g., build + test in one agent),
   use `subagent_type: "general-purpose"` with role constraints in the prompt
 - Agent worktrees (`isolation: "worktree"`) are auto-bootstrapped by the
@@ -95,7 +95,7 @@ asks for it.
 
 ### Dotfiles Sync Rule
 Whenever any file managed by DTVMDotfiles is modified (see `MIRRORED_ITEMS` in
-`DTVMDotfiles/lib/sync_common.sh` — includes `.claude/`, `CLAUDE.md`, `CLAUDE.local.md`,
+`DTVMDotfiles/lib/sync_common.sh` — includes `.claude/`, `CLAUDE.md`,
 `init.sh`, `perf/*.sh`, `perf/*.hex`), you **must** sync before the conversation ends:
 ```bash
 bash DTVMDotfiles/store.sh

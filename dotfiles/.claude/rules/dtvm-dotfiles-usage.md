@@ -42,9 +42,13 @@ tracking every managed file path and its content hash (sha256, first 12 chars).
 All items in `MIRRORED_ITEMS` (defined in `lib/sync_common.sh`):
 - `.claude/` — rules, commands, agents, hooks, settings
 - `CLAUDE.md` — DTVM **project**-level development guide (authority source for project rules)
-- `CLAUDE.local.md` — local environment config
 - `init.sh`, `perf/*.sh`, `perf/*.hex` — utility scripts
 - `.agents/skills/worktree-bootstrap/` — personal worktree-bootstrap skill SSOT
+
+> **Not synced**: `CLAUDE.local.md` (since 2026-05-14). It is bootstrapped from
+> `dotfiles/CLAUDE.local.md.template` by `setup_from_dotfiles.sh` on first
+> deploy, then maintained per-machine. `release.sh` / `store.sh` no longer
+> touch it.
 
 > **Two CLAUDE.md authority chains** — Project-level `~/DTVM/CLAUDE.md` is owned by
 > DTVMDotfiles (this system). User-level `~/.claude/CLAUDE.md` is owned by
@@ -75,9 +79,10 @@ bash DTVMDotfiles/worktree-sync.sh <worktree-path>
 
 The script must be invoked from the main repo (where DTVMDotfiles lives).
 It symlinks `.claude/` subdirectories (rules, commands, hooks, agents,
-skills), settings files, `CLAUDE.md`, `CLAUDE.local.md`, `AGENTS.md`,
+skills), settings files, `CLAUDE.md`, `AGENTS.md`,
 `GEMINI.md`, `init.sh`, `perf/`, and `.agents/skills/worktree-bootstrap/`
-(the personal skill SSOT).
+(the personal skill SSOT). `CLAUDE.local.md` is per-machine and is not
+symlinked into worktrees.
 
 ### Additional release.sh behavior
 

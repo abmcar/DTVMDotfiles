@@ -50,6 +50,13 @@ echo ""
 echo "✅ Files released successfully"
 echo ""
 
+# CLAUDE.local.md skeleton bootstrap (since 2026-05-14)
+if [ ! -f "../CLAUDE.local.md" ] && [ -f "./dotfiles/CLAUDE.local.md.template" ]; then
+    cp "./dotfiles/CLAUDE.local.md.template" "../CLAUDE.local.md"
+    echo "✨ Bootstrapped CLAUDE.local.md from template (edit per-machine paths if needed)"
+    echo ""
+fi
+
 # Step 3: Run init.sh
 echo "🚀 Running init.sh from released files..."
 echo ""
