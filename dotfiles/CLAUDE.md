@@ -42,35 +42,40 @@ DTVM is a deterministic VM with EVM ABI compatibility. Core implementation is in
 
 ## Development Workflow
 
-All non-trivial changes follow a unified flow that combines the project's `dev-workflow` skill
-with superpowers skills. Simple bug fixes or single-file edits may skip to step 3.
+All non-trivial changes follow a unified flow driven by the project's `dev-workflow`
+and `dev-cycle` skills. Simple bug fixes or single-file edits may skip to step 3.
 
 ### 1. Brainstorm + Propose
-- Use `superpowers:brainstorming` to explore intent and requirements
+- Clarify intent, scope, and acceptance criteria with the user before writing code
 - Output: a change document in `docs/changes/YYYY-MM-DD-<slug>/README.md`
   - **Full tier** (`template.md`): cross-module, architecture, new capabilities
   - **Light tier** (`template-light.md`): single-module, well-scoped improvements
 
 ### 2. Plan
-- Use `superpowers:writing-plans` to create an implementation plan
-- Plan must reference the change doc and consult relevant `docs/modules/` specs
-- Write implementation phases back into the change doc (Full tier)
+- For Full tier: write an Implementation Plan inline in the change doc — ordered
+  steps with explicit file paths and a verification gate per step
+- For Light tier: a short `## Implementation` checklist in the change doc is enough
+- Consult relevant `docs/modules/` specs; do not include macro time / duration estimates
+- Do not pre-design for hypothetical futures — plan only what the task requires
 
 ### 3. Execute
-- Use `superpowers:executing-plans` or `superpowers:subagent-driven-development`
-- Apply `superpowers:test-driven-development` where applicable
+- Drive task-by-task; verify each step's gate before moving on
+- Apply TDD where applicable: red → green → refactor
 - Use `worktree-bootstrap` for experimental changes on branches with open PRs
   or reviewed commits — see Worktrees § for the hazard rule.
 - After each logical unit: build gate → test gate → format gate
 
 ### 4. Verify
-- Use `superpowers:verification-before-completion` before claiming done
+- Run the actual verification commands (format / build / required test suite)
+  and read the output before claiming done; see `.claude/rules/ci-test-discipline.md`
+  Rule 1 (never silently skip a required suite)
 - Run full test suite and benchmark comparison (if perf-related)
 - Update change doc status to `Implemented`
 
 ### 5. PR + Review
-- Use `superpowers:requesting-code-review` to create PR
-- Use `superpowers:receiving-code-review` when handling feedback
+- Open the PR with a clear what/why per `.claude/rules/commit-conventions.md`
+- For high-stakes review, dispatch two parallel reviewers (Opus + Codex), cap at
+  3 rounds — see memory `feedback_parallel_review_two_rounds`
 - Resolve review threads via GraphQL after fixing
 
 ### 6. Archive (after merge)
@@ -124,9 +129,8 @@ Worktree directories: use `.worktrees/` (project-local, gitignored).
 experimental changes (performance optimizations, algorithm changes, SPP
 activation, etc.) on a branch that already has an open PR or reviewed
 commits. Never experiment directly on a branch with work you can't afford
-to lose. Do **not** use the upstream `superpowers:using-git-worktrees`
-skill in this repo — it does not init submodules or sync dotfiles and will
-leave the worktree unusable.
+to lose. Generic worktree skills are not a substitute — they don't init
+submodules or sync dotfiles and will leave the worktree unusable.
 
 ## Build & Test
 

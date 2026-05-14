@@ -1,16 +1,18 @@
 ---
 name: worktree-bootstrap
-description: Create and fully initialize a DTVM git worktree (submodules + dotfiles sync + cmake). Supersedes superpowers:using-git-worktrees for DTVM.
+description: Create and fully initialize a DTVM git worktree (submodules + dotfiles sync + cmake). The authoritative DTVM worktree skill — generic worktree skills don't init submodules or sync dotfiles.
 ---
 
 # Worktree Bootstrap (DTVM)
 
 Any time you need an isolated DTVM worktree — new branch, experimental
-optimization, parallel work, or before `superpowers:executing-plans`.
+optimization, parallel work, or before executing a multi-step plan that
+needs an isolated workspace.
 
-**Supersedes `superpowers:using-git-worktrees` inside the DTVM repo.** The
-upstream skill targets generic Node/Rust/Python/Go projects and skips
-everything DTVM-specific (submodules, dotfiles, cmake).
+**Authoritative DTVM worktree skill.** Generic worktree skills (e.g. those
+shipped by upstream plugins) target generic Node/Rust/Python/Go projects
+and skip everything DTVM-specific (submodules, dotfiles, cmake). Use this
+skill instead.
 
 Invoke with a branch name. Worktree always created at `.worktrees/<branch>`
 (convention in `CLAUDE.md` — no other location is supported).
