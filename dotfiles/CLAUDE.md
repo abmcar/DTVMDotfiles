@@ -42,8 +42,9 @@ DTVM is a deterministic VM with EVM ABI compatibility. Core implementation is in
 
 ## Development Workflow
 
-All non-trivial changes follow a unified flow driven by the project's `dev-workflow`
-and `dev-cycle` skills. Simple bug fixes or single-file edits may skip to step 3.
+All non-trivial changes follow a unified flow driven by the upstream `dev-workflow`
+skill (under `.agents/skills/`) and our `dev-cycle` skill (claude-sync). Simple
+bug fixes or single-file edits may skip to step 3.
 
 ### 1. Brainstorm + Propose
 - Clarify intent, scope, and acceptance criteria with the user before writing code
@@ -74,8 +75,9 @@ and `dev-cycle` skills. Simple bug fixes or single-file edits may skip to step 3
 
 ### 5. PR + Review
 - Open the PR with a clear what/why per `.claude/rules/commit-conventions.md`
-- For high-stakes review, dispatch two parallel reviewers (Opus + Codex), cap at
-  3 rounds — see memory `feedback_parallel_review_two_rounds`
+- For high-stakes review (paper, plan, PR closure, direction-doc), dispatch
+  Opus + Codex as parallel reviewers in separate Agent calls; target 1–2
+  rounds, hard-cap 3, with `model: "opus"` set explicitly
 - Resolve review threads via GraphQL after fixing
 
 ### 6. Archive (after merge)
