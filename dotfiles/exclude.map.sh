@@ -31,6 +31,6 @@ declare -Ag DTVM_EXCLUDE_MAP=(
     [perf.data.old.\*]=managed
     [qa.md]=managed
     [static]=managed
-    [docs/superpowers]=managed
+    [docs/super\*]=managed
     [tmp.sh]=managed
 )
