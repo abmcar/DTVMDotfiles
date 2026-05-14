@@ -1,7 +1,7 @@
 #!/bin/bash
 # PostToolUse hook: warn when a DTVMDotfiles-managed file is modified.
 # Managed items (excluding perf/): .claude/, CLAUDE.md, init.sh
-# (CLAUDE.local.md is per-machine since 2026-05-14, not managed)
+# CLAUDE.local.md is per-machine, not managed by this hook.
 
 set -euo pipefail
 

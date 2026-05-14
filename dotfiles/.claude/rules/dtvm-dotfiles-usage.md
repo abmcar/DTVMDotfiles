@@ -45,10 +45,10 @@ All items in `MIRRORED_ITEMS` (defined in `lib/sync_common.sh`):
 - `init.sh`, `perf/*.sh`, `perf/*.hex` — utility scripts
 - `.agents/skills/worktree-bootstrap/` — personal worktree-bootstrap skill SSOT
 
-> **Not synced**: `CLAUDE.local.md` (since 2026-05-14). It is bootstrapped from
-> `dotfiles/CLAUDE.local.md.template` by `setup_from_dotfiles.sh` on first
-> deploy, then maintained per-machine. `release.sh` / `store.sh` no longer
-> touch it.
+> **Not synced**: `CLAUDE.local.md`. It is bootstrapped from
+> `dotfiles/CLAUDE.local.md.template` by `setup_from_dotfiles.sh` when the
+> deployed file is missing, then maintained per-machine. `release.sh` /
+> `store.sh` do not touch it.
 
 > **Two CLAUDE.md authority chains** — Project-level `~/DTVM/CLAUDE.md` is owned by
 > DTVMDotfiles (this system). User-level `~/.claude/CLAUDE.md` is owned by

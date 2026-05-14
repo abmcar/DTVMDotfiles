@@ -14,11 +14,10 @@ Files under `.claude/` and `CLAUDE.md` are synced across machines via
 DTVMDotfiles. **Never write machine-specific absolute paths**
 (e.g. `/home/abmcar/DTVM/...`, `/Users/foo/...`) in these files.
 
-`CLAUDE.local.md` is **not** in `MIRRORED_ITEMS` (since 2026-05-14). It is
-bootstrapped once from `DTVMDotfiles/dotfiles/CLAUDE.local.md.template` by
-`setup_from_dotfiles.sh` on first deploy, then maintained per-machine.
-`release.sh` / `store.sh` do not touch it. The `.template` file uses
-`~/`-relative paths so the skeleton is portable; per-machine edits stay local.
+`CLAUDE.local.md` is per-machine and not in `MIRRORED_ITEMS` — see
+`dtvm-dotfiles-usage.md` "Not synced" note for the bootstrap mechanics.
+The `.template` uses `~/`-relative paths so the seeded skeleton is portable;
+per-machine edits stay local.
 
 ## Allowed path styles
 

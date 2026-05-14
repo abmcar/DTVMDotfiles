@@ -46,7 +46,7 @@ bash setup_from_dotfiles.sh /tmp/new-setup
    ```
    - 释放所有配置文件到父目录
    - 包括：.claude/, .git/info/exclude, init.sh, CLAUDE.md
-   - 自 2026-05-14 起 CLAUDE.local.md 不再同步，setup_from_dotfiles.sh 会从 dotfiles/CLAUDE.local.md.template 生成 skeleton
+   - CLAUDE.local.md 不在同步集；setup_from_dotfiles.sh 在父目录无该文件时从 dotfiles/CLAUDE.local.md.template 生成 skeleton
 
 4. **执行 init.sh**
    ```bash

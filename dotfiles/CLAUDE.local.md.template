@@ -1,3 +1,6 @@
+<!-- Template: setup_from_dotfiles.sh copies this to ../CLAUDE.local.md when missing.
+     Edit the deployed copy per-machine; this template stays generic (~/-relative paths). -->
+
 # Local Development Environment
 
 ## evmone Test Infrastructure

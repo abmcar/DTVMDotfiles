@@ -50,7 +50,7 @@ echo ""
 echo "✅ Files released successfully"
 echo ""
 
-# CLAUDE.local.md skeleton bootstrap (since 2026-05-14)
+# CLAUDE.local.md is per-machine and not in MIRRORED_ITEMS; seed it once from template.
 if [ ! -f "../CLAUDE.local.md" ] && [ -f "./dotfiles/CLAUDE.local.md.template" ]; then
     cp "./dotfiles/CLAUDE.local.md.template" "../CLAUDE.local.md"
     echo "✨ Bootstrapped CLAUDE.local.md from template (edit per-machine paths if needed)"

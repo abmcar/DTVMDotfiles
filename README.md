@@ -23,7 +23,7 @@ DTVMDotfiles/
 │   └── sync_common.sh          # 核心逻辑：MIRRORED_ITEMS 定义、manifest 读写、同步函数
 └── dotfiles/                   # 所有受管理的配置文件
     ├── CLAUDE.md               # DTVM 开发指南（权威源）
-    ├── CLAUDE.local.md.template # 本地机器环境路径模板（首次部署生成 skeleton，之后每台机器独立维护）
+    ├── CLAUDE.local.md.template # 本地路径模板（部署时拷为 ../CLAUDE.local.md，按本机改）
     ├── init.sh                 # 环境初始化（Node.js、Claude Code、Codex、git submodule）
     ├── exclude.map.sh          # .git/info/exclude 的持久化表示
     ├── .claude/
@@ -81,7 +81,7 @@ DTVM/
 ├── .claude/                   # Claude Code 配置（rules、commands、agents、hooks）
 │   └── .dtvm-manifest.json    # manifest 文件，记录所有受管文件的 SHA256 hash
 ├── CLAUDE.md                  # AI 开发指南（权威源）
-├── CLAUDE.local.md            # 本地环境路径配置（首次部署由 .template 生成，之后每台机器独立维护，不再同步）
+├── CLAUDE.local.md            # 本地环境路径（首次部署由 .template 生成，每台机器独立维护，不同步）
 ├── AGENTS.md                  # CLAUDE.md 的副本（供其他 AI 工具读取）
 ├── GEMINI.md                  # CLAUDE.md 的副本（供 Gemini 读取）
 ├── init.sh                    # 环境初始化脚本
@@ -179,4 +179,4 @@ bash diff.sh
 - `store.sh` 依赖 manifest，首次使用必须先运行 `release.sh`
 - 脚本是幂等的，可以重复运行
 - `CLAUDE.md` 是唯一的权威源；`AGENTS.md` 和 `GEMINI.md` 是自动生成的副本，不要直接编辑
-- `CLAUDE.local.md` 自 2026-05-14 起脱离同步：首次部署由 `setup_from_dotfiles.sh` 从 `dotfiles/CLAUDE.local.md.template` 生成 skeleton（路径已 `~/`-relative），之后每台机器独立维护，`release.sh`/`store.sh` 都不再触它
+- `CLAUDE.local.md` 不在 `MIRRORED_ITEMS` 内：首次部署由 `setup_from_dotfiles.sh` 从 `dotfiles/CLAUDE.local.md.template`（路径 `~/`-relative）生成 skeleton，之后每台机器独立维护，`release.sh`/`store.sh` 都不触它
