@@ -1,6 +1,6 @@
 #!/bin/bash
 # PostToolUse hook: warn when a DTVMDotfiles-managed file is modified.
-# Managed items (excluding perf/): .claude/, CLAUDE.md, init.sh
+# Managed items: .claude/, CLAUDE.md, init.sh, perf/*.sh, perf/*.hex
 # CLAUDE.local.md is per-machine, not managed by this hook.
 
 set -euo pipefail
@@ -11,8 +11,12 @@ FILE_PATH=$(echo "$INPUT" | grep -oP '"file_path"\s*:\s*"\K[^"]*' | head -1) || 
 
 [ -z "$FILE_PATH" ] && exit 0
 
-# Resolve repo root (the directory containing .claude/)
-REPO_ROOT="$(cd "$(dirname "$0")/../.." && pwd)"
+# Resolve repo root by walking up from FILE_PATH until we find the manifest.
+# Using $0-relative paths breaks in worktrees (.claude/ is symlinked to main repo).
+d="$(dirname "$FILE_PATH")"
+while [ "$d" != "/" ] && [ ! -f "$d/.claude/.dtvm-manifest.json" ]; do d="$(dirname "$d")"; done
+[ "$d" = "/" ] && exit 0
+REPO_ROOT="$d"
 
 # Make path relative to repo root
 REL_PATH="${FILE_PATH#"$REPO_ROOT"/}"
@@ -20,10 +24,10 @@ REL_PATH="${FILE_PATH#"$REPO_ROOT"/}"
 # If path didn't change, it's outside the repo
 [ "$REL_PATH" = "$FILE_PATH" ] && exit 0
 
-# Check against managed items (no perf/)
+# Check against managed items
 MANIFEST="$REPO_ROOT/.claude/.dtvm-manifest.json"
 case "$REL_PATH" in
-    .claude/*|CLAUDE.md|init.sh)
+    .claude/*|CLAUDE.md|init.sh|perf/*.sh|perf/*.hex)
         # store.sh is manifest-guided — only files in the manifest will be picked up.
         # New files in managed directories need a one-time bootstrap via release.sh.
         if [ -f "$MANIFEST" ] && grep -q "\"$REL_PATH\":" "$MANIFEST"; then
