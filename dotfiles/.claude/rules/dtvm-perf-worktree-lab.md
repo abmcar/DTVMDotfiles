@@ -62,10 +62,13 @@ rm -f ~/evmone/libdtvmapi*.so
 
 ## Sub-agent Dispatch
 
-When dispatching test/perf sub-agents, include verbatim:
-"Use ~/evmone/ binaries directly. Never run .ci/run_test_suite.sh. Never copy
-.so files. In baseline worktree use build-baseline/ not build/. Create
-worktrees via the `worktree-bootstrap` skill, never raw `git worktree add`."
+When dispatching test/perf sub-agents, attach `.claude/rules/dtvm-local-test.md`
+"Common Mistakes" section to the prompt — those bullets (don't run
+`.ci/run_test_suite.sh`, don't copy `.so` files, use absolute `$(pwd)/` for
+the .so path) are the same warnings agents need. Add one extra reminder
+specific to this rule: in baseline worktree use `build-baseline/` not
+`build/`, and create worktrees via the `worktree-bootstrap` skill rather
+than raw `git worktree add`.
 
 ## Output Requirements
 

@@ -6,7 +6,9 @@ alwaysApply: true
 
 # Commit and PR Conventions
 
-Follow the conventions defined in `commitlint.config.js`.
+The authoritative type/scope enum and length rules live in
+`commitlint.config.js` at the repo root — read it directly rather than
+trust any summary here.
 
 ## Format
 ```
@@ -17,36 +19,11 @@ Follow the conventions defined in `commitlint.config.js`.
 [optional footer]
 ```
 
-## Type (required)
-- `feat` - A new feature
-- `fix` - A bug fix
-- `docs` - Documentation only changes
-- `style` - Code style changes (formatting, white-space, etc.)
-- `refactor` - Code changes that neither fix bugs nor add features
-- `perf` - Performance improvements
-- `test` - Adding or correcting tests
-- `build` - Build system or dependency changes
-- `ci` - CI configuration changes
-- `chore` - Other changes that don't modify src or test files
+Both commit messages and **PR titles** follow this format.
 
-## Scope (required)
-- `core` - Core engine code
-- `runtime` - Runtime library
-- `compiler` - Compiler related
-- `examples` - Example code
-- `docs` - Documentation related
-- `tools` - Tool related
-- `deps` - Dependency related
-- `ci` - CI related
-- `test` - Test related
-- `other` - Other changes
-- `` (empty) - No specific scope
+## What's NOT in commitlint.config.js
 
-## Rules
-- Header must not exceed 120 characters
-- Subject must not end with a period
-- Type must be lowercase
-- Use imperative mood in subject (e.g., "add feature" not "added feature")
-
-## PR Title Format
-PR titles follow the same format: `<type>(<scope>): <subject>`
+- Use imperative mood in subject (e.g., "add feature" not "added feature").
+- PR description must explain what changed and why.
+- Subject should be a single sentence; no period at end (enforced by config,
+  noted here for context).
