@@ -14,8 +14,6 @@ declare -Ag DTVM_EXCLUDE_MAP=(
     [AGENTS.md]=managed
     [ALL_STATE_TESTS]=managed
     [BRANCH_REPORT.md]=managed
-    # CLAUDE.local.md: not in MIRRORED_ITEMS, but git must still ignore it
-    # (machine-specific paths must not leak into git history).
     [CLAUDE.local.md]=managed
     [CLAUDE.md]=managed
     [DTVMDotfiles]=managed

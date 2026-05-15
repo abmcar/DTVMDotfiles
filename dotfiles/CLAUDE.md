@@ -46,14 +46,10 @@ The default flow described below is driven by the upstream `dev-workflow` skill
 (under `.agents/skills/`). Simple bug fixes or single-file edits may skip to
 step 3.
 
-For **feature implementation** or when the user invokes `/dev-cycle`, escalate
-to the opt-in `dev-cycle` skill (`~/claude-sync/skills/dev-cycle/`). It adds:
-strict brainstorm escape hatch (no source-code single-file skip), parallel
-adversarial review at spec and impl, change-doc SSOT at `~/changes/<slug>/`
-promoted into `docs/changes/` only at PR time, and `/dev-cycle archive`
-post-merge. Do **not** auto-invoke `/dev-cycle` for routine fixes — it is
-opt-in. Use it when the user describes implementing a feature or explicitly
-asks for it.
+For **feature implementation** or explicit `/dev-cycle` invocation, escalate
+to the opt-in `dev-cycle` skill (`~/claude-sync/skills/dev-cycle/`) — see its
+SKILL.md for the full lifecycle. Do not auto-invoke `/dev-cycle` for routine
+fixes.
 
 ### 1. Brainstorm + Propose
 - Clarify intent, scope, and acceptance criteria with the user before writing code
