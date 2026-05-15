@@ -9,29 +9,6 @@
             "command": "INPUT=$(cat); FILE=$(echo \"$INPUT\" | jq -r '.tool_input.file_path // empty'); case \"$FILE\" in */evmc/*|*/third_party/*) echo '{\"decision\": \"block\", \"reason\": \"Do not modify evmc/ or third_party/ unless explicitly required\"}'; exit 0;; esac"
           }
         ]
-      },
-      {
-        "matcher": "Bash",
-        "hooks": [
-          {
-            "type": "command",
-            "if": "Bash(git checkout*)",
-            "command": "INPUT=$(cat); CMD=$(echo \"$INPUT\" | jq -r '.tool_input.command // empty' 2>/dev/null); case \"$CMD\" in *'git checkout'*|*'git -C '*' checkout'*) d=\"$PWD\"; while [ \"$d\" != \"/\" ] && [ ! -f \"$d/.claude/hooks/git-branch-guard.sh\" ]; do d=\"$(dirname \"$d\")\"; done; [ -f \"$d/.claude/hooks/git-branch-guard.sh\" ] && bash \"$d/.claude/hooks/git-branch-guard.sh\" ;; esac",
-            "timeout": 5
-          },
-          {
-            "type": "command",
-            "if": "Bash(git rebase*)",
-            "command": "INPUT=$(cat); CMD=$(echo \"$INPUT\" | jq -r '.tool_input.command // empty' 2>/dev/null); case \"$CMD\" in *'git rebase'*) d=\"$PWD\"; while [ \"$d\" != \"/\" ] && [ ! -f \"$d/.claude/hooks/git-branch-guard.sh\" ]; do d=\"$(dirname \"$d\")\"; done; [ -f \"$d/.claude/hooks/git-branch-guard.sh\" ] && bash \"$d/.claude/hooks/git-branch-guard.sh\" ;; esac",
-            "timeout": 5
-          },
-          {
-            "type": "command",
-            "if": "Bash(git switch*)",
-            "command": "INPUT=$(cat); CMD=$(echo \"$INPUT\" | jq -r '.tool_input.command // empty' 2>/dev/null); case \"$CMD\" in *'git switch'*) d=\"$PWD\"; while [ \"$d\" != \"/\" ] && [ ! -f \"$d/.claude/hooks/git-branch-guard.sh\" ]; do d=\"$(dirname \"$d\")\"; done; [ -f \"$d/.claude/hooks/git-branch-guard.sh\" ] && bash \"$d/.claude/hooks/git-branch-guard.sh\" ;; esac",
-            "timeout": 5
-          }
-        ]
       }
     ],
     "PostToolUse": [
