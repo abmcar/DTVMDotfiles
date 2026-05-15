@@ -26,31 +26,6 @@
             "command": "INPUT=$(cat); FILE=$(echo \"$INPUT\" | jq -r '.tool_input.file_path // empty'); case \"$FILE\" in *.cpp|*.h|*.cc|*.cxx) clang-format -style=file -i \"$FILE\";; esac"
           }
         ]
-      },
-      {
-        "matcher": "Bash",
-        "hooks": [
-          {
-            "type": "command",
-            "if": "Bash(git push*)",
-            "command": "INPUT=$(cat); CMD=$(echo \"$INPUT\" | jq -r '.tool_input.command // empty' 2>/dev/null); case \"$CMD\" in *'git push'*) u=$(git -C \"$PWD\" remote get-url origin 2>/dev/null); case \"$u\" in *[/:]DTVMStack/DTVM|*[/:]DTVMStack/DTVM.git|*[/:]abmcar/DTVM|*[/:]abmcar/DTVM.git) echo '{\"hookSpecificOutput\":{\"hookEventName\":\"PostToolUse\",\"additionalContext\":\"[ci-monitor] Push to DTVM detected. In the BACKGROUND: 1) Run gh run list --limit 1 --json databaseId,status,workflowName,headBranch to find the triggered run. 2) Run gh run watch <id> --exit-status in background. 3) On completion, if failed: gh run view <id> --log-failed and diagnose. If passed: briefly report. Do NOT interrupt your current task for this.\"}}' ;; esac ;; esac",
-            "timeout": 5,
-            "statusMessage": "Checking CI monitor..."
-          }
-        ]
-      }
-    ],
-    "PostToolUseFailure": [
-      {
-        "matcher": "Bash",
-        "hooks": [
-          {
-            "type": "command",
-            "if": "Bash(cmake --build*)",
-            "command": "echo '{\"hookSpecificOutput\":{\"hookEventName\":\"PostToolUseFailure\",\"additionalContext\":\"Build failed. Focus on the FIRST error only \u2014 later errors are usually cascading. Check: 1) Missing include? 2) Type mismatch? 3) Linker error (undefined symbol)? Fix the root cause, not symptoms. Run tools/format.sh check too.\"}}'",
-            "timeout": 5
-          }
-        ]
       }
     ],
     "SessionStart": [
