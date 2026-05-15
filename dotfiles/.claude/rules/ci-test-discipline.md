@@ -1,5 +1,5 @@
 ---
-description: Behavioral rules for testing discipline — never skip required tests, never push without confirmation, follow CI failure investigation protocol.
+description: Behavioral rules for testing discipline — never skip required tests, follow CI failure investigation protocol.
 globs: []
 alwaysApply: true
 ---
@@ -17,37 +17,7 @@ only — this does not cover the same scope."
 
 Do not declare "tests pass" when you skipped a required test category.
 
-## Rule 2: Push requires explicit user confirmation
-
-Do not run `git push` unless the user's prompt explicitly says to push
-(e.g., "push", "push it", "push to origin", "push 上去").
-
-After tests pass, report the results and wait. Example:
-"All tests pass. Ready to push when you say so."
-
-### Rule 2a: Safe-fast-path exception (docs-only)
-
-When the user is mid-task and the push is *obviously* safe, push directly
-without asking. "Obviously safe" requires ALL of:
-
-- Diff is provably non-code: `docs/changes/`, `docs/modules/`,
-  `docs/research/`, README/CLAUDE.md edits, comment-only / typo-fix /
-  formatting-only, OR adding a single test fixture without changing the
-  test runner.
-- The user already authorized this specific work in the conversation
-  (e.g., "push", "推上去", "commit and push", "直接 push 就行" —
-  granting verbs, not questions).
-
-Still ask when in doubt:
-- Any `src/` code change, even if "small".
-- CI / build / hook / settings.json changes (high blast radius).
-- Anything touching a branch with an open PR awaiting review.
-- Force-push, branch deletion, tag pushes — never auto.
-
-If the user asks "可以 push 了吗?" / "should I push?", that is asking
-for an opinion, not granting permission — give the assessment and wait.
-
-## Rule 3: CI failure investigation protocol
+## Rule 2: CI failure investigation protocol
 
 When local tests pass but CI fails, follow this protocol — do not skip steps:
 
