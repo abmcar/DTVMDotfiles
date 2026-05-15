@@ -1,6 +1,6 @@
 #!/bin/bash
 # PostToolUse hook: warn when a DTVMDotfiles-managed file is modified.
-# Managed items: .claude/, CLAUDE.md, init.sh, perf/*.sh, perf/*.hex
+# Case glob below must stay aligned with MIRRORED_ITEMS in DTVMDotfiles/lib/sync_common.sh.
 # CLAUDE.local.md is per-machine, not managed by this hook.
 
 set -euo pipefail
@@ -10,6 +10,8 @@ INPUT=$(cat)
 FILE_PATH=$(echo "$INPUT" | grep -oP '"file_path"\s*:\s*"\K[^"]*' | head -1) || true
 
 [ -z "$FILE_PATH" ] && exit 0
+# Defense in depth: dir-walk requires an absolute path; CC tool schema enforces this anyway.
+case "$FILE_PATH" in /*) ;; *) exit 0 ;; esac
 
 # Resolve repo root by walking up from FILE_PATH until we find the manifest.
 # Using $0-relative paths breaks in worktrees (.claude/ is symlinked to main repo).
@@ -27,7 +29,7 @@ REL_PATH="${FILE_PATH#"$REPO_ROOT"/}"
 # Check against managed items
 MANIFEST="$REPO_ROOT/.claude/.dtvm-manifest.json"
 case "$REL_PATH" in
-    .claude/*|CLAUDE.md|init.sh|perf/*.sh|perf/*.hex)
+    .claude/*|CLAUDE.md|init.sh|perf/*.sh|perf/*.hex|.agents/skills/worktree-bootstrap/*)
         # store.sh is manifest-guided — only files in the manifest will be picked up.
         # New files in managed directories need a one-time bootstrap via release.sh.
         if [ -f "$MANIFEST" ] && grep -q "\"$REL_PATH\":" "$MANIFEST"; then
