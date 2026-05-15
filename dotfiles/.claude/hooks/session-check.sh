@@ -1,5 +1,5 @@
 #!/bin/bash
-# SessionStart hook: display cached housekeeping report + check for unresolved issues.
+# SessionStart hook: bootstrap agent worktrees + emit cached housekeeping report.
 # Zero network calls, zero file hashing — just reads files.
 
 set -euo pipefail
@@ -32,25 +32,6 @@ $CONTENT"
             else
                 OUTPUT="$CONTENT"
             fi
-        fi
-    fi
-fi
-
-# Part 2: Unresolved session issues
-PROJECT_SLUG="${PWD//\//-}"
-ISSUES_DIR="$HOME/.claude/projects/$PROJECT_SLUG/session-issues"
-if [ -d "$ISSUES_DIR" ]; then
-    shopt -s nullglob
-    ISSUE_FILES=("$ISSUES_DIR"/*.md)
-    shopt -u nullglob
-    ISSUE_COUNT=${#ISSUE_FILES[@]}
-    if [ "$ISSUE_COUNT" -gt 0 ]; then
-        ISSUE_MSG="[issues] $ISSUE_COUNT unresolved rule/memory/skill issue(s) — run /session-issues to review"
-        if [ -n "$OUTPUT" ]; then
-            OUTPUT="$OUTPUT
-$ISSUE_MSG"
-        else
-            OUTPUT="$ISSUE_MSG"
         fi
     fi
 fi
