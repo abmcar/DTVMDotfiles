@@ -21,9 +21,7 @@ trust any summary here.
 
 Both commit messages and **PR titles** follow this format.
 
-## What's NOT in commitlint.config.js
+## Additional conventions
 
-- Use imperative mood in subject (e.g., "add feature" not "added feature").
+- Use imperative mood in subject ("add feature", not "added feature").
 - PR description must explain what changed and why.
-- Subject should be a single sentence; no period at end (enforced by config,
-  noted here for context).

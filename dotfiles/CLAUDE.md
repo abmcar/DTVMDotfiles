@@ -42,7 +42,7 @@ DTVM is a deterministic VM with EVM ABI compatibility. Core implementation is in
 
 ## Development Workflow
 
-The default lifecycle (brainstorm → plan → execute → verify → PR → archive) is
+The default lifecycle (propose → plan → execute → verify-and-archive) is
 driven by the upstream `dev-workflow` skill (`.agents/skills/dev-workflow/`).
 Simple bug fixes or single-file edits may skip directly to execute.
 
@@ -96,9 +96,7 @@ Full architecture (manifest mechanism, what's managed, worktree symlinks): see
 3. Relevant tests pass (EVM spec tests for evm/runtime changes, unit tests for compiler)
 4. No new compiler warnings in build output
 
-**Before creating commits/PRs:**
-- Follow conventions in `.claude/rules/commit-conventions.md`
-- PR description includes what changed and why
+**Before creating commits/PRs:** follow `.claude/rules/commit-conventions.md`.
 
 ## Worktrees
 

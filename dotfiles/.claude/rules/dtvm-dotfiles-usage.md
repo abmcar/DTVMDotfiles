@@ -35,9 +35,9 @@ this rule is a map of invariants, not a substitute for the source.
 
 ### What's managed vs. not
 
-Managed: everything in `MIRRORED_ITEMS` — currently `.claude/`, `CLAUDE.md`,
-`init.sh`, `perf/*.sh`, `perf/*.hex`, and `.agents/skills/worktree-bootstrap/`
-(personal skill SSOT). Read `lib/sync_common.sh` for the current list.
+Managed: everything in `MIRRORED_ITEMS` — read `lib/sync_common.sh` for the
+current list. (As of this writing it covers `.claude/`, `CLAUDE.md`, top-level
+utility scripts, and the personal `worktree-bootstrap` skill SSOT.)
 
 NOT managed:
 - `CLAUDE.local.md` — per-machine; bootstrapped from

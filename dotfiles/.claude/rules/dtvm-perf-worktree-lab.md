@@ -28,8 +28,7 @@ clones, or `evmone-for-test-*` directories; delete any stale
 - **Create**: use the `worktree-bootstrap` skill (wraps
   `DTVMDotfiles/worktree-init.sh` — submodule init + dotfiles sync in one
   step). Place worktrees under `.worktrees/` (gitignored). Do NOT use raw
-  `git worktree add` + manual submodule/dotfiles steps. See CLAUDE.md
-  Worktrees section.
+  `git worktree add` + manual submodule/dotfiles steps.
 - **Remove**: `rm -rf <path> && git worktree prune`.
   Do NOT use `git worktree remove` — fails on worktrees with submodules.
   Never remove `~/dtvm-baseline` — it is a permanent resource.
