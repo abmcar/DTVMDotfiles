@@ -91,7 +91,7 @@ Append new entry to `docs/research/index.yaml`:
 ### Step 6: Commit to DTVM-Papers repo
 
 ```bash
-cd docs/research/papers
+cd docs/research
 git add directions/<name>/ index.yaml
 git commit -m "research(<name>): create new direction"
 ```
