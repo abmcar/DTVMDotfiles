@@ -1,2 +1,23 @@
 dotfiles/.claude/worktrees/
 dotfiles/.claude/settings.local.json
+
+# Machine-local files (never sync per-machine state to a public repo)
+**/settings.local.json
+*.local.md
+CLAUDE.local.md
+
+# Secrets / credentials backstop (this repo is public)
+.env
+.env.*
+*.key
+*.pem
+*.p12
+*.pfx
+id_rsa
+id_ed25519
+*_rsa
+.npmrc
+.netrc
+*credentials*
+service-account*.json
+auth.json

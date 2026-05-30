@@ -49,7 +49,21 @@ warn() {
 # --- Manifest functions ---
 
 fileHash() {
-    sha256sum "$1" | cut -c1-12
+    if command -v sha256sum >/dev/null 2>&1; then
+        sha256sum "$1" | cut -c1-12
+    else
+        shasum -a 256 "$1" | cut -c1-12
+    fi
+}
+
+# Machine-local files must never enter the manifest or the dotfiles tree.
+isMachineLocalFile() {
+    local name
+    name="$(basename "$1")"
+    case "$name" in
+        settings.local.json | CLAUDE.local.md | *.local.md) return 0 ;;
+    esac
+    return 1
 }
 
 collectFiles() {
@@ -58,11 +72,32 @@ collectFiles() {
     local full_path="$root/$rel_path"
 
     if [ -f "$full_path" ]; then
+        isMachineLocalFile "$rel_path" && return 0
         printf '%s\n' "$rel_path"
     elif [ -d "$full_path" ]; then
+        local f
+        # BSD find lacks -printf; prefer gfind, else strip the root prefix in-shell.
         while IFS= read -r f; do
+            f="${f#"$full_path"/}"
+            isMachineLocalFile "$f" && continue
             printf '%s\n' "$rel_path/$f"
-        done < <(find "$full_path" -type f -printf '%P\n' | LC_ALL=C sort)
+        done < <(collectFilesRaw "$full_path" | LC_ALL=C sort)
+    fi
+}
+
+# List regular files under a directory, one absolute path per line.
+# Prune non-managed subtrees: per-worktree checkouts (.claude/worktrees/),
+# per-machine agent state (.claude/agent-memory/), and *.bak backups. These are
+# never part of the managed dotfiles set and must not be enumerated into it.
+# Uses GNU/gfind -printf when available, else a portable plain find.
+collectFilesRaw() {
+    local dir="$1"
+    if command -v gfind >/dev/null 2>&1; then
+        gfind "$dir" \( -type d \( -name worktrees -o -name agent-memory \) -prune \) \
+            -o \( -type f ! -name '*.bak' -printf '%p\n' \)
+    else
+        find "$dir" \( -type d \( -name worktrees -o -name agent-memory \) -prune \) \
+            -o \( -type f ! -name '*.bak' -print \)
     fi
 }
 
@@ -71,7 +106,13 @@ writeManifest() {
     local -n wm_files_ref="$2"
     local tmp_file synced_at first=true
 
-    synced_at="$(date -Iseconds)"
+    if [ "${RELEASE_CHECK:-0}" = "1" ]; then
+        echo "[release-dry] WOULD update manifest $manifest_path (${#wm_files_ref[@]} files)"
+        return 0
+    fi
+
+    # date -Iseconds is GNU-only; BSD date needs an explicit ISO 8601 format.
+    synced_at="$(date -Iseconds 2>/dev/null || date '+%Y-%m-%dT%H:%M:%S%z')"
     tmp_file="$(mktemp)"
     {
         printf '{\n'
@@ -121,6 +162,7 @@ readManifest() {
 
 copy_with_gate() {
     local src="$1" dst="$2" old_hash="${3:-}"
+    local need_backup=0
     if [ -f "$dst" ] && [ -n "$old_hash" ]; then
         local current_hash
         current_hash="$(fileHash "$dst")"
@@ -135,10 +177,21 @@ copy_with_gate() {
             fi
             echo "[release] WARN: overwriting locally-modified $dst" >&2
         fi
+    elif [ -f "$dst" ] && [ "$(fileHash "$dst")" != "$(fileHash "$src")" ]; then
+        # No manifest entry (first deploy): dst is hand-edited and git-unrecoverable.
+        # Back it up before overwriting rather than destroying it silently.
+        need_backup=1
     fi
     if [ "${RELEASE_CHECK:-0}" = "1" ]; then
         echo "[release-dry] WOULD copy $src → $dst"
+        if [ "$need_backup" = "1" ]; then
+            echo "[release-dry] WOULD back up $dst → $dst.pre-release.bak"
+        fi
         return 0
+    fi
+    if [ "$need_backup" = "1" ]; then
+        echo "[release] NOTICE: backing up un-tracked local edits: $dst → $dst.pre-release.bak" >&2
+        cp -f "$dst" "$dst.pre-release.bak"
     fi
     cp -f "$src" "$dst"
 }
@@ -166,7 +219,10 @@ syncMirroredItemsWithManifest() {
             fi
             mkdir -p "$(dirname "$dst_root/$rel_file")"
             copy_with_gate "$src_root/$rel_file" "$dst_root/$rel_file" "${smiwm_old_ref[$rel_file]:-}" || return 1
-            smiwm_out_ref["$rel_file"]="$(fileHash "$dst_root/$rel_file")"
+            # Under RELEASE_CHECK=1 copy_with_gate skips the cp; dst may not exist.
+            if [ -f "$dst_root/$rel_file" ]; then
+                smiwm_out_ref["$rel_file"]="$(fileHash "$dst_root/$rel_file")"
+            fi
         done <<< "$files"
 
         echo "  Synced: $rel_item"
@@ -180,11 +236,18 @@ cleanRemovedFiles() {
     local old_file target
 
     for old_file in "${!crf_old_ref[@]}"; do
+        # Never delete machine-local files: collectFiles filters them out of
+        # NewManifest, so their absence there must not trigger a live deletion.
+        isMachineLocalFile "$old_file" && continue
         if [ -z "${crf_new_ref[$old_file]+x}" ]; then
             target="$dst_root/$old_file"
             if [ -f "$target" ]; then
-                rm -f "$target"
-                echo "  Removed: $old_file"
+                if [ "${RELEASE_CHECK:-0}" = "1" ]; then
+                    echo "[release-dry] WOULD remove $old_file"
+                else
+                    rm -f "$target"
+                    echo "  Removed: $old_file"
+                fi
             fi
         fi
     done
@@ -196,7 +259,7 @@ storeMirroredItemsFromManifest() {
     local manifest_path="$src_root/.claude/$MANIFEST_FILENAME"
     local -A sm_manifest_files=()
     local -A sm_synced_items=()
-    local rel_file item
+    local rel_file item rel_item
 
     if ! readManifest "$manifest_path" sm_manifest_files; then
         echo "Error: No manifest found at $manifest_path"
@@ -204,7 +267,12 @@ storeMirroredItemsFromManifest() {
         exit 1
     fi
 
+    # Manifest-bounded copy: the manifest IS the curation boundary (see
+    # dtvm-dotfiles-usage.md "store.sh only collects files listed in the
+    # manifest"). Only already-tracked files are collected into the SSOT;
+    # unmanaged live files are reported below but never swept in.
     for rel_file in "${!sm_manifest_files[@]}"; do
+        isMachineLocalFile "$rel_file" && continue
         if [ ! -f "$src_root/$rel_file" ]; then
             warn "Manifest file missing: $rel_file"
             continue
@@ -220,7 +288,23 @@ storeMirroredItemsFromManifest() {
         done
     done
 
+    # Non-destructive drift signal: warn about live files under a managed
+    # directory that are not yet in the manifest (add them via release.sh).
+    # collectFiles prunes worktrees/, agent-memory/, *.bak and machine-local
+    # files, so this never floods on per-worktree checkouts or agent state.
+    for rel_item in "${MIRRORED_ITEMS[@]}"; do
+        [ -d "$src_root/$rel_item" ] || continue
+        while IFS= read -r rel_file; do
+            [ -z "$rel_file" ] && continue
+            [ "$rel_file" = ".claude/$MANIFEST_FILENAME" ] && continue
+            if [ -z "${sm_manifest_files[$rel_file]+x}" ]; then
+                warn "Unmanaged file under managed dir (run release.sh to track): $rel_file"
+            fi
+        done < <(collectFiles "$src_root" "$rel_item")
+    done
+
     while IFS= read -r item; do
+        [ -z "$item" ] && continue
         echo "  Synced: $item"
     done < <(printf '%s\n' "${!sm_synced_items[@]}" | LC_ALL=C sort)
 }

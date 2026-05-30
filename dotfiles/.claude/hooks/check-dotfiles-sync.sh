@@ -6,8 +6,8 @@
 set -euo pipefail
 
 INPUT=$(cat)
-# Extract file_path without jq for lower overhead on every Edit/Write
-FILE_PATH=$(echo "$INPUT" | grep -oP '"file_path"\s*:\s*"\K[^"]*' | head -1) || true
+# Extract file_path with jq (portable; matches the sibling hooks in settings.json).
+FILE_PATH=$(echo "$INPUT" | jq -r '.tool_input.file_path // empty') || true
 
 [ -z "$FILE_PATH" ] && exit 0
 # Defense in depth: dir-walk requires an absolute path; CC tool schema enforces this anyway.
@@ -25,6 +25,14 @@ REL_PATH="${FILE_PATH#"$REPO_ROOT"/}"
 
 # If path didn't change, it's outside the repo
 [ "$REL_PATH" = "$FILE_PATH" ] && exit 0
+
+# Worktree paths land under the main repo (.claude/.dtvm-manifest.json is not
+# symlinked into worktrees, so the dir-walk resolves REPO_ROOT to the main repo).
+# Strip a leading worktree prefix so the managed-item case-match below still fires.
+case "$REL_PATH" in
+    .worktrees/*/*)        REL_PATH="${REL_PATH#.worktrees/*/}" ;;
+    .claude/worktrees/*/*) REL_PATH="${REL_PATH#.claude/worktrees/*/}" ;;
+esac
 
 # Check against managed items
 MANIFEST="$REPO_ROOT/.claude/.dtvm-manifest.json"
