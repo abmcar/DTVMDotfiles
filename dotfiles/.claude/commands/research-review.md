@@ -79,7 +79,7 @@ Inject into prompt: state.yaml content, artifacts.md content, README.md content.
 
 Ask the Proposer to:
 1. Write a complete proposal: hypothesis, target venue, expected contribution, novelty argument
-2. Search for the 5 closest related works using paper-find MCP tools
+2. Search for the 5 closest related works using `WebSearch` / `WebFetch` (arXiv, Semantic Scholar, Google Scholar)
 3. Define concrete kill conditions
 4. Output in structured format with sections: Hypothesis, Target Venue, Expected Contribution, Novelty Argument, Related Work, Kill Conditions
 

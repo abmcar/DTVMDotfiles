@@ -26,8 +26,8 @@ All research files live in the DTVM-Papers repo at `docs/research/`.
    - What would a successful result look like?
    - What would kill this direction?
 
-3. **Search related work** — Use paper-find MCP tools (search_arxiv, search_semantic,
-   search_google_scholar) to quickly scan for prior art. Share what you find.
+3. **Search related work** — Use `WebSearch` (and `WebFetch` for promising hits) to
+   scan arXiv / Semantic Scholar / Google Scholar for prior art. Share what you find.
    Be honest if something very close already exists.
 
 4. **Propose 2-3 angles** — Same idea can have different framings. Present options
