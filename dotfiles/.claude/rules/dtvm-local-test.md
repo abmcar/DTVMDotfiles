@@ -92,5 +92,7 @@ Rule 1 is not violated by omission.
   `evmone-statetest/`), copies `.so` files everywhere, sets up ASAN — all wrong
   for local use. This is the #1 cause of stale artifact pollution. **Never run it.**
 - **Wrong .so path** → EVMC loader failure; always use absolute path via `$(pwd)/`
-- **Copying `.so` into `~/evmone/`** → CI script pattern, wrong locally. Always
-  pass the `.so` path as an EVMC argument instead.
+- **Copying `.so` into `~/evmone/`** → a local mis-step, NOT a CI pattern: the CI
+  script copies `build/lib/*` into the repo-local cloned evmone dir (`$EVMONE_DIR`,
+  e.g. `evmone-statetest/`), never `~/evmone`. Always pass the `.so` path as an
+  EVMC argument instead.

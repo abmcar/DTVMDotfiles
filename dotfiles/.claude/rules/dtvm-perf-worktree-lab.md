@@ -51,7 +51,7 @@ the DTVM root locally.** If run, it leaves:
 |------|-------|
 | `<repo>/evmone/`, `<repo>/evmone-statetest/` | `run_test_suite.sh` clones evmone here (lines 195/223) |
 | `<repo>/asmjit/` | cloned by the CI workflow's "Clone asmjit" step, **not** by `run_test_suite.sh` — appears only in a full-CI run |
-| `~/evmone/libdtvmapi*.so` | stale `.so` from manual copy / older CI (current script copies `build/lib/*` into the cloned evmone dir, not `~/evmone`) |
+| `~/evmone/libdtvmapi*.so` | stale `.so` from manual copy / older CI (current script moves/copies `build/lib/*` into the cloned evmone dir, not `~/evmone`) |
 | `<baseline-worktree>/build/` | wrong build dir name (should be `build-baseline/`) |
 
 Delete if present:
