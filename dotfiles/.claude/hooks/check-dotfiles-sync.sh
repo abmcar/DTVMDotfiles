@@ -20,18 +20,31 @@ while [ "$d" != "/" ] && [ ! -f "$d/.claude/.dtvm-manifest.json" ]; do d="$(dirn
 [ "$d" = "/" ] && exit 0
 REPO_ROOT="$d"
 
-# Make path relative to repo root
+# Make path relative to the main repo root (found via the manifest walk above).
 REL_PATH="${FILE_PATH#"$REPO_ROOT"/}"
 
 # If path didn't change, it's outside the repo
 [ "$REL_PATH" = "$FILE_PATH" ] && exit 0
 
-# Worktree paths land under the main repo (.claude/.dtvm-manifest.json is not
-# symlinked into worktrees, so the dir-walk resolves REPO_ROOT to the main repo).
-# Strip a leading worktree prefix so the managed-item case-match below still fires.
+# A managed file edited inside a registered worktree arrives prefixed with that
+# worktree's path (e.g. .worktrees/feat/<branch>/ or .claude/worktrees/<name>/,
+# possibly through a symlinked .claude/). Strip the prefix of whichever registered
+# worktree of THIS repo contains it, so the managed-item match fires regardless of
+# branch-name depth or symlinks. String-prefix match against `git worktree list`
+# (not `rev-parse --show-toplevel`, which would follow symlinks back to main or
+# resolve into a nested independent repo). Nested independent repos like
+# docs/research (DTVM-Papers, its own .git) are NOT registered worktrees, so they
+# keep their prefix and the docs/research/* reminder still fires.
 case "$REL_PATH" in
-    .worktrees/*/*)        REL_PATH="${REL_PATH#.worktrees/*/}" ;;
-    .claude/worktrees/*/*) REL_PATH="${REL_PATH#.claude/worktrees/*/}" ;;
+    .worktrees/*|.claude/worktrees/*)
+        while IFS= read -r wt; do
+            wt_rel="${wt#"$REPO_ROOT"/}"
+            [ "$wt_rel" = "$wt" ] && continue   # the main repo entry (or outside REPO_ROOT)
+            case "$REL_PATH" in
+                "$wt_rel"/*) REL_PATH="${REL_PATH#"$wt_rel"/}"; break ;;
+            esac
+        done < <(git -C "$REPO_ROOT" worktree list --porcelain 2>/dev/null | sed -n 's/^worktree //p')
+        ;;
 esac
 
 # Check against managed items
