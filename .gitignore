@@ -6,18 +6,31 @@ dotfiles/.claude/settings.local.json
 *.local.md
 CLAUDE.local.md
 
-# Secrets / credentials backstop (this repo is public)
+# Secrets / credentials backstop (this repo is public).
+# Kept aligned with claude-sync's secret patterns (the runtime denylists there
+# use the same set). If you narrow these, narrow both repos together.
 .env
 .env.*
 *.key
 *.pem
 *.p12
 *.pfx
+*.jks
+*.p8
 id_rsa
 id_ed25519
+id_ecdsa
 *_rsa
 .npmrc
 .netrc
+.pypirc
 *credentials*
+*secret*
+*token*
 service-account*.json
+*-key.json
+gcp-key.json
 auth.json
+secrets.yaml
+secrets.yml
+token.txt

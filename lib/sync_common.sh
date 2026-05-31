@@ -314,6 +314,11 @@ storeMirroredItemsFromManifest() {
 syncClaudeAliases() {
     local src="$DOTFILES_DIR/CLAUDE.md"
 
+    if [ "${RELEASE_CHECK:-0}" = "1" ]; then
+        echo "[release-dry] WOULD sync CLAUDE.md → AGENTS.md, GEMINI.md"
+        return 0
+    fi
+
     if [ ! -f "$src" ]; then
         warn "Source not found: $src"
         return
@@ -329,6 +334,11 @@ syncClaudeAliases() {
 syncCodexPrompts() {
     local claude_commands_dir="$DOTFILES_DIR/.claude/commands"
     local codex_prompts_dir="${DTVMDOTFILES_CODEX_PROMPTS_DIR:-$HOME/.codex/prompts}"
+
+    if [ "${RELEASE_CHECK:-0}" = "1" ]; then
+        echo "[release-dry] WOULD sync .claude/commands → $codex_prompts_dir"
+        return 0
+    fi
 
     if [ ! -d "$claude_commands_dir" ]; then
         warn ".claude/commands not found in $claude_commands_dir"
@@ -479,6 +489,10 @@ loadExcludeMap() {
 
 renderExcludeFile() {
     local dst_path="$1"
+    if [ "${RELEASE_CHECK:-0}" = "1" ]; then
+        echo "[release-dry] WOULD render exclude map → $dst_path"
+        return 0
+    fi
     local tmp_file
     local pattern
     local -A render_map=()
