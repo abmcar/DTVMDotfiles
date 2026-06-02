@@ -37,8 +37,16 @@ EVMONE_EXTERNAL_OPTIONS="$(pwd)/build/lib/libdtvmapi.so,mode=interpreter" \
 
 ## evmone-statetest
 
-**MUST use `-k fork_Cancun`** to filter out Prague tests (DTVM does not support Prague yet).
-Running without this filter produces ~28 pre-existing failures that are NOT regressions.
+Whether to pass `-k fork_Cancun` depends on the **corpus test naming** — it is
+not an absolute switch:
+
+- **Standard EEST suite** `tests/fixtures/fixtures/state_tests` (test names carry
+  a fork suffix) → **MUST use `-k fork_Cancun`** to filter out Prague tests (DTVM
+  does not support Prague yet). Omitting it produces ~28 pre-existing failures
+  that are NOT regressions.
+- **Replay real-load corpus** `~/dtvm-perf-corpora/mainnet-replay/cancun-suite/`
+  (test names look like `replay_0x…`, with NO fork suffix) → **do NOT pass
+  `-k fork_Cancun`**, or it matches zero tests.
 
 ```bash
 # multipass
@@ -52,6 +60,15 @@ EVMONE_EXTERNAL_OPTIONS="$(pwd)/build/lib/libdtvmapi.so,mode=interpreter,enable_
   ~/evmone/build/bin/evmone-statetest \
   tests/fixtures/fixtures/state_tests \
   --vm external_vm -k fork_Cancun
+```
+
+For the replay real-load corpus (no fork suffix, hence no `-k`):
+
+```bash
+EVMONE_EXTERNAL_OPTIONS="$(pwd)/build/lib/libdtvmapi.so,mode=multipass,enable_gas_metering=true" \
+  ~/evmone/build/bin/evmone-statetest \
+  ~/dtvm-perf-corpora/mainnet-replay/cancun-suite \
+  --vm external_vm
 ```
 
 ## ctest (built-in EVM tests)
@@ -86,7 +103,10 @@ Rule 1 is not violated by omission.
 
 ## Common Mistakes
 
-- **Missing `-k fork_Cancun`** on statetest → ~28 Prague failures (not regressions)
+- **Wrong `-k fork_Cancun` for the corpus** → on the standard EEST suite,
+  **omitting** `-k` gives ~28 Prague failures (not regressions); on the replay
+  corpus (`replay_0x…`, no fork suffix), **adding** `-k` matches zero tests.
+  The corpus decides whether to pass it.
 - **Missing run list filter** on unittests → failures from unsupported opcodes
 - **Using `.ci/run_test_suite.sh` locally** → clones evmone into CWD (`evmone/`,
   `evmone-statetest/`), copies `.so` files everywhere, sets up ASAN — all wrong
