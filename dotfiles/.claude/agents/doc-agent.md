@@ -4,7 +4,7 @@ description: Maintains change documents and module documentation. Use when code 
 model: sonnet
 maxTurns: 50
 memory: project
-effort: high
+effort: medium
 color: yellow
 permissionMode: acceptEdits
 ---

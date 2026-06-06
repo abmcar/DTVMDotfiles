@@ -34,6 +34,21 @@ DTVM is a deterministic VM with EVM ABI compatibility. Core implementation is in
   (submodule init + dotfiles sync). As fallback, include in the agent
   prompt: "Run `bash DTVMDotfiles/worktree-init.sh .` before any build."
 
+### Orchestrate with the Workflow Tool
+- Use the **Workflow** tool (Claude-Code-only) for deterministic multi-agent
+  fan-out where you need all results together: cross-dimension parallel review,
+  broad audits, research sweeps, multi-file migrations. It enforces loop/round
+  caps and result aggregation in code, not by the model remembering to count.
+- Keep manual Agent dispatch (the roster above) for the judgment-gated linear
+  pipeline (research → compiler → test → perf, deciding between steps) and any
+  work with interactive human gates.
+- **Hard rule**: the Workflow tool runs to completion in the background and
+  **cannot pause to ask the user**. Never put a human gate inside a Workflow,
+  and never make a human-gated lifecycle depend on it.
+- **Do not wrap `dev-cycle`**: it already drives its own gate-free segments via
+  the Workflow primitive under `--auto` (host-gated; Codex uses native
+  subagents). The project layer adds no extra orchestration around it.
+
 ### Research First (EnterPlanMode)
 - New features, architecture changes, or breaking changes
 - Ambiguous requirements where scope is unclear
@@ -62,7 +77,10 @@ fixes.
 - Consult relevant `docs/modules/` specs during planning.
 - High-stakes review (paper, plan, PR closure, direction-doc): dispatch Opus +
   Codex as parallel reviewers in separate Agent calls; target 1–2 rounds, hard-
-  cap 3, with `model: "opus"` set explicitly.
+  cap 3, with `model: "opus"` set explicitly. Keep this manual two-Agent dispatch
+  for interactive reviews; reach for the Workflow tool only when you need
+  deterministic round-cap counting or aggregation across many findings — use one
+  or the other, not both.
 - After merge: use the `archive` skill to move the change to
   `docs/_archive/<YYYY-MM>/`.
 
