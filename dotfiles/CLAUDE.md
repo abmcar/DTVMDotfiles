@@ -45,9 +45,10 @@ DTVM is a deterministic VM with EVM ABI compatibility. Core implementation is in
 - **Hard rule**: the Workflow tool runs to completion in the background and
   **cannot pause to ask the user**. Never put a human gate inside a Workflow,
   and never make a human-gated lifecycle depend on it.
-- **Do not wrap `dev-cycle`**: it already drives its own gate-free segments via
-  the Workflow primitive under `--auto` (host-gated; Codex uses native
-  subagents). The project layer adds no extra orchestration around it.
+- **Do not wrap `dev-cycle`**: it owns its own gate sequencing (including its
+  gate-free segments); the project layer adds no competing orchestration around
+  it. How it dispatches those segments per host is the skill's concern — see the
+  dev-cycle skill, not this file.
 
 ### Research First (EnterPlanMode)
 - New features, architecture changes, or breaking changes
