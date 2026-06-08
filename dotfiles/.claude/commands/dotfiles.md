@@ -15,7 +15,7 @@ Run `bash DTVMDotfiles/diff.sh` and present the drift report.
 
 ### `release`
 Run `bash DTVMDotfiles/release.sh` to deploy SSOT → parent DTVM repo.
-- Pre-flight: gate aborts if any parent file was modified since last manifest write (per 2026-05-11 dest-hash gate).
+- Pre-flight: gate aborts if any parent file was modified since last manifest write.
 - For dry-run: `RELEASE_CHECK=1 bash DTVMDotfiles/release.sh`
 - To force-overwrite local edits: `RELEASE_FORCE=1 bash DTVMDotfiles/release.sh`
 Show the manifest summary after completion.
@@ -30,9 +30,8 @@ Requires the worktree path as argument.
 
 ### `worktree-init <path>`
 Run `bash DTVMDotfiles/worktree-init.sh <path>` to bootstrap a freshly created worktree:
-submodule init + dotfiles sync + FetchContent seed. This is what the agent-isolation
-SessionStart hook calls. Prefer the `worktree-bootstrap` skill for new worktrees;
-this command is for repairing an existing worktree.
+submodule init + dotfiles sync + FetchContent seed. Use only to repair an existing
+worktree; for new worktrees use the `worktree-bootstrap` skill instead.
 
 ### `setup`
 Run `bash DTVMDotfiles/setup_from_dotfiles.sh` for first-time DTVM workspace bootstrap.

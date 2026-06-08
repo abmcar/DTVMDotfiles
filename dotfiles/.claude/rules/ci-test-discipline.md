@@ -21,7 +21,7 @@ Do not declare "tests pass" when you skipped a required test category.
 
 When local tests pass but CI fails, follow this protocol — do not skip steps:
 
-1. `gh run view <id> --log-failed` — get the exact CI failure output.
+1. `gh run view <id> --log-failed`
 2. Compare `build/CMakeCache.txt` against the CI workflow env vars in
    `.github/workflows/dtvm_evm_test_x86.yml`. Look for flag differences
    (`ZEN_ENABLE_CPU_EXCEPTION`, `ZEN_ENABLE_VIRTUAL_STACK`, `ZEN_ENABLE_LIBEVM`,

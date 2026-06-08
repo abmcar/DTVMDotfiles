@@ -21,12 +21,12 @@ alwaysApply: true
   - `src/evm/` — EVM interpreter and opcode handlers
   - `src/action/` — Module loading, instantiation, and bytecode visiting
   - `src/common/` — Shared utilities, error handling, type definitions
-  - `src/singlepass/` — singlepass JIT path (WASM only; incompatible with `ZEN_ENABLE_EVM`)
+  - `src/singlepass/` — singlepass JIT path, WASM only; incompatible with `ZEN_ENABLE_EVM`
   - `src/host/` — host function implementations (`env`, `evm`, `evmabimock`)
   - `src/platform/`, `src/cli/`, `src/entrypoint/`, `src/wni/`, `src/utils/` — supporting subsystems
-  - `src/tests/` — C++ unit tests (distinct from top-level `tests/`)
-- `tests/` — Test suites (`tests/evm_spec_test` for EVM spec tests)
-- `docs/` — Build and usage guides (`docs/start.md`, `docs/user-guide.md`)
+  - `src/tests/` — C++ unit tests, distinct from top-level `tests/`
+- `tests/` — Test suites; `tests/evm_spec_test` contains EVM spec tests
+- `docs/` — Build and usage guides; key files: `docs/start.md`, `docs/user-guide.md`
 - `evmc/` — EVM compatibility components
 - `rust_crate/` — Rust bindings
 - `tools/` — Helper scripts and utilities

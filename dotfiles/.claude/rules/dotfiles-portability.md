@@ -16,8 +16,7 @@ DTVMDotfiles. **Never write machine-specific absolute paths**
 
 `CLAUDE.local.md` is per-machine and not in `MIRRORED_ITEMS` — see
 `dtvm-dotfiles-usage.md` "Not synced" note for the bootstrap mechanics.
-The `.template` uses `~/`-relative paths so the seeded skeleton is portable;
-per-machine edits stay local.
+The `.template` uses `~/`-relative paths; per-machine edits stay local.
 
 ## Allowed path styles
 
@@ -29,7 +28,7 @@ per-machine edits stay local.
 
 ## Where absolute paths ARE acceptable
 
-- `CLAUDE.local.md` — machine-specific (single-user state, NOT in MIRRORED_ITEMS)
+- `CLAUDE.local.md` — machine-specific, not in MIRRORED_ITEMS
 - Memory files (`~/.claude/projects/*/memory/`) — per-machine
 
 ## Common mistake

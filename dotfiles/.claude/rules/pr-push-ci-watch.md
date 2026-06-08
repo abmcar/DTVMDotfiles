@@ -26,16 +26,15 @@ gh run list --branch "$(git rev-parse --abbrev-ref HEAD)" \
 ```
 
 Watch live with `gh run watch <id>`, or use the `loop` skill / `ScheduleWakeup`
-in the background (≤270s cadence stays in one prompt-cache window — see `loop`
-skill description). Per `feedback_ci_watch_no_permission.md`: emit one line
-per status change, no chatter between checks.
+in the background at ≤270s cadence. Per `feedback_ci_watch_no_permission.md`:
+emit one line per status change, no chatter between checks.
 
 ## 3. On failure — find the root cause
 
 Defer to `.claude/rules/ci-test-discipline.md` Rule 2. Identify the **root
-cause**, not the trigger (`feedback_symptom_vs_root_cause.md`). If the cause
-cannot be identified from the logs and flag comparison, stop and report.
-Do not push a guess.
+cause**, not the surface trigger; see `feedback_symptom_vs_root_cause.md`.
+If the cause cannot be identified from the logs and flag comparison, stop
+and report. Do not push a guess.
 
 ## 4. MANDATORY — reproduce locally and run the right test suite
 
@@ -61,9 +60,9 @@ If a required suite cannot be run, follow `ci-test-discipline.md` Rule 1
 
 ## 5. Re-push
 
-Create a **new commit** (never `--amend` a pushed commit; never force-push).
-Follow `.claude/rules/commit-conventions.md`. `git push`, then return to
-Step 2 with the new commit.
+1. Create a **new commit** — never `--amend` a pushed commit, never force-push.
+2. Follow `.claude/rules/commit-conventions.md`.
+3. Run `git push`, then return to Step 2.
 
 ## 6. Stop conditions
 
@@ -82,8 +81,6 @@ Stop the loop and report when ANY of these holds:
 
 ## Hazards
 
-- **Skipping Step 4 is the #1 historical failure mode** — local-pass is a
-  precondition for re-push, not a "nice to have".
-- **Do not silently re-trigger** failed runs without a code change. `gh run
-  rerun` masks flakiness; use it only when the failure is confirmed unrelated
-  to the diff, and say so.
+- **Do not silently re-trigger** failed runs without a code change; `gh run rerun`
+  is only valid when the failure is confirmed unrelated to the diff — state that
+  reason explicitly.

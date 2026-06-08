@@ -25,10 +25,10 @@ clones, or `evmone-for-test-*` directories; delete any stale
 
 ## Branch Worktrees
 
-- **Create**: use the `worktree-bootstrap` skill (wraps
-  `DTVMDotfiles/worktree-init.sh` — submodule init + dotfiles sync in one
-  step). Place worktrees under `.worktrees/` (gitignored). Do NOT use raw
-  `git worktree add` + manual submodule/dotfiles steps.
+- **Create**: use the `worktree-bootstrap` skill, which runs submodule init
+  and dotfiles sync via `DTVMDotfiles/worktree-init.sh`. Place worktrees
+  under `.worktrees/` (gitignored). Do NOT use raw `git worktree add` +
+  manual submodule/dotfiles steps.
 - **Remove**: `rm -rf <path> && git worktree prune`.
   Do NOT use `git worktree remove` — fails on worktrees with submodules.
   Never remove `~/dtvm-baseline` — it is a permanent resource.
@@ -36,8 +36,7 @@ clones, or `evmone-for-test-*` directories; delete any stale
 ## libdtvmapi.so Rules
 
 - **Filename must be `libdtvmapi.so`** — EVMC loader derives
-  `evmc_create_dtvmapi` from the stem; renames break symbol lookup. (Full
-  rationale in `.claude/commands/dtvm-evmone-benchmark.md`.)
+  `evmc_create_dtvmapi` from the stem; renames break symbol lookup.
 - **Reference the .so at its build path** — never copy to `~/evmone/`,
   `/tmp/`, or anywhere else. Pass the path as the EVMC VM string to
   `evmone-bench`.
@@ -62,13 +61,13 @@ rm -f ~/evmone/libdtvmapi*.so
 
 ## Sub-agent Dispatch
 
-When dispatching test/perf sub-agents, attach `.claude/rules/dtvm-local-test.md`
-"Common Mistakes" section to the prompt — those bullets (don't run
-`.ci/run_test_suite.sh`, don't copy `.so` files, use absolute `$(pwd)/` for
-the .so path) are the same warnings agents need. Add one extra reminder
-specific to this rule: in baseline worktree use `build-baseline/` not
-`build/`, and create worktrees via the `worktree-bootstrap` skill rather
-than raw `git worktree add`.
+When dispatching test/perf sub-agents, attach the "Common Mistakes" section
+of `.claude/rules/dtvm-local-test.md` to the prompt. Also include:
+
+- Do not run `.ci/run_test_suite.sh` locally.
+- Do not copy `.so` files; pass the absolute `$(pwd)/` path as the EVMC argument.
+- In the baseline worktree, use `build-baseline/`, not `build/`.
+- Create worktrees via the `worktree-bootstrap` skill, not raw `git worktree add`.
 
 ## Output Requirements
 

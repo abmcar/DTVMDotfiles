@@ -10,9 +10,6 @@ argument-hint: topic or idea text
 # New Research Direction — Brainstorm & Create
 
 You are helping the user turn a research idea into a formal research direction.
-This follows a brainstorming process where the terminal state is
-**creating direction files + handoff to Gate 1**.
-
 All research files live in the DTVM-Papers repo at `docs/research/`.
 
 ## Phase 1: Brainstorm (explore the idea)
@@ -20,7 +17,7 @@ All research files live in the DTVM-Papers repo at `docs/research/`.
 1. **Parse what the user gave you.** Extract whatever is there — topic, hypothesis,
    venue, related work. Don't ask for things already provided.
 
-2. **Ask clarifying questions** — one at a time, multiple choice when possible:
+2. **Ask one clarifying question at a time**; offer multiple-choice options where possible:
    - What problem does this solve? What's the gap in existing work?
    - Who is the audience / what venue? (ISSTA, PLDI, CGO, FSE, etc.)
    - What would a successful result look like?
@@ -34,11 +31,11 @@ All research files live in the DTVM-Papers repo at `docs/research/`.
    with trade-offs and your recommendation.
 
 5. **Converge** — After discussion, confirm with the user:
-   - Direction name (short, kebab-case)
+   - Direction name — short, kebab-case
    - Hypothesis (one sentence)
    - Target venue
    - Initial kill conditions (≥1 measurable condition)
-   - Keywords (for dedup checking)
+   - Keywords for dedup checking
 
 ## Phase 2: Create (scaffold direction files)
 

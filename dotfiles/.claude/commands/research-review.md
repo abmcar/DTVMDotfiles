@@ -12,7 +12,7 @@ argument-hint: direction-name
 You are the **coordinator** for a research review. You do NOT evaluate the direction
 yourself — you orchestrate two agents with opposing mandates and present results to the user.
 
-**Key constraint:** Use coordinator-mediated handoff (see `memory/feedback_agent_team_patterns.md`).
+**Key constraint:** Use coordinator-mediated handoff; protocol is in `memory/feedback_agent_team_patterns.md`.
 Spawn Agent 1 foreground → collect output → spawn Agent 2 foreground with output injected.
 Do NOT use direct SendMessage between agents.
 
@@ -48,7 +48,7 @@ Tell the user: "No state.yaml found for direction '<name>'. Create the direction
 
 **Check 2 — not already closed:**
 If `status == "killed"` or `status == "completed"` → WARN.
-Tell the user: "Direction '<name>' is <status>. Review anyway? (This won't reopen it automatically.)"
+Tell the user: "Direction '<name>' is <status>. Review anyway?"
 
 **Check 3 — dedup (exploring directions only):**
 If status is `exploring`, read `docs/research/index.yaml`.
@@ -182,14 +182,3 @@ Based on the user's decision:
 2. Ask the user to describe the pivot. Create a new direction with `origin` pointing to this one.
 
 Commit changes to the DTVM-Papers repo.
-
----
-
-## Constraints
-
-- **You are the coordinator.** Do NOT evaluate the direction yourself.
-- **Coordinator-mediated handoff.** Spawn Agent 1 foreground → collect → spawn Agent 2 foreground.
-- **Reviewer is plan mode.** Always use `mode: "plan"` for the reviewer agent.
-- **User decides.** Never auto-proceed through a review.
-- **Full context in every prompt.** Copy state.yaml, artifacts.md, and relevant content into each agent's prompt.
-- **Validate reviewer output.** Check for artifact excerpts before accepting.

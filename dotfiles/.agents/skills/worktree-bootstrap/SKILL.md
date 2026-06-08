@@ -9,13 +9,9 @@ Any time you need an isolated DTVM worktree — new branch, experimental
 optimization, parallel work, or before executing a multi-step plan that
 needs an isolated workspace.
 
-**Authoritative DTVM worktree skill.** Generic worktree skills (e.g. those
-shipped by upstream plugins) target generic Node/Rust/Python/Go projects
-and skip everything DTVM-specific (submodules, dotfiles, cmake). Use this
-skill instead.
+**Authoritative DTVM worktree skill.** Generic worktree skills target generic Node/Rust/Python/Go projects and skip submodules, dotfiles, and cmake. Use this skill instead.
 
-Invoke with a branch name. Worktree always created at `.worktrees/<branch>`
-(convention in `CLAUDE.md` — no other location is supported).
+Invoke with a branch name. Worktree always created at `.worktrees/<branch>`.
 
 ## Steps
 
@@ -48,8 +44,7 @@ bash DTVMDotfiles/worktree-init.sh "$WORKTREE_PATH"
 Runs recursive submodule init (`evmc/`, `tests/wast/spec`), symlinks
 `.claude/` config + `CLAUDE.md` + utility scripts from the main repo, and
 hardlinks CMake FetchContent sources from the main build's `_deps/` to
-skip re-download. The same script backs the SessionStart hook for agent
-worktrees, so behavior is identical across manual and agent paths.
+skip re-download.
 
 ### 3. CMake configure
 
@@ -81,17 +76,12 @@ Adjust per task:
 - CI-faithful env-driven variants (gas register, interp/multipass matrix, etc.):
   see `.claude/rules/dtvm-build-config.md` and `.ci/run_test_suite.sh`
 
-CMake finds the pre-seeded `*-src/` under `build/_deps/` and skips download.
-
 ### 4. Verify
 
 ```bash
 cmake --build "$WORKTREE_PATH/build" --target dtvmapi -j$(nproc)
 ls "$WORKTREE_PATH/build/lib/libdtvmapi.so"
 ```
-
-Compilation benefits from `ccache` when `CMAKE_C/CXX_COMPILER_LAUNCHER` is
-exported from your shell rc — same object files across worktrees hit cache.
 
 ## Output
 

@@ -23,5 +23,5 @@ Both commit messages and **PR titles** follow this format.
 
 ## Additional conventions
 
-- Use imperative mood in subject ("add feature", not "added feature").
+- Use imperative mood in subject — write "add feature", not "added feature".
 - PR description must explain what changed and why.

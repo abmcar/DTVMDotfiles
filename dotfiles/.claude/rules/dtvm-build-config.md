@@ -29,15 +29,14 @@ this rule:
 1. Identify the closest CI job family by reading
    `.github/workflows/dtvm_evm_test_x86.yml`.
 2. Prefer the `.ci/run_test_suite.sh` interface for CI-faithful local
-   reproduction. Read `.ci/run_test_suite.sh` directly to understand
-   how each environment variable changes CMake flags and runtime options.
+   reproduction. Read it directly to see how each environment variable maps to
+   CMake flags and runtime options.
 3. Use raw `cmake` commands only for CI paths that already do that. The main
    special case is the performance baseline build.
 4. Derive non-CI variants only when the user explicitly asks for them. Start
    from the nearest CI job and state the delta instead of inventing a brand new
    configuration.
-5. Re-read the workflow file if the request mentions a specific job name,
-   because the skill references are summaries, not the source of truth.
+5. If the request mentions a specific job name, re-read the workflow file — skill references are summaries only.
 
 ## Output Requirements
 
@@ -50,8 +49,8 @@ When giving a build config or reproduction command, include:
 - the small set of flags that materially change behavior, such as `RUN_MODE`,
   `TestSuite`, `CPU_EXCEPTION_TYPE`, `ENABLE_GAS_METER`,
   `ENABLE_GAS_REGISTER`, and virtual stack behavior
-- any important execution-only nuance, such as retries, benchmark matrix mode,
-  or cases where the script ignores `EXTRA_EXE_OPTIONS`
+- any execution-only nuance the script documents: retries, benchmark matrix
+  mode, or cases where it ignores `EXTRA_EXE_OPTIONS`
 
 ## References
 
