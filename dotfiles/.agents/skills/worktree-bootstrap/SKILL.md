@@ -31,7 +31,7 @@ Existing branch:
 git worktree add "$WORKTREE_PATH" "$BRANCH"
 ```
 
-### 2. Init submodules + sync dotfiles + seed deps
+### 2. Init submodules + sync dotfiles
 
 The worktree must already exist from step 1 — `worktree-init.sh` is a
 post-creation initializer, not an end-to-end bootstrapper. It `cd`s into
@@ -41,10 +41,11 @@ the path you pass.
 bash DTVMDotfiles/worktree-init.sh "$WORKTREE_PATH"
 ```
 
-Runs recursive submodule init (`evmc/`, `tests/wast/spec`), symlinks
-`.claude/` config + `CLAUDE.md` + utility scripts from the main repo, and
-hardlinks CMake FetchContent sources from the main build's `_deps/` to
-skip re-download.
+Runs recursive submodule init (`evmc/`, `tests/wast/spec`) with command-scoped
+`protocol.file.allow=always` for local alternates, then symlinks `.claude/`
+config + `CLAUDE.md` + utility scripts from the main repo. CMake FetchContent
+reuse is handled at configure time through `FETCHCONTENT_BASE_DIR`, not by this
+initializer.
 
 ### 3. CMake configure
 

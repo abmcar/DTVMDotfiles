@@ -28,6 +28,37 @@ fi
 
 WORKTREE_PATH="$(cd "$1" && pwd)"
 ACTIONS=()
+SUBMODULE_LOG="$(mktemp)"
+
+cleanup() {
+    rm -f "$SUBMODULE_LOG"
+}
+trap cleanup EXIT
+
+gitSubmodule() {
+    git -C "$WORKTREE_PATH" -c protocol.file.allow=always submodule "$@"
+}
+
+printSubmoduleFailure() {
+    local description="$1"
+    echo "Error: $description failed" >&2
+    if [ -s "$SUBMODULE_LOG" ]; then
+        sed 's/^/  /' "$SUBMODULE_LOG" >&2
+    fi
+}
+
+runSubmoduleUpdate() {
+    local description="$1"
+    shift
+
+    : > "$SUBMODULE_LOG"
+    if gitSubmodule update "$@" > "$SUBMODULE_LOG" 2>&1; then
+        return 0
+    fi
+
+    printSubmoduleFailure "$description"
+    return 1
+}
 
 # Reuse main repo's submodule clones across worktrees instead of re-cloning per worktree.
 if [ "$(git -C "$WORKTREE_PATH" config --get submodule.alternateLocation 2>/dev/null)" != "superproject" ]; then
@@ -38,15 +69,16 @@ fi
 
 if [ $MINIMAL -eq 1 ]; then
     if [ ! -d "$WORKTREE_PATH/evmc/include" ]; then
-        if git -C "$WORKTREE_PATH" submodule update --init evmc >/dev/null 2>&1; then
+        if runSubmoduleUpdate "evmc submodule init" --init evmc; then
             ACTIONS+=("evmc submodule initialized")
+        else
+            exit 1
         fi
     fi
 else
-    if git -C "$WORKTREE_PATH" submodule update --init --recursive >/dev/null 2>&1; then
+    if runSubmoduleUpdate "recursive submodule init" --init --recursive; then
         ACTIONS+=("submodules initialized (recursive)")
     else
-        echo "Error: submodule init failed" >&2
         exit 1
     fi
 fi
