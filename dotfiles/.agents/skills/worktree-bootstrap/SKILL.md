@@ -43,26 +43,9 @@ bash DTVMDotfiles/worktree-init.sh "$WORKTREE_PATH"
 
 Runs recursive submodule init (`evmc/`, `tests/wast/spec`) with command-scoped
 `protocol.file.allow=always` for local alternates, then symlinks `.claude/`
-config + `CLAUDE.md` + utility scripts from the main repo.
-
-`worktree-init.sh` also maintains a local bare mirror cache for the DTVM
-submodule graph under `${DTVM_GIT_MIRROR_DIR:-$HOME/.cache/git-mirrors}`. It
-uses command-scoped `url.<mirror>.insteadOf` rewrites, so it does not need
-machine-wide Git URL rewrite entries. Default behavior:
-- Missing mirrors are seeded from existing `.git/modules/...` repositories when
-  available; otherwise they are cloned on first use.
-- Existing mirrors are reused without a network refresh.
-- If submodule update fails, existing mirrors are refreshed once and the update
-  is retried.
-
-Optional controls:
-- `DTVM_WORKTREE_INIT_USE_GIT_MIRRORS=0` disables the mirror cache for one run.
-- `DTVM_WORKTREE_INIT_REFRESH_GIT_MIRRORS=1` refreshes existing mirrors before
-  submodule init.
-- `DTVM_GIT_MIRROR_DIR=/path/to/cache` changes the cache location.
-
-CMake FetchContent reuse is handled at configure time through
-`FETCHCONTENT_BASE_DIR`, not by this initializer.
+config + `CLAUDE.md` + utility scripts from the main repo. CMake FetchContent
+reuse is handled at configure time through `FETCHCONTENT_BASE_DIR`, not by this
+initializer.
 
 ### 3. CMake configure
 

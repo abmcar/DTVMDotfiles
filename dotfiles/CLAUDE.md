@@ -82,8 +82,10 @@ fixes.
   for interactive reviews; reach for the Workflow tool only when you need
   deterministic round-cap counting or aggregation across many findings — use one
   or the other, not both.
-- After merge: use the `archive` skill to move the change to
-  `docs/_archive/<YYYY-MM>/`.
+- After merge: only when the user explicitly asks, use the `archive` skill to
+  move the change to `docs/_archive/<YYYY-MM>/`; halt at the local `git mv` —
+  never open an archive PR (project convention: merged docs otherwise stay in
+  `docs/changes/`).
 
 ### Dotfiles Sync Rule
 Whenever any file managed by DTVMDotfiles is modified (see `MIRRORED_ITEMS` in
