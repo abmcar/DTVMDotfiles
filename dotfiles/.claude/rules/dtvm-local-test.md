@@ -16,7 +16,10 @@ For CI reproduction, see `.claude/rules/dtvm-build-config.md`.
 
 - DTVM built with `libdtvmapi.so` at `build/lib/libdtvmapi.so`
 - evmone pre-built at `~/evmone/build/bin/`
-- Test fixtures at `tests/fixtures/fixtures/state_tests` (git submodule)
+- Test fixtures at `tests/fixtures/fixtures/state_tests` — a gitignored EEST
+  release download (see `EVM_SPEC_FIXTURES_URL` in `.ci/run_test_suite.sh`),
+  NOT a submodule; worktree-init does not provision it, so fresh worktrees
+  and machines must download it (or reference the main repo's copy) first
 - Run lists at `tests/evmone_unittests/`
 
 ## evmone-unittests
@@ -103,6 +106,9 @@ For docs-only / `.claude/`-only diffs:
   corpus (`replay_0x…`, no fork suffix), **adding** `-k` matches zero tests.
   The corpus decides whether to pass it.
 - **Missing run list filter** on unittests → failures from unsupported opcodes
+- **Wrong cwd** → run all commands from the repo root. From any other cwd the
+  run-list `paste` fails, the resulting empty `--gtest_filter=` selects zero
+  tests, and the run exits 0 — a silent false PASS.
 - **Using `.ci/run_test_suite.sh` locally** → clones evmone into CWD (`evmone/`,
   `evmone-statetest/`), copies `.so` files everywhere, sets up ASAN — all wrong
   for local use. This is the #1 cause of stale artifact pollution. **Never run it.**

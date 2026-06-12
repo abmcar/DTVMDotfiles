@@ -54,7 +54,14 @@ case "$REL_PATH" in
         # store.sh is manifest-guided — only files in the manifest will be picked up.
         # New files in managed directories need a one-time bootstrap via release.sh.
         if [ -f "$MANIFEST" ] && grep -q "\"$REL_PATH\":" "$MANIFEST"; then
-            echo '{"hookSpecificOutput":{"hookEventName":"PostToolUse","additionalContext":"[dotfiles-sync] A DTVMDotfiles-managed file was modified. Remember to run store.sh and push DTVMDotfiles before ending this session."}}'
+            MSG="[dotfiles-sync] A DTVMDotfiles-managed file was modified. Remember to run store.sh and push DTVMDotfiles before ending this session."
+            # Portability gate: managed files sync cross-machine; /home/<user> paths break on the other machine.
+            # dotfiles-portability.md is excluded — it legitimately cites /home/ paths as counter-examples.
+            if [ "$REL_PATH" != ".claude/rules/dotfiles-portability.md" ] \
+                && grep -qE '/home/[A-Za-z0-9_-]+/' "$FILE_PATH" 2>/dev/null; then
+                MSG="$MSG [portability] This file now contains a machine-specific /home/<user> absolute path — replace it with ~/ or a repo-relative path per .claude/rules/dotfiles-portability.md before syncing."
+            fi
+            jq -cn --arg msg "$MSG" '{hookSpecificOutput:{hookEventName:"PostToolUse",additionalContext:$msg}}'
         else
             echo "{\"hookSpecificOutput\":{\"hookEventName\":\"PostToolUse\",\"additionalContext\":\"[dotfiles-sync] $REL_PATH is in a managed directory but NOT yet in .claude/.dtvm-manifest.json. store.sh will skip it. Bootstrap once with: cp '$REL_PATH' DTVMDotfiles/dotfiles/'$REL_PATH' && bash DTVMDotfiles/release.sh\"}}"
         fi

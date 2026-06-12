@@ -37,7 +37,8 @@ Never clone additional evmone copies. There is exactly one at `~/evmone/`.
 # Branch build
 cmake --build build --target dtvmapi -j$(nproc)
 
-# Baseline refresh (only if upstream/main changed)
+# Baseline refresh: always fetch+checkout before benchmarking;
+# rebuild incrementally only when upstream/main actually changed
 git -C ~/dtvm-baseline fetch upstream
 git -C ~/dtvm-baseline checkout upstream/main
 cmake --build ~/dtvm-baseline/build-baseline --target dtvmapi -j$(nproc)
@@ -57,7 +58,7 @@ Key: use `enable_gas_metering` (underscore), not `enable-evm-gas`.
 
 ## Workflow
 
-1. **Correctness first** — Never benchmark broken code. Confirm test-agent has validated this build, or run the curated run-list smoke yourself per `.claude/rules/dtvm-local-test.md`.
+1. **Correctness first** — Never benchmark broken code. Unless the dispatch prompt states test-agent already validated this exact build, run the curated multipass run list yourself per `.claude/rules/dtvm-local-test.md` before benchmarking.
 2. **Profile or benchmark** to identify bottleneck.
 3. **Analyze** — Use JIT logs, perf reports, or spill counts to understand root cause.
 4. **Defer implementation** to compiler-agent for `src/` code changes.
@@ -70,8 +71,8 @@ Key: use `enable_gas_metering` (underscore), not `enable-evm-gas`.
 - Always reference `.so` at its original build path. Baseline and branch are in separate directories.
 - Do not copy `libdtvmapi.so` into the evmone directory.
 - Never run `.ci/run_test_suite.sh` locally — it clones evmone into CWD, copies `.so` files, and pollutes the workspace.
-- Worktree creation: use the `worktree-bootstrap` skill (under `.worktrees/`), never raw `git worktree add`. Never remove `~/dtvm-baseline`.
-- Worktree removal: `rm -rf <path> && git worktree prune` (not `git worktree remove`).
+- Worktree creation: use the `worktree-bootstrap` skill (under `.worktrees/`), never raw `git worktree add` plus manual submodule/sync steps.
+- Worktree removal: `rm -rf <path> && git worktree prune` (not `git worktree remove`). Never remove `~/dtvm-baseline` — it is a permanent resource.
 
 ## Skills & References
 

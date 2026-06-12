@@ -17,6 +17,9 @@ suites via its "Test Selection by Touched Path" table — `src/evm/` changes
 require the interpreter-mode runs, `src/compiler/`/`src/runtime/` require
 multipass.
 
+Run all commands from the DTVM repo root — from any other cwd the run-list
+substitution comes up empty and gtest "passes" 0 tests with exit 0.
+
 ### EVM Unit Tests (primary correctness gate)
 
 Always use the curated run lists — bare runs fail on unsupported
@@ -48,7 +51,8 @@ EVMONE_EXTERNAL_OPTIONS="$(pwd)/build/lib/libdtvmapi.so,mode=multipass,enable_ga
 ~28 pre-existing Prague failures that are not regressions. For the
 mainnet-replay corpus (`~/dtvm-perf-corpora/mainnet-replay/cancun-suite/`),
 drop `-k` entirely or it matches zero tests. Interpreter variant:
-`mode=interpreter`.
+`mode=interpreter,enable_gas_metering=true` — gas metering stays on for
+statetest (only the unittests interpreter variant drops it).
 
 ### CI Reproduction
 Never execute `.ci/run_test_suite.sh` from the DTVM root locally — it clones
@@ -57,7 +61,7 @@ Artifacts in `.claude/rules/dtvm-perf-worktree-lab.md`). Read the script to
 derive the env-var→CMake mapping, then reproduce with the local commands
 above using CI-faithful flags per `.claude/rules/dtvm-build-config.md`:
 - `RUN_MODE`: interpreter / multipass
-- `TestSuite`: unittests / state_tests / benchmark
+- `TestSuite`: microsuite / evmtestsuite / evmrealsuite / evmonestatetestsuite / evmpgjsuite / evmfallbacksuite / benchmarksuite
 - `ENABLE_GAS_METER`: true/false
 - `ENABLE_GAS_REGISTER`: true/false
 
@@ -75,7 +79,7 @@ Key: use `enable_gas_metering` (underscore), not `enable-evm-gas`.
 - evmone-unittests: `~/evmone/build/bin/evmone-unittests`
 - evmone-statetest: `~/evmone/build/bin/evmone-statetest`
 - DTVM library: `build/lib/libdtvmapi.so`
-- State test fixtures: `tests/fixtures/fixtures/state_tests`
+- State test fixtures: `tests/fixtures/fixtures/state_tests` (gitignored EEST release download, not a submodule — worktree-init does NOT provision it; missing on fresh worktrees/machines)
 - Run lists: `tests/evmone_unittests/`
 - CI script: `.ci/run_test_suite.sh` (read-only reference — never execute locally)
 

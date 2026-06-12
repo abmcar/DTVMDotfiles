@@ -28,9 +28,12 @@ this rule:
 
 1. Identify the closest CI job family by reading
    `.github/workflows/dtvm_evm_test_x86.yml`.
-2. Prefer the `.ci/run_test_suite.sh` interface for CI-faithful local
-   reproduction. Read it directly to see how each environment variable maps to
-   CMake flags and runtime options.
+2. Treat `.ci/run_test_suite.sh` as the authoritative env-var→CMake mapping:
+   read it to derive flags. Never execute it from the DTVM root locally — it
+   clones evmone into CWD and copies `.so` files (see Forbidden Artifacts in
+   `.claude/rules/dtvm-perf-worktree-lab.md`). Run it only in disposable
+   containers or throwaway checkouts; locally, reproduce with the commands in
+   `.claude/rules/dtvm-local-test.md` plus the derived flags.
 3. Use raw `cmake` commands only for CI paths that already do that. The main
    special case is the performance baseline build.
 4. Derive non-CI variants only when the user explicitly asks for them. Start
@@ -43,7 +46,8 @@ this rule:
 When giving a build config or reproduction command, include:
 
 - whether CI also runs `./tools/format.sh check`
-- the exact environment block plus `bash .ci/run_test_suite.sh`, or the exact
+- the exact environment block plus `bash .ci/run_test_suite.sh` (for CI
+  containers — never execute it locally from the repo root), or the exact
   `cmake` command for a direct-CMake job
 - the matching CI job name
 - the small set of flags that materially change behavior, such as `RUN_MODE`,

@@ -34,8 +34,10 @@ You own all C/C++ source code under `src/`:
 cmake -B build -G Ninja \
   -DCMAKE_BUILD_TYPE=Release \
   -DZEN_ENABLE_EVM=ON \
+  -DZEN_ENABLE_SINGLEPASS_JIT=OFF \
   -DZEN_ENABLE_MULTIPASS_JIT=ON \
   -DZEN_ENABLE_LIBEVM=ON \
+  -DZEN_ENABLE_JIT_PRECOMPILE_FALLBACK=ON \
   -DLLVM_DIR=/opt/llvm15/lib/cmake/llvm
 
 # Build
@@ -46,13 +48,18 @@ The build target for the shared library is `dtvmapi` (produces `build/lib/libdtv
 The build target for the CLI is `dtvm` (produces `build/dtvm`).
 
 `ZEN_ENABLE_LIBEVM=ON` is required — without it the `dtvmapi` target does not
-exist. For CI-faithful flag sets, `.claude/rules/dtvm-build-config.md` is the
-authority.
+exist. `ZEN_ENABLE_SINGLEPASS_JIT=OFF` is required — it defaults ON and is
+incompatible with EVM (fresh configure fails FATAL without it).
+`ZEN_ENABLE_JIT_PRECOMPILE_FALLBACK=ON` is not optional: CI sets it, and
+FALLBACK=OFF builds hang on known multipass unittests. For CI-faithful flag
+sets, `.claude/rules/dtvm-build-config.md` is the authority.
 
 ## Test
 
 `.claude/rules/dtvm-local-test.md` is the authority for test commands
 (run-list filters, fixtures paths, suite selection by touched path).
+Run all test commands from the DTVM repo root — from any other cwd the
+run-list substitution comes up empty and gtest "passes" 0 tests.
 Canonical commands:
 
 - EVM unit tests (always use the curated run list — bare runs fail on
@@ -70,7 +77,14 @@ Canonical commands:
     --vm external_vm -k fork_Cancun
   ```
   Note: `LD_LIBRARY_PATH=~/evmone/build/lib` may be needed if libevmone.so is not found.
-- C++ unit tests: `src/tests/` (run via `ctest` in `build/`)
+  `-k fork_Cancun` applies to the standard EEST suite only — drop it on the
+  replay corpus (`~/dtvm-perf-corpora/mainnet-replay/cancun-suite/`).
+- `src/evm/` changes additionally require the interpreter variants per the
+  touched-path table: `mode=interpreter` with
+  `EVMOneInterpreterUnitTestsRunList.txt`, statetest with
+  `mode=interpreter,enable_gas_metering=true`.
+- EVM spec tests (ctest): require `-DZEN_ENABLE_SPEC_TEST=ON` at configure
+  time, then `cd build && SPEC_TESTS_ARGS="-m multipass --format evm --enable-evm-gas" ctest`
 - Format: `tools/format.sh check` (must pass before finishing)
 
 Always run `tools/format.sh format` after editing C/C++ files.

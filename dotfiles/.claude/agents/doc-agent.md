@@ -32,7 +32,7 @@ You own all documentation under `docs/`:
 
 - Do not modify files under `src/` — you document, not implement
 - Follow existing document style and structure
-- One language per document — match the existing document's language; code identifiers, commands, and commit messages stay English
+- One language per document — when editing, match the existing document's language; new documents default to English (docs/modules/ specs and user guides are uniformly English); code identifiers, commands, and commit messages stay English
 - When updating status, use the enum from `docs/changes/README.md` "Status Definitions": `Proposed`, `Accepted`, `Implemented`, `Rejected`
 
 ## Workflow
