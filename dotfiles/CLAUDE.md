@@ -142,5 +142,5 @@ Treat repository docs and rules as authoritative:
 
 ## Code Style
 
-Detailed rules auto-loaded from `.claude/rules/cpp-code-style.md` for C++ files.
+Detailed rules live in `.claude/rules/cpp-code-style.md` (all rules load at session start).
 Run `tools/format.sh format` after modifying code, `tools/format.sh check` before finishing.

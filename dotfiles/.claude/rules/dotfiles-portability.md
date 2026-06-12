@@ -3,6 +3,7 @@ description: Enforces portable paths in DTVMDotfiles-managed files. Triggered wh
 globs:
   - .claude/rules/**
   - .claude/commands/**
+  - .claude/agents/**
   - .claude/settings.*
   - CLAUDE.md
 alwaysApply: false

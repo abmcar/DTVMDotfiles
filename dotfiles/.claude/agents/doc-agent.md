@@ -32,12 +32,12 @@ You own all documentation under `docs/`:
 
 - Do not modify files under `src/` — you document, not implement
 - Follow existing document style and structure
-- All documentation in English
-- When updating status, use: `Proposed`, `Planned`, `In Progress`, `Implemented`, `Archived`
+- One language per document — match the existing document's language; code identifiers, commands, and commit messages stay English
+- When updating status, use the enum from `docs/changes/README.md` "Status Definitions": `Proposed`, `Accepted`, `Implemented`, `Rejected`
 
 ## Workflow
 
-Maintain the change-doc state machine: `Proposed → Planned → In Progress → Implemented → Archived`. The active workflow skill governs the phase-to-status mapping:
+Maintain the change-doc state machine: `Proposed → Accepted → Implemented`, with `Rejected` as a terminal state. Archival is a directory move to `docs/_archive/<YYYY-MM>/`, not a status value — and only on an explicit user request: halt at the local `git mv`, never open an archive PR (CLAUDE.md rule). The active workflow skill governs the phase-to-status mapping:
 
 - Default workflow → `dev-workflow` skill (`.agents/skills/dev-workflow/`): Phase A for proposals, Phase D for post-implementation updates.
 - Opt-in feature workflow → `dev-cycle` skill (`~/claude-sync/skills/dev-cycle/`): Phase 1 for proposals, end of Phase 3 for status update to `Implemented`, `/dev-cycle archive` for archival.

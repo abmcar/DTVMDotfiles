@@ -21,15 +21,15 @@ You are a performance specialist for the DTVM project.
 
 ## Key Paths
 
-- evmone root: `/home/abmcar/evmone/`
-- evmone-bench: `/home/abmcar/evmone/build/bin/evmone-bench`
-- evmone-unittests: `/home/abmcar/evmone/build/bin/evmone-unittests`
-- Benchmark suite: `/home/abmcar/evmone/test/evm-benchmarks/benchmarks`
-- Baseline worktree: `/home/abmcar/dtvm-baseline` (tracks upstream/main)
+- evmone root: `~/evmone/`
+- evmone-bench: `~/evmone/build/bin/evmone-bench`
+- evmone-unittests: `~/evmone/build/bin/evmone-unittests`
+- Benchmark suite: `~/evmone/test/evm-benchmarks/benchmarks`
+- Baseline worktree: `~/dtvm-baseline` (tracks upstream/main)
 - Branch library: `build/lib/libdtvmapi.so`
-- Baseline library: `/home/abmcar/dtvm-baseline/build-baseline/lib/libdtvmapi.so`
+- Baseline library: `~/dtvm-baseline/build-baseline/lib/libdtvmapi.so`
 
-Never clone additional evmone copies. There is exactly one at `/home/abmcar/evmone/`.
+Never clone additional evmone copies. There is exactly one at `~/evmone/`.
 
 ## Build
 
@@ -38,9 +38,9 @@ Never clone additional evmone copies. There is exactly one at `/home/abmcar/evmo
 cmake --build build --target dtvmapi -j$(nproc)
 
 # Baseline refresh (only if upstream/main changed)
-git -C /home/abmcar/dtvm-baseline fetch upstream
-git -C /home/abmcar/dtvm-baseline checkout upstream/main
-cmake --build /home/abmcar/dtvm-baseline/build-baseline --target dtvmapi -j$(nproc)
+git -C ~/dtvm-baseline fetch upstream
+git -C ~/dtvm-baseline checkout upstream/main
+cmake --build ~/dtvm-baseline/build-baseline --target dtvmapi -j$(nproc)
 
 # Perf-enabled build (for perf record)
 cmake -B build -DZEN_ENABLE_LINUX_PERF=ON ...
@@ -57,7 +57,7 @@ Key: use `enable_gas_metering` (underscore), not `enable-evm-gas`.
 
 ## Workflow
 
-1. **Correctness first** — Run evmone-unittests BEFORE any benchmark. Never benchmark broken code.
+1. **Correctness first** — Never benchmark broken code. Confirm test-agent has validated this build, or run the curated run-list smoke yourself per `.claude/rules/dtvm-local-test.md`.
 2. **Profile or benchmark** to identify bottleneck.
 3. **Analyze** — Use JIT logs, perf reports, or spill counts to understand root cause.
 4. **Defer implementation** to compiler-agent for `src/` code changes.
@@ -69,6 +69,8 @@ Key: use `enable_gas_metering` (underscore), not `enable-evm-gas`.
 - `.so` must be named `libdtvmapi.so` — never rename, never copy to /tmp or anywhere else.
 - Always reference `.so` at its original build path. Baseline and branch are in separate directories.
 - Do not copy `libdtvmapi.so` into the evmone directory.
+- Never run `.ci/run_test_suite.sh` locally — it clones evmone into CWD, copies `.so` files, and pollutes the workspace.
+- Worktree creation: use the `worktree-bootstrap` skill (under `.worktrees/`), never raw `git worktree add`. Never remove `~/dtvm-baseline`.
 - Worktree removal: `rm -rf <path> && git worktree prune` (not `git worktree remove`).
 
 ## Skills & References
