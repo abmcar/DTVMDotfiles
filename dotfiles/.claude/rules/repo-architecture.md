@@ -17,7 +17,7 @@ alwaysApply: true
     - `cgir/` — Code generation IR and optimization passes
     - `target/` — target-specific lowering (x86 CgIR peephole lives here)
     - `stub/`, `common/`, `utils/`, `llvm-prebuild/` — support code
-    - top-level `.cpp`: `compiler.cpp`, `evm_compiler.cpp`, `ircompiler.cpp` orchestrate the pipeline
+    - top-level `.cpp`: `compiler.cpp`, `context.cpp`, `evm_compiler.cpp`, `ircompiler.cpp` orchestrate the pipeline
   - `src/evm/` — EVM interpreter and opcode handlers
   - `src/action/` — Module loading, instantiation, and bytecode visiting
   - `src/common/` — Shared utilities, error handling, type definitions

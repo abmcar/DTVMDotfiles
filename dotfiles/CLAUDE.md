@@ -12,7 +12,7 @@ DTVM is a deterministic VM with EVM ABI compatibility. Core implementation is in
 ## Task Routing
 
 ### Direct Execution
-- Single-file bug fixes or small edits
+- Single-file bug fixes or small edits (for `src/` changes beyond a trivial one-liner, delegate to compiler-agent)
 - Format checks, simple git operations
 - Code review or explanation of a specific function
 
@@ -114,7 +114,7 @@ Full architecture (manifest mechanism, what's managed, worktree symlinks): see
 **Before finishing any code task, verify:**
 1. `tools/format.sh check` passes
 2. Changed code compiles: `cmake --build build --target <relevant_target>`
-3. Relevant tests pass (EVM spec tests for evm/runtime changes, unit tests for compiler)
+3. Relevant tests pass — run the suites mapped to the touched paths in `.claude/rules/dtvm-local-test.md` "Test Selection by Touched Path"
 4. No new compiler warnings in build output
 
 **Before creating commits/PRs:** follow `.claude/rules/commit-conventions.md`.
@@ -142,5 +142,4 @@ Treat repository docs and rules as authoritative:
 
 ## Code Style
 
-Detailed rules live in `.claude/rules/cpp-code-style.md` (all rules load at session start).
-Run `tools/format.sh format` after modifying code, `tools/format.sh check` before finishing.
+Detailed rules live in `.claude/rules/cpp-code-style.md` (all rules load at session start), including the `tools/format.sh format` / `check` workflow.

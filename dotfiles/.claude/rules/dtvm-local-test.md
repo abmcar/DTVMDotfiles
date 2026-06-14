@@ -7,8 +7,8 @@ alwaysApply: false
 # DTVM Local Test Commands
 
 Local testing uses pre-built evmone at `~/evmone/` (DTVMStack/evmone, for_test branch).
-Do NOT use `.ci/run_test_suite.sh` for local runs — it clones evmone, copies .so files,
-and enables ASAN, polluting your workspace.
+Do NOT use `.ci/run_test_suite.sh` for local runs — it clones evmone and copies .so files
+into your workspace (and enables ASAN when `ENABLE_ASAN=true`), polluting it.
 
 For CI reproduction, see `.claude/rules/dtvm-build-config.md`.
 
@@ -21,6 +21,25 @@ For CI reproduction, see `.claude/rules/dtvm-build-config.md`.
   NOT a submodule; worktree-init does not provision it, so fresh worktrees
   and machines must download it (or reference the main repo's copy) first
 - Run lists at `tests/evmone_unittests/`
+
+### Building `libdtvmapi.so` locally
+
+No CI script is needed for a local EVM build. Configure and build the multipass
+JIT library directly:
+
+```bash
+cmake -G Ninja -B build -DCMAKE_BUILD_TYPE=Release \
+  -DZEN_ENABLE_EVM=ON -DZEN_ENABLE_LIBEVM=ON \
+  -DZEN_ENABLE_MULTIPASS_JIT=ON -DZEN_ENABLE_SPEC_TEST=ON \
+  -DZEN_ENABLE_JIT_PRECOMPILE_FALLBACK=ON \
+  -DLLVM_DIR=<llvm15-prefix>/lib/cmake/llvm
+cmake --build build --target dtvmapi -j$(nproc)
+```
+
+This produces `build/lib/libdtvmapi.so`. For CI-faithful flag variants (gas
+register, fallback test, virtual stack), see `.claude/rules/dtvm-build-config.md`,
+which maps each CI job's env vars to CMake options. Never run
+`.ci/run_test_suite.sh` locally to obtain them (see Common Mistakes).
 
 ## evmone-unittests
 
@@ -43,9 +62,10 @@ EVMONE_EXTERNAL_OPTIONS="$(pwd)/build/lib/libdtvmapi.so,mode=interpreter" \
 Whether to pass `-k fork_Cancun` depends on the **corpus test naming** — it is
 not an absolute switch:
 
-- **Standard EEST suite** `tests/fixtures/fixtures/state_tests` → **MUST use `-k fork_Cancun`** to filter out Prague tests (DTVM
-  does not support Prague yet). Omitting it produces ~28 pre-existing failures
-  that are NOT regressions.
+- **Standard EEST suite** `tests/fixtures/fixtures/state_tests` → **MUST use `-k fork_Cancun`** to filter out
+  post-Cancun tests (Prague, Osaka, and future forks DTVM does not support yet).
+  Omitting it produces many pre-existing failures — the count grows with each
+  EEST release — that are NOT regressions.
 - **Replay real-load corpus** `~/dtvm-perf-corpora/mainnet-replay/cancun-suite/`
   → **do NOT pass `-k fork_Cancun`**, or it matches zero tests.
 
@@ -102,15 +122,16 @@ For docs-only / `.claude/`-only diffs:
 ## Common Mistakes
 
 - **Wrong `-k fork_Cancun` for the corpus** → on the standard EEST suite,
-  **omitting** `-k` gives ~28 Prague failures (not regressions); on the replay
-  corpus (`replay_0x…`, no fork suffix), **adding** `-k` matches zero tests.
-  The corpus decides whether to pass it.
+  **omitting** `-k` gives many post-Cancun failures (not regressions); on the
+  replay corpus (`0x<hash>.json`, no fork suffix), **adding** `-k` matches zero
+  tests. The corpus decides whether to pass it.
 - **Missing run list filter** on unittests → failures from unsupported opcodes
 - **Wrong cwd** → run all commands from the repo root. From any other cwd the
   run-list `paste` fails, the resulting empty `--gtest_filter=` selects zero
   tests, and the run exits 0 — a silent false PASS.
 - **Using `.ci/run_test_suite.sh` locally** → clones evmone into CWD (`evmone/`,
-  `evmone-statetest/`), copies `.so` files everywhere, sets up ASAN — all wrong
-  for local use. This is the #1 cause of stale artifact pollution. **Never run it.**
+  `evmone-statetest/`), copies `.so` files everywhere (and sets up ASAN when
+  `ENABLE_ASAN=true`) — all wrong for local use. This is the #1 cause of stale
+  artifact pollution. **Never run it.**
 - **Wrong .so path** → EVMC loader failure; always use absolute path via `$(pwd)/`
 - **Copying `.so` into `~/evmone/`** → do not do this; pass the build-path as the EVMC argument instead. CI copies `build/lib/*` into its own cloned evmone dir, not `~/evmone/`.

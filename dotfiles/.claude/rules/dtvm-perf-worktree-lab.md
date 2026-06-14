@@ -28,7 +28,9 @@ clones, or `evmone-for-test-*` directories; delete any stale
 - **Create**: use the `worktree-bootstrap` skill, which runs submodule init
   and dotfiles sync via `DTVMDotfiles/worktree-init.sh`. Place worktrees
   under `.worktrees/` (gitignored). Do NOT use raw `git worktree add` +
-  manual submodule/dotfiles steps.
+  manual submodule/dotfiles steps. Note: `worktree-bootstrap` uses `.worktrees/`;
+  the `EnterWorktree` tool uses `.claude/worktrees/`. Both are gitignored; this
+  rule governs `.worktrees/` created via `worktree-bootstrap`.
 - **Remove**: `rm -rf <path> && git worktree prune`.
   Do NOT use `git worktree remove` — fails on worktrees with submodules.
   Never remove `~/dtvm-baseline` — it is a permanent resource.
@@ -48,7 +50,7 @@ the DTVM root locally.** If run, it leaves:
 
 | Path | Cause |
 |------|-------|
-| `<repo>/evmone/`, `<repo>/evmone-statetest/` | `run_test_suite.sh` clones evmone here (lines 195/223) |
+| `<repo>/evmone/`, `<repo>/evmone-statetest/` | `run_test_suite.sh` clones evmone here (grep the script for `git clone`) |
 | `<repo>/asmjit/` | cloned by the CI workflow's "Clone asmjit" step, **not** by `run_test_suite.sh` — appears only in a full-CI run |
 | `~/evmone/libdtvmapi*.so` | stale `.so` from manual copy / older CI (current script moves/copies `build/lib/*` into the cloned evmone dir, not `~/evmone`) |
 | `<baseline-worktree>/build/` | wrong build dir name (should be `build-baseline/`) |

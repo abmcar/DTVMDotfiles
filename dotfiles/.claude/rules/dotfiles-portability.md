@@ -16,7 +16,7 @@ DTVMDotfiles. **Never write machine-specific absolute paths**
 (e.g. `/home/abmcar/DTVM/...`, `/Users/foo/...`) in these files.
 
 `CLAUDE.local.md` is per-machine and not in `MIRRORED_ITEMS` — see
-`dtvm-dotfiles-usage.md` "Not synced" note for the bootstrap mechanics.
+`dtvm-dotfiles-usage.md` "What's managed vs. not" (the `NOT managed` list) for the bootstrap mechanics.
 The `.template` uses `~/`-relative paths; per-machine edits stay local.
 
 ## Allowed path styles

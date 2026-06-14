@@ -71,8 +71,8 @@ Stop the loop and report when ANY of these holds:
 - All required checks pass on the latest commit → write `result:` with PR URL
   and check status.
 - **3 fix-and-re-push attempts** without all green → escalate with a concrete
-  next-step trigger (`feedback_no_vague_observation_advice.md`), e.g. "the
-  failure reproduces only with flag Y — please confirm before I disable it".
+  next-step trigger, e.g. "the failure reproduces only with flag Y — please
+  confirm before I disable it".
 - PR state changes to closed/merged mid-loop → stop, report final state.
 - No CI run appears within ~5 min of the push → infrastructure issue, report;
   do not loop.

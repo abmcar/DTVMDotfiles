@@ -8,9 +8,10 @@ alwaysApply: true
 
 ## Rule 1: Never silently skip required tests
 
-If the user's prompt or change doc specifies a test command and it fails to
-run, you MUST report the failure explicitly. Do not substitute a different
-test and claim equivalence.
+If a required test suite — whether specified by the user's prompt or change
+doc, or determined by the touched-path table in `.claude/rules/dtvm-local-test.md`
+— fails to run, you MUST report the failure explicitly. Do not substitute a
+different test and claim equivalence.
 
 Say: "I could not run <X> because <reason>. The results below are from <Y>
 only — this does not cover the same scope."
@@ -23,9 +24,12 @@ When local tests pass but CI fails, follow this protocol — do not skip steps:
 
 1. `gh run view <id> --log-failed`
 2. Compare `build/CMakeCache.txt` against the CI workflow env vars in
-   `.github/workflows/dtvm_evm_test_x86.yml`. Look for flag differences
-   (`ZEN_ENABLE_CPU_EXCEPTION`, `ZEN_ENABLE_VIRTUAL_STACK`, `ZEN_ENABLE_LIBEVM`,
-   `ZEN_ENABLE_JIT_PRECOMPILE_FALLBACK`).
+   `.github/workflows/dtvm_evm_test_x86.yml`. Look for differences in both the
+   `ZEN_ENABLE_*` build flags (`ZEN_ENABLE_CPU_EXCEPTION`, `ZEN_ENABLE_VIRTUAL_STACK`,
+   `ZEN_ENABLE_LIBEVM`, `ZEN_ENABLE_JIT_PRECOMPILE_FALLBACK`) and the
+   behavior-changing env vars in `.claude/rules/dtvm-build-config.md`
+   §Output Requirements (`RUN_MODE`, `TestSuite`, `CPU_EXCEPTION_TYPE`,
+   `ENABLE_GAS_METER`, `ENABLE_GAS_REGISTER`).
 3. If flags differ, reconfigure locally with CI flags (see
    `.claude/rules/dtvm-build-config.md`) and re-test.
 4. If flags match and the failure still does not reproduce locally, **report
