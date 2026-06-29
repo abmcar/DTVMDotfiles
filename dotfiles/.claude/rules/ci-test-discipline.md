@@ -1,7 +1,5 @@
 ---
 description: Behavioral rules for testing discipline — never skip required tests, follow CI failure investigation protocol.
-globs: []
-alwaysApply: true
 ---
 
 # CI Test Discipline

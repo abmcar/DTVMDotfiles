@@ -1,7 +1,9 @@
 ---
 description: DTVMDotfiles workflow for syncing Claude Code configuration between machines. Use when operating DTVMDotfiles, running release.sh or store.sh, editing exclude.map.sh, or syncing dotfiles changes between DTVMDotfiles and the parent DTVM workspace.
-globs: []
-alwaysApply: false
+paths:
+  - ".claude/**"
+  - "CLAUDE.md"
+  - "DTVMDotfiles/**"
 ---
 
 # DTVMDotfiles Usage
@@ -76,6 +78,11 @@ bash DTVMDotfiles/worktree-sync.sh <worktree-path>
 - Creates `AGENTS.md` and `GEMINI.md` as copies of `CLAUDE.md`
 - Syncs `.claude/commands` to `~/.codex/prompts`
 - Cleans up files that were in the previous manifest but no longer in dotfiles
+
+**Ordering hazard**: never run `release.sh` between editing a managed file and
+running `store.sh` — `release.sh` (SSOT → repo) overwrites your edits with the
+`dotfiles/` SSOT copy. Always run `store.sh` first. `AGENTS.md` / `GEMINI.md`
+are generated from `CLAUDE.md` here — never edit them directly.
 
 ## Common operations
 

@@ -1,7 +1,5 @@
 ---
 description: Commit message and PR title conventions
-globs: []
-alwaysApply: true
 ---
 
 # Commit and PR Conventions

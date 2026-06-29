@@ -1,7 +1,8 @@
 ---
 description: Local EVM test commands using pre-built evmone infrastructure. Use when running evmone-unittests, evmone-statetest, or ctest locally — NOT for CI reproduction (see dtvm-build-config.md for that).
-globs: []
-alwaysApply: false
+paths:
+  - "src/**"
+  - "tests/**"
 ---
 
 # DTVM Local Test Commands

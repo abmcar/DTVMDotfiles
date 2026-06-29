@@ -1,7 +1,5 @@
 ---
 description: DTVM repository structure and navigation guide
-globs: []
-alwaysApply: true
 ---
 
 # Repository Map

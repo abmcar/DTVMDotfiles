@@ -1,7 +1,7 @@
 ---
 description: After pushing to a branch with an open PR, monitor CI and follow a strict diagnose → local-repro → local-test → push loop on failure.
-globs: []
-alwaysApply: true
+paths:
+  - ".github/workflows/**"
 ---
 
 # PR Push → CI Watch → Fix Loop

@@ -1,7 +1,8 @@
 ---
 description: DTVM EVM CI build and test configurations. Use when reproducing CI builds, checking CI job flags, understanding how .ci/run_test_suite.sh maps environment variables to CMake options, or configuring evmtestsuite, evmrealsuite, evmone unit tests, evmone statetests, gas register, JIT fallback, or performance regression builds.
-globs: []
-alwaysApply: false
+paths:
+  - ".github/**"
+  - ".ci/**"
 ---
 
 # DTVM EVM Build Config

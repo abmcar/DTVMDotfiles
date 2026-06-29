@@ -46,6 +46,6 @@ DTVM is a deterministic VM with EVM ABI compatibility. Key areas:
 - `evmc/` — EVM compatibility interface
 - `tests/` — Test suites
 - `tools/` — Helper scripts and utilities
-- `.claude/rules/` — Project rules (all load at session start; frontmatter globs are not a runtime gate)
+- `.claude/rules/` — Project rules (rules with a `paths:` field load on demand when matching files are touched; rules without `paths:` load at session start)
 - `.claude/commands/` — Workflow commands
 - `.agents/skills/` — Detailed domain knowledge

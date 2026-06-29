@@ -96,18 +96,9 @@ bash DTVMDotfiles/store.sh
 cd DTVMDotfiles && git add -A && git commit -m "<message>" && git push && cd ..
 ```
 
-**Hazard**: never run `release.sh` between editing a managed repo-root file
-and running `store.sh` — `release.sh` will overwrite your edits with the
-`DTVMDotfiles/dotfiles/` SSOT copy. `AGENTS.md` / `GEMINI.md` are generated
-from `CLAUDE.md` by `release.sh`; don't edit them directly.
-
-Full architecture (manifest mechanism, what's managed, worktree symlinks): see
-`.claude/rules/dtvm-dotfiles-usage.md`.
-
-## Context Management
-- Delegate specialized work to reduce context pollution
-- Domain knowledge lives in `.claude/rules/` and `.claude/commands/`
-- Upstream skills remain in `.agents/skills/`
+**Order matters**: never run `release.sh` before `store.sh`. Manifest mechanism,
+what's managed, worktree symlinks, the release.sh overwrite hazard, and the
+generated `AGENTS.md`/`GEMINI.md`: see `.claude/rules/dtvm-dotfiles-usage.md`.
 
 ## Quality Gates
 
@@ -119,27 +110,27 @@ Full architecture (manifest mechanism, what's managed, worktree symlinks): see
 
 **Before creating commits/PRs:** follow `.claude/rules/commit-conventions.md`.
 
+**After `git push` to a branch with an open PR:** follow the CI-watch loop in `.claude/rules/pr-push-ci-watch.md`.
+
 ## Worktrees
 
-Use the `worktree-bootstrap` skill to create DTVM worktrees (under
-`.worktrees/`, gitignored). It wraps `DTVMDotfiles/worktree-init.sh` to do
-submodule init + dotfiles symlink in one step. Mechanics and detailed rules:
-see `.claude/rules/dtvm-perf-worktree-lab.md`.
+Create DTVM worktrees with the `worktree-bootstrap` skill (wraps
+`DTVMDotfiles/worktree-init.sh`: submodule init + dotfiles symlink; worktrees
+under `.worktrees/`, gitignored). **MUST** use it — not a generic worktree
+skill, which won't init submodules or sync dotfiles — when adding experimental
+changes (perf, algorithm, SPP) on a branch with an open PR or reviewed commits.
+Resource and mechanics rules: `.claude/rules/dtvm-perf-worktree-lab.md`.
 
-**Hazard rule**: **MUST** use `worktree-bootstrap` when adding experimental
-changes (performance optimizations, algorithm changes, SPP activation, etc.)
-on a branch that already has an open PR or reviewed commits. Generic worktree
-skills are not a substitute — they don't init submodules or sync dotfiles.
+## Where things live
 
-## Build & Test
-
-Treat repository docs and rules as authoritative:
+- Delegate specialized work to sub-agents to reduce context pollution.
+- Domain knowledge → `.claude/rules/` (most are path-scoped, load on demand) and `.claude/commands/`; upstream skills → `.agents/skills/`.
 - General build: `docs/start.md`
 - CI-faithful EVM build: `.claude/rules/dtvm-build-config.md`
 - Perf workflows: `.claude/commands/dtvm-evmone-benchmark.md`, `.claude/commands/dtvm-jit-lowering-inspection.md`
-- Profiling: `.agents/skills/dtvm-perf-profile/SKILL.md` (upstream)
-- Compiler analysis: `.agents/skills/dmir-compiler-analysis/SKILL.md` (upstream)
+- Profiling: `.agents/skills/dtvm-perf-profile/SKILL.md`; compiler analysis: `.agents/skills/dmir-compiler-analysis/SKILL.md`
 
 ## Code Style
 
-Detailed rules live in `.claude/rules/cpp-code-style.md` (all rules load at session start), including the `tools/format.sh format` / `check` workflow.
+C/C++ style and the `tools/format.sh format` / `check` workflow:
+`.claude/rules/cpp-code-style.md` (path-scoped to `src/**`; loads when you touch C++).

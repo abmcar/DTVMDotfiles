@@ -1,12 +1,8 @@
 ---
 description: Enforces portable paths in DTVMDotfiles-managed files. Triggered when editing .claude/ rules, commands, or settings.
-globs:
-  - .claude/rules/**
-  - .claude/commands/**
-  - .claude/agents/**
-  - .claude/settings.*
-  - CLAUDE.md
-alwaysApply: false
+paths:
+  - ".claude/**"
+  - "CLAUDE.md"
 ---
 
 # Dotfiles Portability Constraint

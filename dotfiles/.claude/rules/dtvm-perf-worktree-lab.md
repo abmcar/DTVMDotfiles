@@ -1,7 +1,9 @@
 ---
 description: Local DTVM EVM performance lab with branch worktrees and the persistent evmone resource. Use when preparing or pruning local perf experiment environments, or keeping worktrees under control during repeated optimization work.
-globs: []
-alwaysApply: false
+paths:
+  - "src/compiler/**"
+  - "src/evm/**"
+  - "src/runtime/**"
 ---
 
 # DTVM Perf Worktree Lab

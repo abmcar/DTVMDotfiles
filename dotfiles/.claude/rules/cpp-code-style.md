@@ -1,7 +1,8 @@
 ---
 description: C/C++ code style rules for DTVM source files
-globs: ["src/**/*.cpp", "src/**/*.h"]
-alwaysApply: false
+paths:
+  - "src/**/*.cpp"
+  - "src/**/*.h"
 ---
 
 # C/C++ Code Style
