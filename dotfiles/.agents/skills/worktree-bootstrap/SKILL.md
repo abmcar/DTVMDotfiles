@@ -100,4 +100,3 @@ git worktree prune
 ```
 
 Do NOT use `git worktree remove` — it fails on worktrees with submodules.
-Never remove the permanent baseline worktree (see `.claude/rules/dtvm-perf-worktree-lab.md` for its location).

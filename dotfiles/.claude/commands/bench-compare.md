@@ -1,6 +1,6 @@
 ---
 name: bench-compare
-description: Run a quick before/after benchmark comparison between the current branch and upstream/main baseline. Auto-refreshes baseline worktree.
+description: Run a quick before/after benchmark comparison between the current branch and an upstream/main baseline built on demand.
 ---
 
 # Benchmark Comparison
@@ -9,46 +9,32 @@ Quick before/after benchmark comparison between current branch and baseline.
 
 ## Steps
 
-1. **Decide whether to refresh baseline** — `dtvm-perf-worktree-lab.md`
-   "Permanent Resources" has the canonical refresh recipe. This command
-   adds a fast-path that skips both checkout and rebuild when the worktree
-   is already at `upstream/main` AND a usable `.so` is on disk:
+1. **Prepare the baseline** — there is no persistent baseline worktree; build
+   `upstream/main` on demand in a throwaway worktree. Use the
+   `worktree-bootstrap` skill to create it on `upstream/main` (it runs
+   submodule init + dotfiles sync); do not use raw `git worktree add`.
    ```bash
-   git -C ~/dtvm-baseline fetch -q upstream
-   BASE_HEAD=$(git -C ~/dtvm-baseline rev-parse HEAD)
-   UPSTREAM_HEAD=$(git -C ~/dtvm-baseline rev-parse upstream/main)
-   BASE_SO=~/dtvm-baseline/build-baseline/lib/libdtvmapi.so
-   if [ "$BASE_HEAD" = "$UPSTREAM_HEAD" ] && [ -f "$BASE_SO" ]; then
-     NEED_BASELINE_BUILD=0
-   else
-     git -C ~/dtvm-baseline checkout upstream/main
-     NEED_BASELINE_BUILD=1
-   fi
+   git fetch -q upstream
+   BASE_WT=.worktrees/baseline-main   # created by worktree-bootstrap on upstream/main
+   BASE_SO="$BASE_WT/build/lib/libdtvmapi.so"
    ```
-   Assumes `~/dtvm-baseline` is reserved for `upstream/main` per the lab doc;
-   if a feature branch was manually parked there at the same SHA, force a
-   checkout by deleting `$BASE_SO` first.
 
-2. **Build** — run parallel builds at half-cores each to avoid CPU thrash;
-   use full cores when only the branch needs building:
+2. **Build** — run parallel builds at half-cores each to avoid CPU thrash:
    ```bash
-   if [ "$NEED_BASELINE_BUILD" = "1" ]; then
-     J=$(( $(nproc) / 2 ))
-     cmake --build build --target dtvmapi -j$J &
-     BRANCH_PID=$!
-     cmake --build ~/dtvm-baseline/build-baseline --target dtvmapi -j$J
-     wait $BRANCH_PID
-   else
-     cmake --build build --target dtvmapi -j$(nproc)
-   fi
+   J=$(( $(nproc) / 2 ))
+   cmake --build build --target dtvmapi -j$J &
+   BRANCH_PID=$!
+   cmake --build "$BASE_WT/build" --target dtvmapi -j$J
+   wait $BRANCH_PID
    ```
    Both worktrees share ccache + FetchContent cache.
 
-3. **Run baseline benchmark** — Use `/dtvm-evmone-benchmark` with the baseline library at `~/dtvm-baseline/build-baseline/lib/libdtvmapi.so`, adding `--benchmark_repetitions=3 --benchmark_out=/tmp/bench-baseline.json --benchmark_out_format=json`.
+3. **Run baseline benchmark** — Use `/dtvm-evmone-benchmark` with the baseline library at `$BASE_SO` (the upstream/main worktree build), adding `--benchmark_repetitions=3 --benchmark_out=/tmp/bench-baseline.json --benchmark_out_format=json`.
 
 4. **Run branch benchmark** — Run immediately after step 3 in the same shell session; ~8pp drift between morning and afternoon makes same-window execution a correctness requirement. Use `/dtvm-evmone-benchmark` with the branch library at `build/lib/libdtvmapi.so`, adding `--benchmark_repetitions=3 --benchmark_out=/tmp/bench-branch.json --benchmark_out_format=json`.
 
 5. **Compare** — Parse both JSON outputs, compute per-benchmark speedup and geo mean.
+6. **Clean up** — remove the scratch baseline worktree: `rm -rf "$BASE_WT" && git worktree prune`.
 
 ## Output Format
 

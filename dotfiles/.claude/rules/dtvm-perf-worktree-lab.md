@@ -1,5 +1,5 @@
 ---
-description: Local DTVM EVM performance lab with branch worktrees and persistent baseline/evmone resources. Use when preparing or pruning local perf experiment environments, keeping worktrees under control during repeated optimization work, or managing the persistent baseline at ~/dtvm-baseline.
+description: Local DTVM EVM performance lab with branch worktrees and the persistent evmone resource. Use when preparing or pruning local perf experiment environments, or keeping worktrees under control during repeated optimization work.
 globs: []
 alwaysApply: false
 ---
@@ -11,17 +11,21 @@ benchmark commands see `.claude/commands/dtvm-evmone-benchmark.md`.
 
 ## Permanent Resources (never delete, never recreate)
 
-- `~/dtvm-baseline` — git worktree on `upstream/main`, build dir `build-baseline/`.
-  Refresh with `git -C ~/dtvm-baseline fetch upstream && git -C ~/dtvm-baseline checkout upstream/main`;
-  rebuild incrementally only when upstream/main changed:
-  `cmake --build ~/dtvm-baseline/build-baseline --target dtvmapi -j$(nproc)`.
 - `~/evmone` — canonical evmone install (bench, statetest, unittests, evmc CLI).
 
 Long-lived directories kept unless the user says otherwise: DTVM repo root,
-`~/dtvm-baseline`, `~/evmone`, and one active branch worktree per optimization
-branch. Never create temporary detached baseline worktrees, additional evmone
-clones, or `evmone-for-test-*` directories; delete any stale
-`evmone-for-test-*` if found. Treat `git worktree list` as authoritative.
+`~/evmone`, and one active branch worktree per optimization branch. Never
+create additional evmone clones or `evmone-for-test-*` directories; delete any
+stale `evmone-for-test-*` if found. Treat `git worktree list` as authoritative.
+
+## Baseline for Comparison
+
+There is no persistent baseline worktree. When a perf comparison needs an
+`upstream/main` baseline, produce it on demand: via the `worktree-bootstrap`
+skill create a throwaway worktree on `upstream/main`, build
+`cmake --build build --target dtvmapi -j$(nproc)`, benchmark against its
+`build/lib/libdtvmapi.so`, then remove the worktree. Do not recreate a
+permanent `~/dtvm-baseline`.
 
 ## Branch Worktrees
 
@@ -33,7 +37,6 @@ clones, or `evmone-for-test-*` directories; delete any stale
   rule governs `.worktrees/` created via `worktree-bootstrap`.
 - **Remove**: `rm -rf <path> && git worktree prune`.
   Do NOT use `git worktree remove` — fails on worktrees with submodules.
-  Never remove `~/dtvm-baseline` — it is a permanent resource.
 
 ## libdtvmapi.so Rules
 
@@ -53,7 +56,6 @@ the DTVM root locally.** If run, it leaves:
 | `<repo>/evmone/`, `<repo>/evmone-statetest/` | `run_test_suite.sh` clones evmone here (grep the script for `git clone`) |
 | `<repo>/asmjit/` | cloned by the CI workflow's "Clone asmjit" step, **not** by `run_test_suite.sh` — appears only in a full-CI run |
 | `~/evmone/libdtvmapi*.so` | stale `.so` from manual copy / older CI (current script moves/copies `build/lib/*` into the cloned evmone dir, not `~/evmone`) |
-| `<baseline-worktree>/build/` | wrong build dir name (should be `build-baseline/`) |
 
 Delete if present:
 ```bash
@@ -68,7 +70,6 @@ of `.claude/rules/dtvm-local-test.md` to the prompt. Also include:
 
 - Do not run `.ci/run_test_suite.sh` locally.
 - Do not copy `.so` files; pass the absolute `$(pwd)/` path as the EVMC argument.
-- In the baseline worktree, use `build-baseline/`, not `build/`.
 - Create worktrees via the `worktree-bootstrap` skill, not raw `git worktree add`.
 
 ## Output Requirements

@@ -24,8 +24,8 @@ The `.template` uses `~/`-relative paths; per-machine edits stay local.
 | Style | Example | When to use |
 |-------|---------|-------------|
 | Repo-relative | `evmone/`, `build/lib/libdtvmapi.so` | Paths inside the DTVM repo |
-| Home-relative | `~/evmone/`, `~/dtvm-baseline/` | Paths outside the repo but under $HOME |
-| Generic placeholder | `<baseline-worktree>/build-baseline/` | When the exact path varies |
+| Home-relative | `~/evmone/`, `~/dtvm-perf-corpora/` | Paths outside the repo but under $HOME |
+| Generic placeholder | `<llvm15-prefix>/lib/cmake/llvm` | When the exact path varies |
 
 ## Where absolute paths ARE acceptable
 

@@ -34,8 +34,8 @@ this rule:
    `.claude/rules/dtvm-perf-worktree-lab.md`). Run it only in disposable
    containers or throwaway checkouts; locally, reproduce with the commands in
    `.claude/rules/dtvm-local-test.md` plus the derived flags.
-3. Use raw `cmake` commands only for CI paths that already do that. The main
-   special case is the performance baseline build.
+3. Use raw `cmake` commands only for CI paths that already do that, plus the
+   on-demand `upstream/main` baseline build for perf comparison.
 4. Derive non-CI variants only when the user explicitly asks for them. Start
    from the nearest CI job and state the delta instead of inventing a brand new
    configuration.
