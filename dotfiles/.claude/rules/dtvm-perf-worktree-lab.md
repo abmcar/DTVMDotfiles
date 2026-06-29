@@ -21,11 +21,15 @@ stale `evmone-for-test-*` if found. Treat `git worktree list` as authoritative.
 ## Baseline for Comparison
 
 There is no persistent baseline worktree. When a perf comparison needs an
-`upstream/main` baseline, produce it on demand: via the `worktree-bootstrap`
-skill create a throwaway worktree on `upstream/main`, build
-`cmake --build build --target dtvmapi -j$(nproc)`, benchmark against its
-`build/lib/libdtvmapi.so`, then remove the worktree. Do not recreate a
-permanent `~/dtvm-baseline`.
+`upstream/main` baseline, produce it on demand and PIN it to `upstream/main`
+(branching from the current HEAD would benchmark the branch against itself):
+`git worktree add .worktrees/baseline-main -b baseline-main upstream/main`, run
+`bash DTVMDotfiles/worktree-init.sh .worktrees/baseline-main`, configure with
+the EVM flags from `.claude/rules/dtvm-local-test.md`, build `dtvmapi`, then
+verify `git -C .worktrees/baseline-main rev-parse HEAD` equals `upstream/main`
+before benchmarking its `build/lib/libdtvmapi.so`. Remove the worktree
+afterward. Do not recreate a permanent `~/dtvm-baseline`. See
+`.claude/commands/bench-compare.md` for the full recipe.
 
 ## Branch Worktrees
 

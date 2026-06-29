@@ -9,13 +9,23 @@ Quick before/after benchmark comparison between current branch and baseline.
 
 ## Steps
 
-1. **Prepare the baseline** — there is no persistent baseline worktree; build
-   `upstream/main` on demand in a throwaway worktree. Use the
-   `worktree-bootstrap` skill to create it on `upstream/main` (it runs
-   submodule init + dotfiles sync); do not use raw `git worktree add`.
+1. **Prepare the baseline worktree** — there is no persistent baseline; create
+   one PINNED to `upstream/main`. Pinning is the correctness step: branching
+   from the current HEAD benchmarks the branch against itself (silent
+   zero-delta). Create and configure here; step 2 builds branch + baseline
+   together for a fair same-window comparison.
    ```bash
    git fetch -q upstream
-   BASE_WT=.worktrees/baseline-main   # created by worktree-bootstrap on upstream/main
+   BASE_WT=.worktrees/baseline-main
+   git worktree add "$BASE_WT" -b baseline-main upstream/main   # start-point = upstream/main
+   bash DTVMDotfiles/worktree-init.sh "$BASE_WT"                # submodule init + dotfiles sync
+   [ "$(git -C "$BASE_WT" rev-parse HEAD)" = "$(git rev-parse upstream/main)" ] \
+     || { echo "baseline not at upstream/main"; exit 1; }
+   # configure with the EVM flags from dtvm-local-test.md "Building libdtvmapi.so locally":
+   cmake -G Ninja -B "$BASE_WT/build" -S "$BASE_WT" -DCMAKE_BUILD_TYPE=Release \
+     -DZEN_ENABLE_EVM=ON -DZEN_ENABLE_LIBEVM=ON -DZEN_ENABLE_MULTIPASS_JIT=ON \
+     -DZEN_ENABLE_SPEC_TEST=ON -DZEN_ENABLE_JIT_PRECOMPILE_FALLBACK=ON \
+     -DLLVM_DIR=<llvm15-prefix>/lib/cmake/llvm
    BASE_SO="$BASE_WT/build/lib/libdtvmapi.so"
    ```
 

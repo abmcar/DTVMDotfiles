@@ -36,8 +36,11 @@ Never clone additional evmone copies. There is exactly one at `~/evmone/`.
 # Branch build
 cmake --build build --target dtvmapi -j$(nproc)
 
-# Baseline: build upstream/main on demand in a throwaway worktree
-# (worktree-bootstrap on upstream/main), then build its dtvmapi target:
+# Baseline: create a throwaway worktree PINNED to upstream/main
+# (git worktree add .worktrees/baseline-main -b baseline-main upstream/main;
+#  branching from current HEAD benchmarks the branch against itself), run
+# worktree-init.sh, configure with the EVM flags from
+# .claude/rules/dtvm-local-test.md, then build its dtvmapi target:
 cmake --build <baseline-worktree>/build --target dtvmapi -j$(nproc)
 
 # Perf-enabled build (for perf record)
