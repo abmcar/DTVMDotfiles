@@ -31,6 +31,7 @@ declare -agr MIRRORED_ITEMS=(
     "perf/fib.evm.hex"
     "perf/fibr.evm.hex"
     ".agents/skills/worktree-bootstrap"
+    "tools/dtvm_local_test.sh"
 )
 
 excludeHeader() {

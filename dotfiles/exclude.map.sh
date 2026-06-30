@@ -42,4 +42,5 @@ declare -Ag DTVM_EXCLUDE_MAP=(
     [qa.md]=managed
     [static]=managed
     [tmp.sh]=managed
+    [tools/dtvm_local_test.sh]=managed
 )
