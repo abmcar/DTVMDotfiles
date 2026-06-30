@@ -26,9 +26,6 @@ DTVM is a deterministic VM with EVM ABI compatibility. Core implementation is in
 - Use sequential dispatch when output from one task feeds into another
 - Standard pipeline: research-agent → compiler-agent → test-agent → perf-agent
 - Builder-Validator: compiler-agent implements, test-agent validates correctness (no Edit/Write), perf-agent validates performance
-- Specialized agents (compiler, doc, perf, research, test) cannot spawn sub-agents.
-  When a task requires sub-dispatching (e.g., build + test in one agent),
-  use `subagent_type: "general-purpose"` with role constraints in the prompt
 - Agent worktrees (`isolation: "worktree"`) are auto-bootstrapped by the
   SessionStart hook, which delegates to `DTVMDotfiles/worktree-init.sh`
   (submodule init + dotfiles sync). As fallback, include in the agent
@@ -117,8 +114,12 @@ generated `AGENTS.md`/`GEMINI.md`: see `.claude/rules/dtvm-dotfiles-usage.md`.
 Create DTVM worktrees with the `worktree-bootstrap` skill (wraps
 `DTVMDotfiles/worktree-init.sh`: submodule init + dotfiles symlink; worktrees
 under `.worktrees/`, gitignored). **MUST** use it — not a generic worktree
-skill, which won't init submodules or sync dotfiles — when adding experimental
-changes (perf, algorithm, SPP) on a branch with an open PR or reviewed commits.
+skill or raw `git worktree add`, which won't init submodules or sync dotfiles —
+for any experimental branch (perf, algorithm, SPP), whether or not that branch
+already has an open PR or reviewed commits. Never `git checkout -b` an
+experimental branch in the primary checkout (repo root): that pins the main
+checkout off its integration branch. Branch inside a `.worktrees/` worktree
+even when starting fresh from a clean `main`.
 Resource and mechanics rules: `.claude/rules/dtvm-perf-worktree-lab.md`.
 
 ## Where things live

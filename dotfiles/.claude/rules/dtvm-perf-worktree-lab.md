@@ -38,7 +38,10 @@ afterward. Do not recreate a permanent `~/dtvm-baseline`. See
 - **Create**: use the `worktree-bootstrap` skill, which runs submodule init
   and dotfiles sync via `DTVMDotfiles/worktree-init.sh`. Place worktrees
   under `.worktrees/` (gitignored). Do NOT use raw `git worktree add` +
-  manual submodule/dotfiles steps. Note: `worktree-bootstrap` uses `.worktrees/`;
+  manual submodule/dotfiles steps. Never `git checkout -b` an experimental
+  branch (perf, algorithm, SPP) in the primary checkout (repo root); create it
+  in a `.worktrees/` worktree, even when branching from a clean `main`. Note:
+  `worktree-bootstrap` uses `.worktrees/`;
   the `EnterWorktree` tool uses `.claude/worktrees/`. Both are gitignored; this
   rule governs `.worktrees/` created via `worktree-bootstrap`.
 - **Remove**: `rm -rf <path> && git worktree prune`.
