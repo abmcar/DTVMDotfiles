@@ -56,35 +56,15 @@ sets, `.claude/rules/dtvm-build-config.md` is the authority.
 
 ## Test
 
-`.claude/rules/dtvm-local-test.md` is the authority for test commands
-(run-list filters, fixtures paths, suite selection by touched path).
-Run all test commands from the DTVM repo root — from any other cwd the
-run-list substitution comes up empty and gtest "passes" 0 tests.
-Canonical commands:
+Run tests via `tools/dtvm_local_test.sh --auto`. It selects suites by touched
+path, runs them concurrently, and enforces the run cwd, artifact existence,
+non-empty gtest filter, and the right `-k fork_Cancun` per corpus.
+`.claude/rules/dtvm-local-test.md` documents what it covers and the manual
+`--mode`/`--suite`/`--corpus` overrides.
 
-- EVM unit tests (always use the curated run list — bare runs fail on
-  unsupported Prague/EIP-7702 tests):
-  ```bash
-  EVMONE_EXTERNAL_OPTIONS="$(pwd)/build/lib/libdtvmapi.so,mode=multipass" \
-    ~/evmone/build/bin/evmone-unittests \
-    --gtest_filter="$(paste -sd: tests/evmone_unittests/EVMOneMultipassUnitTestsRunList.txt)"
-  ```
-- EVM state tests:
-  ```bash
-  EVMONE_EXTERNAL_OPTIONS="$(pwd)/build/lib/libdtvmapi.so,mode=multipass,enable_gas_metering=true" \
-    ~/evmone/build/bin/evmone-statetest \
-    tests/fixtures/fixtures/state_tests \
-    --vm external_vm -k fork_Cancun
-  ```
-  Note: `LD_LIBRARY_PATH=~/evmone/build/lib` may be needed if libevmone.so is not found.
-  `-k fork_Cancun` applies to the standard EEST suite only — drop it on the
-  replay corpus (`~/dtvm-perf-corpora/mainnet-replay/cancun-suite/`).
-- `src/evm/` changes additionally require the interpreter variants per the
-  touched-path table: `mode=interpreter` with
-  `EVMOneInterpreterUnitTestsRunList.txt`, statetest with
-  `mode=interpreter,enable_gas_metering=true`.
-- EVM spec tests (ctest): require `-DZEN_ENABLE_SPEC_TEST=ON` at configure
-  time, then `cd build && SPEC_TESTS_ARGS="-m multipass --format evm --enable-evm-gas" ctest`
+- `src/compiler/`/`src/runtime/` changes → multipass unittests + statetest + evm_asm.
+- `src/evm/` changes → the interpreter variants.
+- ctest requires `-DZEN_ENABLE_SPEC_TEST=ON` at configure time.
 - Format: `tools/format.sh check` (must pass before finishing)
 
 Always run `tools/format.sh format` after editing C/C++ files.

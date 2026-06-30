@@ -58,7 +58,7 @@ Key: use `enable_gas_metering` (underscore), not `enable-evm-gas`.
 
 ## Workflow
 
-1. **Correctness first** — Never benchmark broken code. Unless the dispatch prompt states test-agent already validated this exact build, run the curated multipass run list yourself per `.claude/rules/dtvm-local-test.md` before benchmarking.
+1. **Correctness first** — Never benchmark broken code. Unless the dispatch prompt states test-agent already validated this exact build, run `tools/dtvm_local_test.sh --suite unittests --mode multipass` yourself (per `.claude/rules/dtvm-local-test.md`) before benchmarking.
 2. **Profile or benchmark** to identify bottleneck.
 3. **Analyze** — Use JIT logs, perf reports, or spill counts to understand root cause.
 4. **Defer implementation** to compiler-agent for `src/` code changes.

@@ -74,8 +74,9 @@ rm -f ~/evmone/libdtvmapi*.so
 
 ## Sub-agent Dispatch
 
-When dispatching test/perf sub-agents, attach the "Common Mistakes" section
-of `.claude/rules/dtvm-local-test.md` to the prompt. Also include:
+When dispatching test/perf sub-agents, tell them to run tests via
+`tools/dtvm_local_test.sh` (it enforces the run cwd, artifact existence,
+non-empty gtest filter, and the right `-k fork_Cancun` per corpus). Also include:
 
 - Do not run `.ci/run_test_suite.sh` locally.
 - Do not copy `.so` files; pass the absolute `$(pwd)/` path as the EVMC argument.

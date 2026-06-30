@@ -12,40 +12,17 @@ DTVM is a deterministic VM with EVM ABI compatibility. Core implementation is in
 ## Task Routing
 
 ### Direct Execution
-- Single-file bug fixes or small edits (for `src/` changes beyond a trivial one-liner, delegate to compiler-agent)
+- Single-file bug fixes or small edits
 - Format checks, simple git operations
 - Code review or explanation of a specific function
 
 ### Delegate to Sub-Agent
-- **compiler-agent**: All `src/` code changes (compiler, EVM interpreter, runtime, VM core)
+- **compiler-agent**: All `src/` code changes
 - **perf-agent**: Profiling, benchmark analysis, performance comparison
 - **test-agent**: Running test suites, CI reproduction, test result analysis
 - **research-agent**: Codebase exploration, web research, information gathering (read-only)
 - **doc-agent**: Change document creation/update, module spec maintenance
 - Use parallel dispatch when tasks are independent
-- Use sequential dispatch when output from one task feeds into another
-- Standard pipeline: research-agent → compiler-agent → test-agent → perf-agent
-- Builder-Validator: compiler-agent implements, test-agent validates correctness (no Edit/Write), perf-agent validates performance
-- Agent worktrees (`isolation: "worktree"`) are auto-bootstrapped by the
-  SessionStart hook, which delegates to `DTVMDotfiles/worktree-init.sh`
-  (submodule init + dotfiles sync). As fallback, include in the agent
-  prompt: "Run `bash DTVMDotfiles/worktree-init.sh .` before any build."
-
-### Orchestrate with the Workflow Tool
-- Use the **Workflow** tool (Claude-Code-only) for deterministic multi-agent
-  fan-out where you need all results together: cross-dimension parallel review,
-  broad audits, research sweeps, multi-file migrations. It enforces loop/round
-  caps and result aggregation in code, not by the model remembering to count.
-- Keep manual Agent dispatch (the roster above) for the judgment-gated linear
-  pipeline (research → compiler → test → perf, deciding between steps) and any
-  work with interactive human gates.
-- **Hard rule**: the Workflow tool runs to completion in the background and
-  **cannot pause to ask the user**. Never put a human gate inside a Workflow,
-  and never make a human-gated lifecycle depend on it.
-- **Do not wrap `dev-cycle`**: it owns its own gate sequencing (including its
-  gate-free segments); the project layer adds no competing orchestration around
-  it. How it dispatches those segments per host is the skill's concern — see the
-  dev-cycle skill, not this file.
 
 ### Research First (EnterPlanMode)
 - New features, architecture changes, or breaking changes
@@ -102,7 +79,7 @@ generated `AGENTS.md`/`GEMINI.md`: see `.claude/rules/dtvm-dotfiles-usage.md`.
 **Before finishing any code task, verify:**
 1. `tools/format.sh check` passes
 2. Changed code compiles: `cmake --build build --target <relevant_target>`
-3. Relevant tests pass — run the suites mapped to the touched paths in `.claude/rules/dtvm-local-test.md` "Test Selection by Touched Path"
+3. Relevant tests pass — run `tools/dtvm_local_test.sh --auto`, which selects suites by touched path per `.claude/rules/dtvm-local-test.md`
 4. No new compiler warnings in build output
 
 **Before creating commits/PRs:** follow `.claude/rules/commit-conventions.md`.

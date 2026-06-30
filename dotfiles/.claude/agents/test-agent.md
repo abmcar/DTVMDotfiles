@@ -12,54 +12,39 @@ You are a testing specialist for the DTVM project. Your job is to run tests, ana
 
 ## Test Suites
 
-`.claude/rules/dtvm-local-test.md` is the authority for test commands. Select
-suites via its "Test Selection by Touched Path" table — `src/evm/` changes
-require the interpreter-mode runs, `src/compiler/`/`src/runtime/` require
-multipass.
+Run tests via `tools/dtvm_local_test.sh --auto`, which selects suites by touched
+path (per `.claude/rules/dtvm-local-test.md`): `src/evm/` changes require
+interpreter-mode runs, `src/compiler/`/`src/runtime/` require multipass. Pass
+`--mode`/`--suite` to override.
 
-Run all commands from the DTVM repo root — from any other cwd the run-list
-substitution comes up empty and gtest "passes" 0 tests with exit 0.
+The script runs from the repo root and refuses an empty gtest filter, so the
+wrong-cwd "0 tests pass with exit 0" footgun cannot happen.
 
-### EVM Unit Tests (primary correctness gate)
+### EVM correctness gate
 
-Always use the curated run lists — bare runs fail on unsupported
-Prague/EIP-7702 tests, which are NOT regressions:
+Run via `tools/dtvm_local_test.sh --auto` (selects suites by touched path), or
+target suites explicitly:
 
 ```bash
-# multipass (223 tests)
-EVMONE_EXTERNAL_OPTIONS="$(pwd)/build/lib/libdtvmapi.so,mode=multipass" \
-  ~/evmone/build/bin/evmone-unittests \
-  --gtest_filter="$(paste -sd: tests/evmone_unittests/EVMOneMultipassUnitTestsRunList.txt)"
-
-# interpreter (226 tests)
-EVMONE_EXTERNAL_OPTIONS="$(pwd)/build/lib/libdtvmapi.so,mode=interpreter" \
-  ~/evmone/build/bin/evmone-unittests \
-  --gtest_filter="$(paste -sd: tests/evmone_unittests/EVMOneInterpreterUnitTestsRunList.txt)"
+tools/dtvm_local_test.sh --mode both --suite unittests       # multipass 223 + interpreter 226
+tools/dtvm_local_test.sh --mode multipass --suite statetest  # EEST suite, -k fork_Cancun auto
+tools/dtvm_local_test.sh --suite evm_asm,ctest
 ```
 
-To run a single test, use `--gtest_filter='TestName*'`.
-
-### EVM State Tests
-```bash
-EVMONE_EXTERNAL_OPTIONS="$(pwd)/build/lib/libdtvmapi.so,mode=multipass,enable_gas_metering=true" \
-  ~/evmone/build/bin/evmone-statetest \
-  tests/fixtures/fixtures/state_tests \
-  --vm external_vm -k fork_Cancun
-```
-
-`-k fork_Cancun` is required on the standard EEST suite — omitting it adds
-~28 pre-existing Prague failures that are not regressions. For the
-mainnet-replay corpus (`~/dtvm-perf-corpora/mainnet-replay/cancun-suite/`),
-drop `-k` entirely or it matches zero tests. Interpreter variant:
-`mode=interpreter,enable_gas_metering=true` — gas metering stays on for
-statetest (only the unittests interpreter variant drops it).
+The script uses the curated run lists (bare runs fail on unsupported
+Prague/EIP-7702 tests, which are NOT regressions), adds `-k fork_Cancun` only on
+the EEST suite (`--corpus replay` drops it for the mainnet-replay corpus, where
+it would otherwise match zero tests), keeps gas metering on for statetest, and
+refuses an empty gtest filter. To run one unit test, invoke the binary directly
+with `--gtest_filter='TestName*'`.
 
 ### CI Reproduction
 Never execute `.ci/run_test_suite.sh` from the DTVM root locally — it clones
 evmone into CWD, copies `.so` files, and enables ASAN (see Forbidden
 Artifacts in `.claude/rules/dtvm-perf-worktree-lab.md`). Read the script to
-derive the env-var→CMake mapping, then reproduce with the local commands
-above using CI-faithful flags per `.claude/rules/dtvm-build-config.md`:
+derive the env-var→CMake mapping, build with those CI-faithful flags per
+`.claude/rules/dtvm-build-config.md`, then run the suites via
+`tools/dtvm_local_test.sh`:
 - `RUN_MODE`: interpreter / multipass
 - `TestSuite`: microsuite / evmtestsuite / evmrealsuite / evmonestatetestsuite / evmpgjsuite / evmfallbacksuite / benchmarksuite
 - `ENABLE_GAS_METER`: true/false
