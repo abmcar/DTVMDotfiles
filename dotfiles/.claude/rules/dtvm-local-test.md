@@ -84,6 +84,24 @@ CI-faithful flag variants (gas register, fallback test, virtual stack), see
 `.claude/rules/dtvm-build-config.md`, which maps each CI job's env vars to CMake
 options.
 
+### A/B a single flag across build dirs
+
+The Bash tool runs zsh, which does not word-split an unquoted `$VAR`. To build
+two trees that differ by one flag, hold the shared flags in an array — array
+expansion splits per element regardless of `SH_WORD_SPLIT`:
+
+```zsh
+flags=(-G Ninja -DCMAKE_BUILD_TYPE=Release
+  -DZEN_ENABLE_EVM=ON -DZEN_ENABLE_LIBEVM=ON -DZEN_ENABLE_MULTIPASS_JIT=ON
+  -DZEN_ENABLE_JIT_PRECOMPILE_FALLBACK=ON -DLLVM_DIR=<llvm15-prefix>/lib/cmake/llvm)
+cmake -B build-on  -S . $flags -D<FLAG_UNDER_TEST>=ON
+cmake -B build-off -S . $flags -D<FLAG_UNDER_TEST>=OFF
+```
+
+Never `VAR="-G Ninja -D..."; cmake $VAR`: zsh passes the whole string as one
+argument, so cmake reads it as the `-G` generator name and aborts with a
+generator list.
+
 ## Do not
 
 - Do not run `.ci/run_test_suite.sh` locally — it clones evmone into the CWD and
