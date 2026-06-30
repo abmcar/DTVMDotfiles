@@ -26,6 +26,15 @@
             "command": "INPUT=$(cat); FILE=$(echo \"$INPUT\" | jq -r '.tool_input.file_path // empty'); case \"$FILE\" in *.cpp|*.h|*.cc|*.cxx) clang-format -style=file -i \"$FILE\";; esac"
           }
         ]
+      },
+      {
+        "matcher": "Bash",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "INPUT=$(cat); CMD=$(echo \"$INPUT\" | jq -r '.tool_input.command // empty'); case \"$CMD\" in *--dry-run*) exit 0;; esac; case \"$CMD\" in *\"git push\"*|*\"gh pr create\"*) jq -cn '{hookSpecificOutput:{hookEventName:\"PostToolUse\",additionalContext:\"[ci-watch] A push ran. If the current branch has an OPEN PR, the push is NOT the end of the task. Follow .claude/rules/pr-push-ci-watch.md: run gh pr view and apply only if state==OPEN; monitor the CI run for THIS commit; on failure reproduce locally with CI-faithful flags and run the touched-path suites before re-pushing. No open PR means ignore.\"}}';; esac"
+          }
+        ]
       }
     ],
     "SessionStart": [
