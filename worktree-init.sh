@@ -246,9 +246,11 @@ if bash "$SCRIPT_DIR/worktree-sync.sh" "$WORKTREE_PATH" >/dev/null 2>&1; then
     ACTIONS+=("dotfiles synced")
 fi
 
-# FetchContent shared-cache is handled at cmake-configure time via a shell
-# wrapper that injects -DFETCHCONTENT_BASE_DIR=~/.cache/cmake-fetchcontent
-# (see ~/.zshrc cmake() function). The old per-worktree CMakeLists.txt patch
+# FetchContent shared-cache is handled at cmake-configure time via the
+# ~/.local/bin/cmake binary wrapper, which injects per-dep
+# FETCHCONTENT_SOURCE_DIR_* pointing into ~/.cache/cmake-fetchcontent (see the
+# wrapper header; the old ~/.zshrc cmake() shell function is retired).
+# The old per-worktree CMakeLists.txt patch
 # injection + build/_deps hardlink seeding lived here but were brittle:
 # the patch got reverted by branch checkouts (skip-worktree state lost), and
 # cp -al hardlinks were broken by cmake's re-extract of archive tarballs.
