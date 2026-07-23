@@ -1,182 +1,276 @@
 # DTVMDotfiles
 
-DTVM 项目的 AI 辅助开发环境配置管理工具。在多台机器间同步 Claude Code / Codex / Gemini 的配置、规则、hooks、子 agent 定义和性能测试基础设施。
+DTVM 的个人 AI 开发环境配置仓库。它管理项目级 Claude/Codex/Gemini
+规则、hooks、子 agent、测试辅助文件，以及不会进入 DTVM origin 的个人
+DTVM skills。
 
-## 它解决什么问题
+## 所有权边界
 
-[DTVM](https://github.com/DTVMStack/DTVM) 是一个具有 EVM ABI 兼容性的确定性虚拟机，核心实现为 C/C++。开发过程中大量依赖 AI 辅助编码（Claude Code 子 agent、自动化 hooks、规则约束等）。这些配置文件不属于 DTVM 主仓库，但需要在不同开发机器间保持同步。
+这里有两个不同的 Git 所有权域：
 
-DTVMDotfiles 提供双向同步：
-- **release**：将配置从本仓库部署到 DTVM 工作区
-- **store**：将工作区中的配置变更收集回本仓库
-- **diff**：检测已部署配置与本仓库之间的漂移
+- **DTVMDotfiles origin**：保存个人工作流、项目级 AI 配置和
+  `skills/` SSOT；这些内容可以在 DTVMDotfiles 中提交和推送。
+- **DTVM origin**：保存 DTVM 产品代码和仓库自带的 skills；本仓库不会把
+  个人 skill 源文件提交或推送到 DTVM。
+
+`release.sh` 会像过去一样在本机 DTVM checkout 中部署配置，并从
+`CLAUDE.md` 刷新本地 `AGENTS.md`。后者是 DTVM tracked 文件，因此
+checkout 可能显示 `M AGENTS.md`；脚本不会 stage、commit 或 push 它。这是
+本地派生状态，不改变上述 Git 所有权边界。
+
+## 两类同步模型
+
+| 内容 | SSOT | 部署/收集方向 |
+|---|---|---|
+| 项目 dotfiles | `DTVMDotfiles/dotfiles/` | `release.sh` 部署到 DTVM；若先在 DTVM 中编辑，必须先用 `store.sh` 收回 |
+| 个人 DTVM skills | `DTVMDotfiles/skills/` | 直接编辑 SSOT，再用 `release.sh` 协调用户级链接；不从 DTVM 或 home 目录复制回来 |
+
+`diff.sh` 检查 manifest 管理的项目 dotfiles 漂移。个人 skill 的派生状态由
+release 协调，不进入 DTVM manifest。
 
 ## 目录结构
 
-```
+```text
 DTVMDotfiles/
-├── release.sh                  # 部署：dotfiles/ → DTVM 工作区
-├── store.sh                    # 收集：DTVM 工作区 → dotfiles/
-├── diff.sh                     # 漂移检测
-├── setup_from_dotfiles.sh      # 一键 bootstrap（clone + release + init）
-├── lib/
-│   └── sync_common.sh          # 核心逻辑：MIRRORED_ITEMS 定义、manifest 读写、同步函数
-└── dotfiles/                   # 所有受管理的配置文件
-    ├── CLAUDE.md               # DTVM 开发指南（权威源）
-    ├── CLAUDE.local.md.template # 本地路径模板（部署时拷为 ../CLAUDE.local.md，按本机改）
-    ├── init.sh                 # 环境初始化（Node.js、Claude Code、Codex、git submodule）
-    ├── exclude.map.sh          # .git/info/exclude 的持久化表示
-    ├── .claude/
-    │   ├── settings.json       # Claude Code hooks 配置
-    │   ├── agents/             # 5 个子 agent（compiler、doc、perf、research、test）
-    │   ├── commands/           # 7 个斜杠命令（/dotfiles、/research-new、/opt-validate、/bench-compare 等）
-    │   ├── hooks/              # 5 个 hook 脚本（branch 守卫、CI 验证、同步提醒、session 管理、agent worktree bootstrap）
-    │   └── rules/              # 9 条规则（代码风格、CI 纪律、架构约束等）
-    └── perf/                   # 性能测试脚本和 EVM 字节码
-        ├── record_erc20_perf.sh
-        ├── record_fibr_perf.sh
-        └── *.evm.hex           # ERC20、fibonacci 测试用字节码
+├── release.sh                 # 统一部署入口
+├── skills.sh                  # personal-skill check/sync 入口
+├── store.sh                   # DTVM workspace → dotfiles/ SSOT
+├── diff.sh                    # manifest 管理内容的漂移检查
+├── setup_from_dotfiles.sh     # 新机器 bootstrap
+├── worktree-init.sh           # DTVM worktree 初始化与状态协调
+├── lib/                       # 同步和 personal-skill 协调逻辑
+├── skills/                    # 个人 skill SSOT
+│   ├── active/                # release 后可被 Claude/Codex 发现
+│   ├── incubator/             # 开发中，不发布
+│   └── retired/               # 保留历史，不发布
+├── docs/changes/              # 跨模块变更设计记录
+└── dotfiles/
+    ├── CLAUDE.md              # DTVM 项目级 AI 指南 SSOT
+    ├── CLAUDE.local.md.template
+    ├── init.sh
+    ├── exclude.map.sh
+    ├── skills.map.sh          # 要在 Codex 中按 worktree 禁用的 legacy repo skills
+    ├── .claude/               # rules、commands、agents、hooks、settings
+    ├── perf/                  # 性能录制脚本和固定语料
+    └── tools/                 # 本地验证工具
 ```
 
-## 安装（新机器 Bootstrap）
+## 个人 skill 生命周期
 
-### 方式一：一键脚本
+只有 `skills/active/<name>/` 的直接子目录会被发布：
 
-在 DTVM 仓库的父目录下运行（或在已有的 DTVM 仓库根目录下运行）：
+```text
+~/.agents/skills/<name>
+    -> <DTVMDotfiles>/skills/active/<name>
+
+~/.claude/skills/<name>
+    -> <DTVMDotfiles>/skills/active/<name>
+```
+
+发布是逐 skill 协调，不会替换整个 `~/.agents/skills` 或
+`~/.claude/skills`。如果目标名称已经被普通文件、目录或其他来源的软链接
+占用，release 会失败并保留该对象；请先确认所有者，再显式解决冲突。
+
+当前个人 DTVM skills：
+
+| Skill | 职责 |
+|---|---|
+| `dtvm-worktree-bootstrap` | 创建并初始化 DTVM worktree，从 CI SSOT 派生 CMake，并执行 `dtvmapi` 构建硬门槛 |
+| `dtvm-cold-compile-profile` | 生成 identity-guarded、integrity-checked 的冷编译 baseline bundle，并单列继承子进程开销 |
+| `dtvm-compiler-path-analysis` | 从 bundle 把已测热点映射到当前 EVM → dMIR → CGIR → RA → MC/object 源码路径和最小 seam |
+| `dtvm-compile-time-optimize` | 仅在显式调用时编排 profile → 分析 → compiler-agent 最小实现 → 同条件 A/B 与正确性验证 |
+
+每个 skill 保持单一职责；详细 reference、script 或 asset 只在对应任务需要时
+加载。组合流程放在 orchestrator skill 中，不复制各子 skill 的全部正文。
+
+生命周期操作示例：
 
 ```bash
-# 如果 DTVM 仓库已 clone 到当前目录
+cd /path/to/DTVM/DTVMDotfiles
+
+# incubator 中完成并评审后再发布
+git mv skills/incubator/example skills/active/example
+bash release.sh
+
+# 退休时保留历史，同时移除 DTVMDotfiles 拥有的发现链接
+git mv skills/active/example skills/retired/example
+bash release.sh
+```
+
+目录移动只修改 SSOT；必须运行 `release.sh` 才会协调用户目录中的派生状态。
+
+## 旧 DTVM skills 的处理
+
+DTVM checkout 中现有的以下 tracked skills 不会被修改或删除：
+
+- `.agents/skills/dtvm-perf-profile`
+- `.agents/skills/dmir-compiler-analysis`
+
+`release.sh` 只在 `~/.codex/config.toml` 的 DTVMDotfiles 标记块中，为 Git
+当前已知的每个 DTVM worktree 写入这两个 skill 的精确禁用路径。为避免 TOML
+数组表改变后续裸键的作用域，managed block 固定在文件末尾；块外字节保持原
+顺序和内容。
+
+```toml
+# BEGIN DTVMDotfiles managed agent skills
+# generated [[skills.config]] entries
+# END DTVMDotfiles managed agent skills
+```
+
+要禁用的 tracked skill 名称由 `dotfiles/skills.map.sh` 中值为
+`legacy-repo` 的条目声明。
+
+项目级 `CLAUDE.md`、生成的 `AGENTS.md` 和 `GEMINI.md` 使用正向路由，把
+新任务交给上表中的个人 skills。旧 skill 仅可作为编写替代流程时的历史来源，
+不再作为工作流入口。
+
+Codex 配置和 skill 发现通常在会话启动时读取。release 成功后，请开启新会话；
+如客户端仍显示旧状态，再重启客户端。
+
+## 安装
+
+前置要求：
+
+- Git
+- Bash 4.3 或更高版本
+- `iconv`
+- 首次 clone 和安装工具时可用的网络连接
+
+在已有 DTVM checkout 根目录中运行一键 bootstrap：
+
+```bash
 cd /path/to/DTVM
 bash <(curl -s https://raw.githubusercontent.com/abmcar/DTVMDotfiles/main/setup_from_dotfiles.sh)
 ```
 
-脚本会自动：
-1. Clone DTVMDotfiles 到当前目录下
-2. 运行 `release.sh` 部署所有配置
-3. 运行 `init.sh` 安装依赖（Node.js 22、gh CLI、Claude Code、Codex）
-
-### 方式二：手动安装
+或手动安装：
 
 ```bash
 cd /path/to/DTVM
 git clone https://github.com/abmcar/DTVMDotfiles.git
 cd DTVMDotfiles
-bash release.sh     # 部署配置到父目录
-bash ../init.sh     # 初始化环境（可选）
+bash release.sh
+bash ../init.sh
 ```
 
-### 前置要求
+完整说明和冲突处理见 [SETUP_GUIDE.md](SETUP_GUIDE.md)。
 
-- Git
-- Bash 4.3+（Linux/WSL 自带；macOS 需 `brew install bash`，系统自带的 3.2 不支持）
-- 网络连接（首次 clone 及 init.sh 安装依赖时需要）
+## `release.sh` 部署结果
 
-## 部署后的效果
+项目 checkout 中会得到 manifest 管理的 `.claude/`、`CLAUDE.md`、
+`init.sh`、性能语料和工具等文件，并生成：
 
-运行 `release.sh` 后，DTVM 工作区会得到：
+- `.claude/.dtvm-manifest.json`
+- 从 `CLAUDE.md` 派生的 `AGENTS.md` 和 `GEMINI.md`
+- 从 `exclude.map.sh` 派生的 `.git/info/exclude`
+- 与 `.claude/commands/` 对应的用户级 Codex prompts
 
-```
-DTVM/
-├── DTVMDotfiles/              # 本仓库
-├── .claude/                   # Claude Code 配置（rules、commands、agents、hooks）
-│   └── .dtvm-manifest.json    # manifest 文件，记录所有受管文件的 SHA256 hash
-├── CLAUDE.md                  # AI 开发指南（权威源）
-├── CLAUDE.local.md            # 本地环境路径（首次部署由 .template 生成，每台机器独立维护，不同步）
-├── AGENTS.md                  # CLAUDE.md 的副本（供其他 AI 工具读取）
-├── GEMINI.md                  # CLAUDE.md 的副本（供 Gemini 读取）
-├── init.sh                    # 环境初始化脚本
-├── perf/                      # 性能测试脚本和字节码
-└── .git/info/exclude          # 由 exclude.map.sh 生成的 git exclude 规则
-```
+用户目录中还会得到：
 
-同时 `.claude/commands/` 会被同步到 `~/.codex/prompts/`（Codex 兼容）。
+- 两套逐 skill 软链接；
+- `~/.codex/config.toml` 中唯一的 DTVMDotfiles 管理块。
 
-## 日常使用
+`CLAUDE.local.md` 是机器本地文件，不在 `MIRRORED_ITEMS` 中。首次 bootstrap
+仅在文件不存在时从 template 生成，之后 release/store 都不会触碰它。
+其中 `AGENTS.md` 在 DTVM 中是 tracked 文件，但这里只作为本地生成副本更新；
+不要在 DTVM checkout 中 stage 或 push 这份派生 diff。
 
-### 修改配置后保存
+## 日常工作流
+
+### 更新个人 skills 或从远端部署
 
 ```bash
-# 1. 在 DTVM 工作区中修改配置（如 .claude/rules/*.md、CLAUDE.md 等）
-# 2. 收集变更回 dotfiles（同时自动触发 docs/research/sync-specs.sh 同步研究方向 specs）
-cd DTVMDotfiles
-bash store.sh
-
-# 3. 提交并推送
-git add -A && git commit -m "update config" && git push
-```
-
-### 从远端拉取更新
-
-```bash
-cd DTVMDotfiles
+cd /path/to/DTVM/DTVMDotfiles
 git pull
 bash release.sh
 ```
 
-### 检查漂移
+编辑个人 skill 时直接修改 `skills/` 下的 SSOT，验证后提交到
+DTVMDotfiles：
 
 ```bash
-cd DTVMDotfiles
+bash release.sh
+bash skills.sh check
+git add skills
+git commit -m "skills: update DTVM compile workflow"
+git push
+```
+
+不要把这些文件复制到 DTVM 的 tracked `.agents/skills/` 中。
+
+### 从 DTVM workspace 收回项目 dotfiles
+
+如果修改的是 DTVM workspace 中受 manifest 管理的 `.claude/`、
+`CLAUDE.md` 等文件：
+
+```bash
+cd /path/to/DTVM/DTVMDotfiles
+bash store.sh
+git add -A
+git commit -m "dotfiles: update DTVM guidance"
+git push
+```
+
+这里顺序很重要：workspace 中有尚未 store 的变更时，不要先运行
+`release.sh`。
+
+### 检查项目 dotfiles 漂移
+
+```bash
+cd /path/to/DTVM/DTVMDotfiles
 bash diff.sh
 ```
 
-输出会显示：locally modified、deleted、new in dotfiles、unmanaged 等分类。
+### 初始化 worktree
 
-## 核心机制
+优先调用 `dtvm-worktree-bootstrap`。底层入口是：
 
-### Manifest 追踪
+```bash
+bash DTVMDotfiles/worktree-init.sh [--minimal] /absolute/path/to/worktree
+```
 
-`release.sh` 会在 DTVM 工作区生成 `.claude/.dtvm-manifest.json`，记录每个受管文件的路径和内容 hash（SHA256 前 12 位）。`store.sh` 读取这个 manifest 来确定需要收集哪些文件，`diff.sh` 用它来检测漂移。
+初始化完成后会再次协调 personal skills 和 Codex 的已知-worktree 精确路径。
 
-### MIRRORED_ITEMS
+需要只检查或只协调 personal-skill 派生状态时：
 
-在 `lib/sync_common.sh` 中定义了所有需要同步的文件/目录：
+```bash
+bash DTVMDotfiles/skills.sh check  # 只读
+bash DTVMDotfiles/skills.sh sync   # 写入 links 和 managed config block
+```
 
-| Item | 说明 |
-|------|------|
-| `.claude/` | Claude Code 完整配置（settings、rules、commands、agents、hooks） |
-| `CLAUDE.md` | DTVM 开发指南 |
-| `init.sh` | 环境初始化脚本 |
-| `perf/*.sh` | 性能分析录制脚本 |
-| `perf/*.evm.hex` | EVM 测试字节码 |
+## 安全与恢复
 
-要添加新的同步项：编辑 `lib/sync_common.sh` 中的 `MIRRORED_ITEMS` 数组，然后运行 `release.sh`。
-
-### release.sh 的额外行为
-
-- 从 `dotfiles/exclude.map.sh` 渲染 `.git/info/exclude`
-- 从 `CLAUDE.md` 生成 `AGENTS.md` 和 `GEMINI.md`
-- 将 `.claude/commands/` 同步到 `~/.codex/prompts/`
-- 清理旧 manifest 中存在但新 manifest 中已移除的文件
-
-### Hook 自动化
-
-部署后，Claude Code 会自动运行以下 hooks：
-
-| 触发时机 | 功能 |
-|---------|------|
-| `PreToolUse` (Edit/Write) | 阻止修改 `evmc/` 和 `third_party/` 下的文件 |
-| `PreToolUse` (git push) | 在推送前运行完整 CI 流水线（格式检查 + 构建 + 测试） |
-| `PreToolUse` (git checkout/rebase/switch) | 分支操作前检查工作区状态，提醒使用 worktree |
-| `PostToolUse` (Edit/Write) | 当受管文件被修改时提醒同步到 DTVMDotfiles；C++ 文件自动 clang-format |
-| `PostToolUse` (git push) | 推送后自动监控 CI 运行状态 |
-| `SessionStart` | 显示缓存的 housekeeping 报告 |
+- manifest 管理的本地文件若已改变，release 默认中止并提示先
+  `store.sh`；即使文件已从新版 manifest 移除，也会先做同样的 hash gate。
+  对移除项显式使用 `RELEASE_FORCE=1` 时，release 会先备份到
+  `${XDG_STATE_HOME:-$HOME/.local/state}/DTVMDotfiles/release-backups/`
+  再删除，个人内容不会留在 DTVM worktree。
+- 若待移除路径已被 DTVM Git 跟踪，无论内容 hash 是否匹配都拒绝删除。
+- release 在写入项目 dotfiles 前会预检全部 personal-skill 目标和 Codex
+  managed block；foreign collision 或 marker 异常不会留下半次 release。
+- `RELEASE_CHECK=1 bash release.sh` 会执行完整的 no-write dry run。
+- `RELEASE_FORCE=1` 只用于用户明确决定覆盖 manifest 管理的项目文件；它
+  不代表可以接管 foreign skill 目标。
+- personal-skill 冲突必须由用户确认所有者后处理。不要对共享的
+  `~/.agents/skills` 或 `~/.claude/skills` 运行递归删除。
+- 如果 DTVMDotfiles checkout 被移动，指向旧绝对路径的链接会被当作 foreign
+  collision。确认旧链接确实属于已废弃 checkout 后，只删除该精确链接，再
+  运行 `skills.sh sync`；协调器不会自动接管它。
+- 预检通过后的其他阶段若失败，之前独立且安全的步骤可能已经完成。修复报告
+  的具体问题后重复运行 `release.sh`；协调过程设计为幂等。
+- `AGENTS.md` 和 `GEMINI.md` 是 `CLAUDE.md` 的本地派生副本，不要直接编辑；
+  发布前后用 `git diff --cached --quiet` 确认 DTVM index 仍为空，并确认
+  DTVM tracked `.agents/skills/**` 没有 diff。
 
 ## 命令速查
 
 | 需求 | 命令 |
-|------|------|
-| 新机器一键安装 | `bash setup_from_dotfiles.sh` |
-| 部署配置到工作区 | `cd DTVMDotfiles && bash release.sh` |
-| 收集工作区变更 | `cd DTVMDotfiles && bash store.sh` |
-| 检查配置漂移 | `cd DTVMDotfiles && bash diff.sh` |
-| 从远端更新 | `cd DTVMDotfiles && git pull && bash release.sh` |
-| 保存并推送 | `cd DTVMDotfiles && bash store.sh && git add -A && git commit -m "msg" && git push` |
-
-## 注意事项
-
-- `release.sh` 会覆盖目标目录中的同名文件，建议先 commit 或备份
-- `store.sh` 依赖 manifest，首次使用必须先运行 `release.sh`
-- 脚本是幂等的，可以重复运行
-- `CLAUDE.md` 是唯一的权威源；`AGENTS.md` 和 `GEMINI.md` 是自动生成的副本，不要直接编辑
-- `CLAUDE.local.md` 不在 `MIRRORED_ITEMS` 内：首次部署由 `setup_from_dotfiles.sh` 从 `dotfiles/CLAUDE.local.md.template`（路径 `~/`-relative）生成 skeleton，之后每台机器独立维护，`release.sh`/`store.sh` 都不触它
+|---|---|
+| 新机器 bootstrap | `bash setup_from_dotfiles.sh` |
+| 部署全部派生状态 | `cd DTVMDotfiles && bash release.sh` |
+| 检查 personal skills | `cd DTVMDotfiles && bash skills.sh check` |
+| 协调 personal skills | `cd DTVMDotfiles && bash skills.sh sync` |
+| 收回项目 dotfiles | `cd DTVMDotfiles && bash store.sh` |
+| 检查项目 dotfiles 漂移 | `cd DTVMDotfiles && bash diff.sh` |
+| 更新并发布 | `cd DTVMDotfiles && git pull && bash release.sh` |
+| 初始化 DTVM worktree | `bash DTVMDotfiles/worktree-init.sh <path>` |

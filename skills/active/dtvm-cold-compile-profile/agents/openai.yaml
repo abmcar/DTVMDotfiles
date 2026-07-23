@@ -1,0 +1,4 @@
+interface:
+  display_name: "DTVM Cold Compile Profile"
+  short_description: "Measure and isolate DTVM cold compile hotspots"
+  default_prompt: "Use $dtvm-cold-compile-profile to profile this DTVM cold compilation command."

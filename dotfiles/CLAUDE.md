@@ -30,6 +30,35 @@ DTVM is a deterministic VM with EVM ABI compatibility. Core implementation is in
 - Multi-file refactors affecting 5+ files
 - Performance work requiring profiling before coding
 
+### Personal DTVM Skill Routing
+
+DTVMDotfiles releases the following user-level skills from its own
+`skills/active/` SSOT. Route work positively by task:
+
+- **`dtvm-worktree-bootstrap`**: create a DTVM branch/worktree, run the
+  project initializer, derive CMake from the current CI source of truth, and
+  require the `dtvmapi` / `libdtvmapi.so` build gate
+- **`dtvm-cold-compile-profile`**: measure cold compilation and identify
+  profiler-backed hotspots in a reproducible, integrity-checked baseline
+  bundle; report inherited helpers such as `objdump` separately
+- **`dtvm-compiler-path-analysis`**: trace a measured hotspot through the
+  current EVM → dMIR → CGIR → RA → post-RA → MC/object source, producing an
+  evidence table, falsifiable hypotheses, and a minimal implementation seam
+- **`dtvm-compile-time-optimize`**: orchestrate the complete
+  profile → source analysis → minimal compiler change → same-corpus
+  before/after verification loop; this skill is used only when explicitly
+  invoked
+
+When the user explicitly invokes the end-to-end optimization workflow, use
+`dtvm-compile-time-optimize`. It uses `dtvm-worktree-bootstrap` when isolated
+worktrees are missing, composes the two focused analysis skills, then delegates
+the evidence-backed minimal `src/**` change through `compiler-agent` and
+preserves the correctness and A/B evidence gates.
+
+DTVM's tracked `dtvm-perf-profile` and `dmir-compiler-analysis` skills are
+historical sources for maintaining the replacements, not workflow entry
+points. Do not invoke them for current work.
+
 ## Development Workflow
 
 The default lifecycle (propose → plan → execute → verify-and-archive) is
@@ -62,17 +91,43 @@ fixes.
   `docs/changes/`).
 
 ### Dotfiles Sync Rule
-Whenever any file managed by DTVMDotfiles is modified (see `MIRRORED_ITEMS` in
-`DTVMDotfiles/lib/sync_common.sh`), you **must** sync before the conversation
-ends:
+
+DTVMDotfiles has two ownership flows:
+
+1. For a file deployed into this DTVM workspace and listed in
+   `MIRRORED_ITEMS`, collect live edits before release:
+
 ```bash
 bash DTVMDotfiles/store.sh
 cd DTVMDotfiles && git add -A && git commit -m "<message>" && git push && cd ..
 ```
 
-**Order matters**: never run `release.sh` before `store.sh`. Manifest mechanism,
-what's managed, worktree symlinks, the release.sh overwrite hazard, and the
-generated `AGENTS.md`/`GEMINI.md`: see `.claude/rules/dtvm-dotfiles-usage.md`.
+2. For a personal skill, edit the SSOT directly under
+   `DTVMDotfiles/skills/{active,incubator,retired}/`, then validate and
+   reconcile it:
+
+```bash
+cd DTVMDotfiles
+RELEASE_CHECK=1 bash skills.sh sync
+bash release.sh
+bash skills.sh check
+git add skills && git commit -m "<message>" && git push
+cd ..
+```
+
+Personal skill source is committed only to the DTVMDotfiles origin, never to
+the DTVM origin.
+
+Release regenerates this checkout's tracked `AGENTS.md` from `CLAUDE.md` as
+local derived state. Never stage, commit, or push that generated DTVM diff as
+part of a personal-skill change; verify the DTVM index remains empty.
+
+**Order matters for mirrored workspace files**: never run `release.sh` between
+editing a managed live file and running `store.sh`. Personal skills use the
+opposite, SSOT-first flow and are never collected from DTVM or the user-level
+links. Manifest mechanics, release reconciliation, worktree symlinks, and the
+generated `AGENTS.md`/`GEMINI.md` are documented in
+`.claude/rules/dtvm-dotfiles-usage.md`.
 
 ## Quality Gates
 
@@ -88,25 +143,31 @@ generated `AGENTS.md`/`GEMINI.md`: see `.claude/rules/dtvm-dotfiles-usage.md`.
 
 ## Worktrees
 
-Create DTVM worktrees with the `worktree-bootstrap` skill (wraps
+Create DTVM worktrees with the `dtvm-worktree-bootstrap` skill (wraps
 `DTVMDotfiles/worktree-init.sh`: submodule init + dotfiles symlink; worktrees
-under `.worktrees/`, gitignored). **MUST** use it — not a generic worktree
-skill or raw `git worktree add`, which won't init submodules or sync dotfiles —
-for any experimental branch (perf, algorithm, SPP), whether or not that branch
-already has an open PR or reviewed commits. Never `git checkout -b` an
-experimental branch in the primary checkout (repo root): that pins the main
-checkout off its integration branch. Branch inside a `.worktrees/` worktree
-even when starting fresh from a clean `main`.
+under `.worktrees/`, gitignored). The initializer also reconciles the
+user-level personal-skill links and Codex's exact-path disables after Git knows
+about the new worktree. **MUST** use it — not a generic worktree skill or raw
+`git worktree add`, which won't init submodules, sync dotfiles, or refresh that
+derived configuration — for any experimental branch (perf, algorithm, SPP),
+whether or not that branch already has an open PR or reviewed commits. Never
+`git checkout -b` an experimental branch in the primary checkout (repo root):
+that pins the main checkout off its integration branch. Branch inside a
+`.worktrees/` worktree even when starting fresh from a clean `main`.
 Resource and mechanics rules: `.claude/rules/dtvm-perf-worktree-lab.md`.
 
 ## Where things live
 
 - Delegate specialized work to sub-agents to reduce context pollution.
 - Domain knowledge → `.claude/rules/` (most are path-scoped, load on demand) and `.claude/commands/`; upstream skills → `.agents/skills/`.
+- Personal DTVM workflow SSOT → `DTVMDotfiles/skills/`; only `active/` is
+  exposed through user-level `~/.agents/skills` and `~/.claude/skills` links.
 - General build: `docs/start.md`
 - CI-faithful EVM build: `.claude/rules/dtvm-build-config.md`
 - Perf workflows: `.claude/commands/dtvm-evmone-benchmark.md`, `.claude/commands/dtvm-jit-lowering-inspection.md`
-- Profiling: `.agents/skills/dtvm-perf-profile/SKILL.md`; compiler analysis: `.agents/skills/dmir-compiler-analysis/SKILL.md`
+- Cold compilation profiling: `dtvm-cold-compile-profile`; measured compiler
+  path analysis: `dtvm-compiler-path-analysis`; verified optimization:
+  `dtvm-compile-time-optimize`.
 
 ## Code Style
 

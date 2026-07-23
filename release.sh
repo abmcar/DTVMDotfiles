@@ -16,8 +16,12 @@ MANIFEST_PATH="$PARENT_DIR/.claude/$MANIFEST_FILENAME"
 echo "Release script - Releasing files from DTVMDotfiles to $PARENT_DIR"
 echo ""
 
+# Fail before any release write if a user-level skill destination collides.
+agentSkillsPreflight "$PARENT_DIR"
+
 declare -A OldManifest=()
 readManifest "$MANIFEST_PATH" OldManifest 2>/dev/null || true
+preflightRemovedFiles "$DOTFILES_DIR" "$PARENT_DIR" OldManifest
 
 declare -A NewManifest=()
 syncMirroredItemsWithManifest "$DOTFILES_DIR" "$PARENT_DIR" NewManifest OldManifest
@@ -33,6 +37,7 @@ renderExcludeFile "$PARENT_DIR/.git/info/exclude"
 echo "  Released: $(basename "$EXCLUDE_MAP_FILE") → .git/info/exclude"
 syncClaudeAliases
 syncCodexPrompts
+syncAgentSkills "$PARENT_DIR"
 
 echo ""
 echo "✓ Release operation complete"

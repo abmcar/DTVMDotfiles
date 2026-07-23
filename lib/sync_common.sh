@@ -30,9 +30,11 @@ declare -agr MIRRORED_ITEMS=(
     "perf/erc20.evm.hex"
     "perf/fib.evm.hex"
     "perf/fibr.evm.hex"
-    ".agents/skills/worktree-bootstrap"
     "tools/dtvm_local_test.sh"
 )
+
+# shellcheck source=lib/agent_skills.sh
+source "$REPO_DIR/lib/agent_skills.sh"
 
 excludeHeader() {
     cat <<'EOF'
@@ -55,6 +57,123 @@ fileHash() {
     else
         shasum -a 256 "$1" | cut -c1-12
     fi
+}
+
+isSafeManifestPath() {
+    local path="$1"
+    [ -n "$path" ] || return 1
+    [[ "$path" != /* ]] || return 1
+    [[ "$path" != "." && "$path" != "./"* ]] || return 1
+    [[ "$path" != ".." && "$path" != "../"* ]] || return 1
+    [[ "$path" != *"/../"* && "$path" != *"/.." ]] || return 1
+}
+
+isGitTrackedPath() {
+    local repo="$1"
+    local path="$2"
+    local rc
+
+    GIT_OPTIONAL_LOCKS=0 git -C "$repo" ls-files --error-unmatch -- "$path" \
+        >/dev/null 2>&1 && return 0
+    rc=$?
+    if [ "$rc" -eq 1 ]; then
+        return 1
+    fi
+    echo "Error: unable to determine Git ownership for $path (git ls-files exit $rc)" >&2
+    return 2
+}
+
+normalizeAbsolutePath() {
+    local path="$1"
+    local remaining component normalized=""
+
+    [[ "$path" == /* ]] || return 1
+    remaining="${path#/}"
+    while [ -n "$remaining" ]; do
+        if [[ "$remaining" == */* ]]; then
+            component="${remaining%%/*}"
+            remaining="${remaining#*/}"
+        else
+            component="$remaining"
+            remaining=""
+        fi
+        [ -n "$component" ] || continue
+        [ "$component" != "." ] && [ "$component" != ".." ] || return 1
+        normalized="$normalized/$component"
+    done
+    printf '%s' "${normalized:-/}"
+}
+
+removedFilesRecoveryRoot() {
+    local raw_root
+    if [ -n "${DTVMDOTFILES_RECOVERY_DIR:-}" ]; then
+        raw_root="$DTVMDOTFILES_RECOVERY_DIR"
+    elif [ -n "${XDG_STATE_HOME:-}" ]; then
+        raw_root="$XDG_STATE_HOME/DTVMDotfiles/release-backups"
+    elif [ -n "${HOME:-}" ]; then
+        raw_root="$HOME/.local/state/DTVMDotfiles/release-backups"
+    else
+        echo "Error: HOME or DTVMDOTFILES_RECOVERY_DIR is required for recovery backups" >&2
+        return 1
+    fi
+    if ! normalizeAbsolutePath "$raw_root"; then
+        echo "Error: DTVMDotfiles recovery directory must be an absolute canonical path: $raw_root" >&2
+        return 1
+    fi
+}
+
+validateRemovedFilesRecoveryRoot() {
+    local dst_root="$1"
+    local recovery_root canonical_dst
+
+    recovery_root="$(removedFilesRecoveryRoot)" || return 1
+    agentSkillsRequireSafePath "$recovery_root" \
+        "DTVMDotfiles recovery directory" || return 1
+    if [ -e "$recovery_root" ] && [ ! -d "$recovery_root" ]; then
+        echo "Error: DTVMDotfiles recovery path is not a directory: $recovery_root" >&2
+        return 1
+    fi
+    if [ "$recovery_root" = "/" ]; then
+        echo "Error: DTVMDotfiles recovery directory must not be the filesystem root" >&2
+        return 1
+    fi
+    canonical_dst="$(
+        cd "$dst_root"
+        pwd -P
+    )"
+    case "$recovery_root" in
+        "$canonical_dst" | "$canonical_dst"/*)
+            echo "Error: DTVMDotfiles recovery directory must be outside the DTVM repository: $recovery_root" >&2
+            return 1
+            ;;
+    esac
+}
+
+backupRemovedFile() {
+    local source="$1"
+    local dst_root="$2"
+    local rel_file="$3"
+    local recovery_root repo_key backup_dir backup_path
+
+    recovery_root="$(removedFilesRecoveryRoot)" || return 1
+    validateRemovedFilesRecoveryRoot "$dst_root" || return 1
+    if command -v sha256sum >/dev/null 2>&1; then
+        repo_key="$(printf '%s' "$dst_root" | sha256sum | cut -c1-16)" ||
+            return 1
+    else
+        repo_key="$(printf '%s' "$dst_root" | shasum -a 256 | cut -c1-16)" ||
+            return 1
+    fi
+    backup_dir="$recovery_root/$repo_key/$(dirname "$rel_file")"
+    mkdir -p "$backup_dir" || return 1
+    backup_path="$(
+        mktemp "$backup_dir/$(basename "$rel_file").pre-release.XXXXXX"
+    )" || return 1
+    if ! cp -p "$source" "$backup_path"; then
+        rm -f "$backup_path"
+        return 1
+    fi
+    printf '%s' "$backup_path"
 }
 
 # Machine-local files must never enter the manifest or the dotfiles tree.
@@ -197,6 +316,55 @@ copy_with_gate() {
     cp -f "$src" "$dst"
 }
 
+preflightRemovedFiles() {
+    local src_root="$1"
+    local dst_root="$2"
+    local -n prf_old_ref="$3"
+    local rel_item rel_file old_file target current_hash tracked_rc
+    local -A current_files=()
+
+    for rel_item in "${MIRRORED_ITEMS[@]}"; do
+        [ -e "$src_root/$rel_item" ] || continue
+        while IFS= read -r rel_file; do
+            [ -n "$rel_file" ] && current_files["$rel_file"]=1
+        done < <(collectFiles "$src_root" "$rel_item")
+    done
+
+    for old_file in "${!prf_old_ref[@]}"; do
+        isMachineLocalFile "$old_file" && continue
+        if ! isSafeManifestPath "$old_file"; then
+            echo "[release] ABORT: unsafe path in old manifest: $old_file" >&2
+            return 1
+        fi
+        [ -z "${current_files[$old_file]+x}" ] || continue
+        target="$dst_root/$old_file"
+        agentSkillsRequireSafePath "$target" \
+            "Removed manifest target" || return 1
+        if isGitTrackedPath "$dst_root" "$old_file"; then
+            echo "[release] ABORT: refusing to remove DTVM-tracked path: $old_file" >&2
+            return 1
+        else
+            tracked_rc=$?
+            [ "$tracked_rc" -eq 1 ] || return 1
+        fi
+        [ -f "$target" ] || continue
+        current_hash="$(fileHash "$target")"
+        if [ "$current_hash" != "${prf_old_ref[$old_file]}" ] &&
+            [ "${RELEASE_FORCE:-0}" != "1" ]; then
+            echo "[release] ABORT: removed manifest file was modified locally: $target" >&2
+            echo "  expected hash ${prf_old_ref[$old_file]} (from OldManifest)" >&2
+            echo "  actual hash   $current_hash" >&2
+            echo "  Preserve: bash DTVMDotfiles/store.sh   # then review the recovered SSOT copy" >&2
+            echo "  Remove:   RELEASE_FORCE=1 bash DTVMDotfiles/release.sh   # back up, then remove live" >&2
+            return 1
+        fi
+        if [ "$current_hash" != "${prf_old_ref[$old_file]}" ] &&
+            [ "${RELEASE_FORCE:-0}" = "1" ]; then
+            validateRemovedFilesRecoveryRoot "$dst_root" || return 1
+        fi
+    done
+}
+
 syncMirroredItemsWithManifest() {
     local src_root="$1"
     local dst_root="$2"
@@ -218,7 +386,9 @@ syncMirroredItemsWithManifest() {
             if [ "$rel_file" = ".claude/$MANIFEST_FILENAME" ]; then
                 continue
             fi
-            mkdir -p "$(dirname "$dst_root/$rel_file")"
+            if [ "${RELEASE_CHECK:-0}" != "1" ]; then
+                mkdir -p "$(dirname "$dst_root/$rel_file")"
+            fi
             copy_with_gate "$src_root/$rel_file" "$dst_root/$rel_file" "${smiwm_old_ref[$rel_file]:-}" || return 1
             # Under RELEASE_CHECK=1 copy_with_gate skips the cp; dst may not exist.
             if [ -f "$dst_root/$rel_file" ]; then
@@ -234,19 +404,51 @@ cleanRemovedFiles() {
     local dst_root="$1"
     local -n crf_old_ref="$2"
     local -n crf_new_ref="$3"
-    local old_file target
+    local old_file target current_hash backup_path tracked_rc
 
     for old_file in "${!crf_old_ref[@]}"; do
         # Never delete machine-local files: collectFiles filters them out of
         # NewManifest, so their absence there must not trigger a live deletion.
         isMachineLocalFile "$old_file" && continue
+        if ! isSafeManifestPath "$old_file"; then
+            echo "[release] ABORT: unsafe path in old manifest: $old_file" >&2
+            return 1
+        fi
         if [ -z "${crf_new_ref[$old_file]+x}" ]; then
             target="$dst_root/$old_file"
+            agentSkillsRequireSafePath "$target" \
+                "Removed manifest target" || return 1
+            if isGitTrackedPath "$dst_root" "$old_file"; then
+                echo "[release] ABORT: refusing to remove DTVM-tracked path after preflight: $old_file" >&2
+                return 1
+            else
+                tracked_rc=$?
+                [ "$tracked_rc" -eq 1 ] || return 1
+            fi
             if [ -f "$target" ]; then
+                current_hash="$(fileHash "$target")"
+                if [ "$current_hash" != "${crf_old_ref[$old_file]}" ]; then
+                    if [ "${RELEASE_FORCE:-0}" != "1" ]; then
+                        echo "[release] ABORT: removed manifest file changed after preflight: $target" >&2
+                        return 1
+                    fi
+                    if [ "${RELEASE_CHECK:-0}" = "1" ]; then
+                        echo "[release-dry] WOULD back up $old_file outside the DTVM repository"
+                    else
+                        backup_path="$(
+                            backupRemovedFile "$target" "$dst_root" "$old_file"
+                        )" || return 1
+                        if ! cmp -s "$target" "$backup_path"; then
+                            echo "[release] ABORT: recovery backup no longer matches source: $target" >&2
+                            return 1
+                        fi
+                        echo "  Backed up locally modified removed file: $backup_path"
+                    fi
+                fi
                 if [ "${RELEASE_CHECK:-0}" = "1" ]; then
                     echo "[release-dry] WOULD remove $old_file"
                 else
-                    rm -f "$target"
+                    rm -f "$target" || return 1
                     echo "  Removed: $old_file"
                 fi
             fi

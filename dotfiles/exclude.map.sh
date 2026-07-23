@@ -16,7 +16,6 @@ declare -Ag DTVM_EXCLUDE_MAP=(
     [\*.jitted]=managed
     [\*.log]=managed
     [\*.so]=managed
-    [.agents/skills/worktree-bootstrap]=managed
     [.claude]=managed
     [.omx/]=managed
     [.pipeline/]=managed

@@ -1,0 +1,4 @@
+interface:
+  display_name: "DTVM Worktree Bootstrap"
+  short_description: "Initialize a complete DTVM worktree safely"
+  default_prompt: "Use $dtvm-worktree-bootstrap to create and initialize an isolated DTVM worktree."

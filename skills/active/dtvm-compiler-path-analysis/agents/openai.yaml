@@ -1,0 +1,4 @@
+interface:
+  display_name: "DTVM Compiler Path Analysis"
+  short_description: "Trace hot DTVM compiler paths through current source"
+  default_prompt: "Use $dtvm-compiler-path-analysis to trace this compiler hotspot through current DTVM source."

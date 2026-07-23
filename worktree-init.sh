@@ -1,7 +1,7 @@
 #!/bin/bash
 # Initialize a DTVM git worktree: submodules + dotfiles sync.
 # Single source of truth shared by:
-#   - .agents/skills/worktree-bootstrap (interactive skill)
+#   - user-level dtvm-worktree-bootstrap (interactive skill)
 #   - .claude/hooks/agent-worktree-bootstrap.sh (SessionStart hook)
 #
 # Usage:
@@ -14,7 +14,7 @@
 set -euo pipefail
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-REPO_ROOT="$(cd "$SCRIPT_DIR/.." && pwd)"
+REPO_ROOT="$(cd "${DTVMDOTFILES_PARENT_DIR:-$SCRIPT_DIR/..}" && pwd)"
 
 MINIMAL=0
 if [ "${1:-}" = "--minimal" ]; then
@@ -242,9 +242,11 @@ else
     fi
 fi
 
-if bash "$SCRIPT_DIR/worktree-sync.sh" "$WORKTREE_PATH" >/dev/null 2>&1; then
-    ACTIONS+=("dotfiles synced")
+if ! bash "$SCRIPT_DIR/worktree-sync.sh" "$WORKTREE_PATH" >/dev/null; then
+    echo "Error: worktree dotfiles/agent-skill synchronization failed" >&2
+    exit 1
 fi
+ACTIONS+=("dotfiles synced")
 
 # ccache and versioned FetchContent sharing are configured by the project's
 # CMakeLists.txt. Worktrees share source/population data and the ccache object

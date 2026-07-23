@@ -1,0 +1,6 @@
+interface:
+  display_name: "DTVM Compile-Time Optimize"
+  short_description: "Run the verified DTVM compile-time optimization loop"
+  default_prompt: "Use $dtvm-compile-time-optimize to drive a profile-first DTVM compile-time optimization."
+policy:
+  allow_implicit_invocation: false

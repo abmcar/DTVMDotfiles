@@ -50,6 +50,9 @@ fi
 echo "Worktree sync: $1 → $MAIN_REPO"
 echo ""
 
+# Skill collisions are checked before worktree-local links are changed.
+agentSkillsPreflight "$MAIN_REPO"
+
 # --- Symlink helpers ---
 
 GREEN='\033[0;32m'
@@ -113,13 +116,6 @@ for file in settings.json settings.local.json; do
     create_link "$WORKTREE_PATH/.claude/$file" "$MAIN_REPO/.claude/$file"
 done
 
-# Personal skill SSOT (untracked, dotfiles-managed — upstream skills come
-# via git). Without this link, Skill-tool invocation inside a worktree
-# would fail to load the full source content.
-mkdir -p "$WORKTREE_PATH/.agents/skills"
-create_link "$WORKTREE_PATH/.agents/skills/worktree-bootstrap" \
-    "$MAIN_REPO/.agents/skills/worktree-bootstrap"
-
 # --- Root-level files ---
 
 for file in CLAUDE.md AGENTS.md GEMINI.md init.sh; do
@@ -128,6 +124,8 @@ done
 
 # perf/ directory
 create_link "$WORKTREE_PATH/perf" "$MAIN_REPO/perf"
+
+syncAgentSkills "$MAIN_REPO"
 
 echo ""
 echo "✓ Worktree sync complete"
