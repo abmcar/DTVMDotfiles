@@ -18,7 +18,7 @@ this rule is a map of invariants, not a substitute for the source.
 - `DTVMDotfiles/store.sh` — collect parent DTVM repo → dotfiles SSOT
 - `DTVMDotfiles/diff.sh` — detect drift between deployed and dotfiles
 - `DTVMDotfiles/worktree-sync.sh` — symlink dotfiles into an existing worktree
-- `DTVMDotfiles/worktree-init.sh` — submodule init + dotfiles sync for a new worktree (backs the SessionStart hook); FetchContent caching is handled at cmake-configure time by the binary wrapper `~/.local/bin/cmake` (ahead of /usr/bin in PATH; injects per-dep `FETCHCONTENT_SOURCE_DIR_*` from `~/.cache/cmake-fetchcontent`), not by this script
+- `DTVMDotfiles/worktree-init.sh` — submodule init + dotfiles sync for a new worktree (backs the SessionStart hook); ccache and versioned FetchContent sharing are configured by the project `CMakeLists.txt`, not by this script
 - `DTVMDotfiles/setup_from_dotfiles.sh` — first-time bootstrap of a fresh DTVM workspace
 - `DTVMDotfiles/lib/sync_common.sh` — `MIRRORED_ITEMS` definition (what's managed)
 - `DTVMDotfiles/dotfiles/exclude.map.sh` — `.git/info/exclude` source
@@ -50,7 +50,7 @@ NOT managed:
 
 ### Two CLAUDE.md authority chains
 
-Project-level `~/DTVM/CLAUDE.md` is owned by DTVMDotfiles (this system).
+Project-level `~/Dev/DTVM/CLAUDE.md` is owned by DTVMDotfiles (this system).
 User-level `~/.claude/CLAUDE.md` is owned by
 [claude-sync](https://github.com/abmcar/claude-sync) (separate system) and
 is NOT managed by DTVMDotfiles. The user-level file `@~/`-imports

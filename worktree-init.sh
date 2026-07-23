@@ -246,15 +246,9 @@ if bash "$SCRIPT_DIR/worktree-sync.sh" "$WORKTREE_PATH" >/dev/null 2>&1; then
     ACTIONS+=("dotfiles synced")
 fi
 
-# FetchContent shared-cache is handled at cmake-configure time via the
-# ~/.local/bin/cmake binary wrapper, which injects per-dep
-# FETCHCONTENT_SOURCE_DIR_* pointing into ~/.cache/cmake-fetchcontent (see the
-# wrapper header; the old ~/.zshrc cmake() shell function is retired).
-# The old per-worktree CMakeLists.txt patch
-# injection + build/_deps hardlink seeding lived here but were brittle:
-# the patch got reverted by branch checkouts (skip-worktree state lost), and
-# cp -al hardlinks were broken by cmake's re-extract of archive tarballs.
-# Single source of cache truth is now ~/.cache/cmake-fetchcontent/.
+# ccache and versioned FetchContent sharing are configured by the project's
+# CMakeLists.txt. Worktrees share source/population data and the ccache object
+# store, while each build keeps its own third-party binary directories.
 
 if [ ${#ACTIONS[@]} -gt 0 ]; then
     ( IFS=', '; echo "[worktree-init] ${ACTIONS[*]}" )

@@ -37,7 +37,8 @@ Quick before/after benchmark comparison between current branch and baseline.
    cmake --build "$BASE_WT/build" --target dtvmapi -j$J
    wait $BRANCH_PID
    ```
-   Both worktrees share ccache + FetchContent cache.
+   Both worktrees share the ccache object store and versioned FetchContent
+   source cache; third-party binary directories remain build-local.
 
 3. **Run baseline benchmark** — Use `/dtvm-evmone-benchmark` with the baseline library at `$BASE_SO` (the upstream/main worktree build), adding `--benchmark_repetitions=3 --benchmark_out=/tmp/bench-baseline.json --benchmark_out_format=json`.
 
