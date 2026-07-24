@@ -78,7 +78,8 @@ DTVMDotfiles/
 | `dtvm-worktree-bootstrap` | 创建并初始化 DTVM worktree，从 CI SSOT 派生 CMake，并执行 `dtvmapi` 构建硬门槛 |
 | `dtvm-cold-compile-profile` | 生成 identity-guarded、integrity-checked 的冷编译 baseline bundle，并单列继承子进程开销 |
 | `dtvm-compiler-path-analysis` | 从 bundle 把已测热点映射到当前 EVM → dMIR → CGIR → RA → MC/object 源码路径和最小 seam |
-| `dtvm-compile-time-optimize` | 仅在显式调用时编排 profile → 分析 → compiler-agent 最小实现 → 同条件 A/B 与正确性验证 |
+| `dtvm-write-report` | 把技术、性能和实验结果写成结论优先的读者报告，并用确定性 lint 阻止主次失衡、QA 标签泄漏和实验术语误用 |
+| `dtvm-compile-time-optimize` | 仅在显式调用时编排 profile → 分析 → compiler-agent 最小实现 → 同条件配对 benchmark 与正确性验证 |
 
 每个 skill 保持单一职责；详细 reference、script 或 asset 只在对应任务需要时
 加载。组合流程放在 orchestrator skill 中，不复制各子 skill 的全部正文。

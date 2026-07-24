@@ -85,9 +85,9 @@ production-equivalent build.
 Completion criterion: every major sample is classified as DTVM compiler,
 inherited child, runtime/loader, kernel, or unresolved.
 
-## 4. Report the evidence
+## 4. Preserve the evidence for reporting
 
-Report:
+Keep these items in the sealed bundle and its supporting notes:
 
 1. source commit, clean state, and tracked patch identity;
 2. binary, CMake cache, corpus, and normalized command hashes;
@@ -96,6 +96,13 @@ Report:
 5. inherited-child share, explicitly including any objdump signal;
 6. absolute bundle path and exact rerun command;
 7. limitations such as low sample count or instrumentation distortion.
+
+When the user asks for a reader-facing report, invoke `$dtvm-write-report`.
+Lead that report with the measured result or diagnosis, the dominant hotspots,
+and the recommended action. Keep build identity, commands, hashes, the full
+sampling setup, and the complete correctness matrix in source metadata or
+supporting artifacts. Do not turn this evidence checklist into the visible
+report outline.
 
 The baseline is complete only when another agent can rerun the bundled helper
 while the recorded repo/build/corpus paths still exist unchanged, the identity

@@ -99,6 +99,7 @@ Route current work to the personal replacements:
 - `dtvm-worktree-bootstrap`: create and fully initialize a DTVM worktree
 - `dtvm-cold-compile-profile`: produce a reproducible cold-compile evidence bundle
 - `dtvm-compiler-path-analysis`: map measured hotspots to current compiler source
+- `dtvm-write-report`: write and lint decision-first reader-facing DTVM reports
 - `dtvm-compile-time-optimize`: explicitly invoked end-to-end optimization loop
 
 The old tracked skills are historical migration inputs, not workflow entry

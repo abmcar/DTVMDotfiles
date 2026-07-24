@@ -1,0 +1,4 @@
+interface:
+  display_name: "DTVM Technical Report"
+  short_description: "Write concise, decision-first DTVM reports"
+  default_prompt: "Use $dtvm-write-report to turn this DTVM benchmark evidence into a concise, decision-first report."

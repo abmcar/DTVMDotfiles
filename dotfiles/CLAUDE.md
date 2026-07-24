@@ -44,6 +44,9 @@ DTVMDotfiles releases the following user-level skills from its own
 - **`dtvm-compiler-path-analysis`**: trace a measured hotspot through the
   current EVM → dMIR → CGIR → RA → post-RA → MC/object source, producing an
   evidence table, falsifiable hypotheses, and a minimal implementation seam
+- **`dtvm-write-report`**: turn verified DTVM technical, performance, profiling,
+  benchmark, experiment, or optimization evidence into a concise
+  decision-first report and block handoff when its deterministic lint fails
 - **`dtvm-compile-time-optimize`**: orchestrate the complete
   profile → source analysis → minimal compiler change → same-corpus
   before/after verification loop; this skill is used only when explicitly
@@ -53,7 +56,13 @@ When the user explicitly invokes the end-to-end optimization workflow, use
 `dtvm-compile-time-optimize`. It uses `dtvm-worktree-bootstrap` when isolated
 worktrees are missing, composes the two focused analysis skills, then delegates
 the evidence-backed minimal `src/**` change through `compiler-agent` and
-preserves the correctness and A/B evidence gates.
+preserves the correctness and paired-benchmark evidence gates.
+
+Every reader-facing DTVM technical or performance report must use
+`dtvm-write-report` and pass its artifact and final-output lint. Data Analytics
+may validate evidence, build visualizations, and package HTML, but its generic
+audience templates and QA labels do not override DTVM's narrative,
+information-budget, language, or experiment-terminology contract.
 
 DTVM's tracked `dtvm-perf-profile` and `dmir-compiler-analysis` skills are
 historical sources for maintaining the replacements, not workflow entry
@@ -167,7 +176,7 @@ Resource and mechanics rules: `.claude/rules/dtvm-perf-worktree-lab.md`.
 - Perf workflows: `.claude/commands/dtvm-evmone-benchmark.md`, `.claude/commands/dtvm-jit-lowering-inspection.md`
 - Cold compilation profiling: `dtvm-cold-compile-profile`; measured compiler
   path analysis: `dtvm-compiler-path-analysis`; verified optimization:
-  `dtvm-compile-time-optimize`.
+  `dtvm-compile-time-optimize`; reader-facing reports: `dtvm-write-report`.
 
 ## Code Style
 

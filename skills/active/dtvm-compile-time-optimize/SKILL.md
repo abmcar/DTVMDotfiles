@@ -1,12 +1,13 @@
 ---
 name: dtvm-compile-time-optimize
-description: Orchestrate a paired, evidence-gated DTVM compile-time optimization from cold profile through minimum compiler change and isomorphic A/B verification. Use only when the user explicitly invokes this end-to-end optimization workflow.
+description: Orchestrate a paired, evidence-gated DTVM compile-time optimization from cold profile through minimum compiler change and an isomorphic baseline-candidate benchmark. Use only when the user explicitly invokes this end-to-end optimization workflow.
 ---
 
 # DTVM Compile-Time Optimize
 
-Run a **paired A/B**. Use `$dtvm-worktree-bootstrap` only when clean initialized
-A/B worktrees do not already exist, then invoke
+Run a **paired baseline-candidate benchmark**. Use `$dtvm-worktree-bootstrap`
+only when clean initialized baseline and candidate worktrees do not already
+exist, then invoke
 `$dtvm-cold-compile-profile` and `$dtvm-compiler-path-analysis`. Delegate the
 resulting `src/**` edit to `compiler-agent`.
 
@@ -27,13 +28,14 @@ Before profiling, record:
 - correctness tests and quality gates.
 
 Use clean, isolated worktrees. If either is missing, invoke
-`$dtvm-worktree-bootstrap` before profiling. Choose at least 20 matched A/B
-pairs in balanced interleaved blocks, fixing the order (or randomization seed)
-before measurement. Start a fresh subject process for every cold compilation.
-Preserve OS cache state rather than using privileged cache drops.
+`$dtvm-worktree-bootstrap` before profiling. Choose at least 20 matched pairs
+in balanced interleaved blocks, fixing the order or randomization seed before
+measurement. Start a fresh subject process for every cold compilation. Preserve
+OS cache state rather than using privileged cache drops.
 
 Completion criterion: every comparison dimension has one recorded value shared
-by A and B; only commit and resulting binary hash may differ. The acceptance
+by baseline and candidate; only commit and resulting binary hash may differ. The
+acceptance
 threshold and uncertainty rule are frozen before candidate timing starts.
 
 ## 2. Establish the baseline
@@ -78,7 +80,7 @@ Completion criterion: the candidate contains only the justified seam, compiles,
 passes relevant correctness tests, passes `tools/format.sh check` and
 `tools/dtvm_local_test.sh --auto`, and introduces no warnings.
 
-## 5. Run the isomorphic A/B
+## 5. Run the isomorphic paired benchmark
 
 Verify ancestry first:
 
@@ -86,7 +88,7 @@ Verify ancestry first:
 git merge-base --is-ancestor "$BASELINE_COMMIT" "$CANDIDATE_COMMIT"
 ```
 
-Build A and B with the frozen configure command. Verify normalized
+Build the baseline and candidate with the frozen configure command. Verify normalized
 `CMakeCache.txt`, corpus hashes, normalized subject command, host, repetition
 count, and run order match. Run direct timings in the frozen interleaved order,
 then invoke `$dtvm-cold-compile-profile` once for each variant with identical
@@ -121,6 +123,8 @@ inconclusive even when the point estimate is positive. If only the instrumented
 objdump branch improves, report a profiling-method change. If evidence
 conflicts, name the next discriminating measurement.
 
-Return the comparison contract, distribution table, perf-attribution table,
-diff summary, gate results, artifact paths, limitations, and verdict. An
-unverified candidate is never reported as faster.
+Invoke `$dtvm-write-report` for the reader-facing result. Return the comparison
+contract, distribution table, perf-attribution table, diff summary, gate
+results, artifact paths, limitations, and verdict as supporting evidence. An
+unverified candidate is never reported as faster, and the report must pass the
+report skill's lint before handoff.
