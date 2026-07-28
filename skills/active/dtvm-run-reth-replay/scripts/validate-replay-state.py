@@ -5,6 +5,7 @@ from __future__ import annotations
 
 import hashlib
 import json
+import os
 import re
 import sys
 from pathlib import Path
@@ -12,6 +13,7 @@ from typing import Any
 
 
 HASH = re.compile(r"^[0-9a-f]{64}$")
+BLOCK_HASH = re.compile(r"^0x[0-9a-fA-F]{64}$")
 
 
 def digest(path: Path) -> str:
@@ -25,6 +27,34 @@ def digest(path: Path) -> str:
 def load(path: Path) -> Any:
     with path.open(encoding="utf-8") as stream:
         return json.load(stream)
+
+
+def lexical_absolute(path: Path) -> Path:
+    return Path(os.path.abspath(path))
+
+
+def regular_no_symlink(path: Path) -> bool:
+    path = lexical_absolute(path)
+    try:
+        return (
+            path.is_file()
+            and not path.is_symlink()
+            and path.resolve(strict=True) == path
+        )
+    except OSError:
+        return False
+
+
+def directory_no_symlink(path: Path) -> bool:
+    path = lexical_absolute(path)
+    try:
+        return (
+            path.is_dir()
+            and not path.is_symlink()
+            and path.resolve(strict=True) == path
+        )
+    except OSError:
+        return False
 
 
 def fail(category: str) -> int:
@@ -46,54 +76,93 @@ def valid_replay(
     report: Any,
     count: int,
     library_sha256: str,
+    replayer_realpath: str,
     replayer_sha256: str,
+    manifest_sha256: str,
+    manifest_blocks: list[dict[str, Any]],
 ) -> bool:
+    if not isinstance(report, dict):
+        return False
+    corpus = report.get("corpus")
+    correctness = report.get("correctness")
+    dtvm = report.get("dtvm")
+    replayer = report.get("replayer")
+    timing = report.get("timingQualification")
     if not (
-        isinstance(report, dict)
-        and report.get("schema") == "reth-dtvm.corpus-correctness.v1"
-        and report.get("correctness", {}).get("passed") is True
-        and report.get("dtvm", {}).get("librarySha256") == library_sha256
-        and report.get("dtvm", {}).get("loadedFromVerifiedSealedMemfd") is True
-        and report.get("replayer", {}).get("sha256") == replayer_sha256
-        and report.get("timingQualification", {}).get(
+        report.get("schema") == "reth-dtvm.corpus-correctness.v1"
+        and isinstance(corpus, dict)
+        and isinstance(corpus.get("manifestSha256"), str)
+        and corpus["manifestSha256"].lower()
+        == manifest_sha256
+        and corpus.get("blockCount") == count
+        and isinstance(correctness, dict)
+        and correctness.get("passed") is True
+        and isinstance(dtvm, dict)
+        and isinstance(dtvm.get("librarySha256"), str)
+        and dtvm["librarySha256"].lower() == library_sha256
+        and dtvm.get("loadedFromVerifiedSealedMemfd") is True
+        and isinstance(replayer, dict)
+        and replayer.get("realpath") == replayer_realpath
+        and isinstance(replayer.get("sha256"), str)
+        and replayer["sha256"].lower() == replayer_sha256
+        and isinstance(timing, dict)
+        and timing.get(
             "excludesFromFormalPr577PerformanceConclusion"
         )
         is True
     ):
         return False
-    blocks = report.get("correctness", {}).get("blockResults")
-    if not isinstance(blocks, list) or len(blocks) != count:
+    blocks = correctness.get("blockResults")
+    if (
+        not isinstance(blocks, list)
+        or len(blocks) != count
+        or len(manifest_blocks) != count
+    ):
         return False
-    return all(
-        block.get("correctnessPassed") is True
-        and block.get("differentialMatch") is True
-        and block.get("rawBound") is True
-        and block.get("preExecutionCommitments") is True
-        and block.get("preStateRootVerified") is True
-        and block.get("postStateRootVerified") is True
-        and all(
-            block.get("postExecutionCommitments", {}).get(name) is True
-            for name in (
-                "gasUsed",
-                "receiptsRoot",
-                "logsBloom",
-                "requestsHash",
-                "blobGasUsed",
+    for block, expected in zip(blocks, manifest_blocks, strict=True):
+        if not (
+            isinstance(block, dict)
+            and block.get("blockNumber") == expected.get("number")
+            and isinstance(block.get("blockHash"), str)
+            and block["blockHash"].lower()
+            == str(expected.get("hash", "")).lower()
+            and block.get("bundle") == expected.get("bundle")
+            and isinstance(block.get("bundleSha256"), str)
+            and block["bundleSha256"].lower()
+            == expected.get("bundleSha256")
+            and block.get("correctnessPassed") is True
+            and block.get("differentialMatch") is True
+            and block.get("rawBound") is True
+            and block.get("preExecutionCommitments") is True
+            and block.get("preStateRootVerified") is True
+            and block.get("postStateRootVerified") is True
+            and all(
+                block.get("postExecutionCommitments", {}).get(name) is True
+                for name in (
+                    "gasUsed",
+                    "receiptsRoot",
+                    "logsBloom",
+                    "requestsHash",
+                    "blobGasUsed",
+                )
             )
-        )
-        for block in blocks
-        if isinstance(block, dict)
-    ) and all(isinstance(block, dict) for block in blocks)
+        ):
+            return False
+    return True
 
 
 def main() -> int:
     if len(sys.argv) != 2:
         print(f"usage: {sys.argv[0]} STATE_DIR", file=sys.stderr)
         return 2
-    root = Path(sys.argv[1]).resolve()
+    root = lexical_absolute(Path(sys.argv[1]))
     state_path = root / "resume-state.json"
     metrics_path = root / "metrics.json"
-    if not state_path.is_file() or not metrics_path.is_file():
+    if (
+        not directory_no_symlink(root)
+        or not regular_no_symlink(state_path)
+        or not regular_no_symlink(metrics_path)
+    ):
         return fail("state_or_metrics_missing")
     try:
         state = load(state_path)
@@ -132,7 +201,7 @@ def main() -> int:
     output_value = state.get("output")
     if not isinstance(output_value, str) or not Path(output_value).is_absolute():
         return fail("output_path_invalid")
-    output = Path(output_value)
+    output = lexical_absolute(Path(output_value))
     approved_replayer = state.get("approvedReplayer")
     approved_binary = (
         approved_replayer.get("replayer")
@@ -152,11 +221,9 @@ def main() -> int:
     approved_manifest = Path(approved_replayer["manifestRealpath"])
     approved_binary_path = Path(approved_binary["realpath"])
     if (
-        not approved_manifest.is_file()
-        or approved_manifest.is_symlink()
+        not regular_no_symlink(approved_manifest)
         or digest(approved_manifest) != approved_replayer["manifestSha256"]
-        or not approved_binary_path.is_file()
-        or approved_binary_path.is_symlink()
+        or not regular_no_symlink(approved_binary_path)
         or digest(approved_binary_path) != approved_binary["sha256"]
     ):
         return fail("approved_replayer_evidence_failed")
@@ -165,14 +232,10 @@ def main() -> int:
     checksum_lines = output / "BUNDLE_SHA256SUMS"
     if state.get("networkCaptureCompleted"):
         if (
-            not output.is_dir()
-            or output.is_symlink()
-            or not manifest.is_file()
-            or manifest.is_symlink()
-            or not checksum.is_file()
-            or checksum.is_symlink()
-            or not checksum_lines.is_file()
-            or checksum_lines.is_symlink()
+            not directory_no_symlink(output)
+            or not regular_no_symlink(manifest)
+            or not regular_no_symlink(checksum)
+            or not regular_no_symlink(checksum_lines)
         ):
             return fail("published_capture_missing")
         try:
@@ -234,7 +297,11 @@ def main() -> int:
             relative = block.get("bundle")
             bundle_sha256 = block.get("bundleSha256")
             if (
-                not isinstance(relative, str)
+                not isinstance(block.get("number"), int)
+                or isinstance(block.get("number"), bool)
+                or not isinstance(block.get("hash"), str)
+                or not BLOCK_HASH.fullmatch(block["hash"])
+                or not isinstance(relative, str)
                 or Path(relative).is_absolute()
                 or ".." in Path(relative).parts
                 or relative in manifest_by_path
@@ -259,8 +326,7 @@ def main() -> int:
             checksum_by_path[relative] = entry_sha256
             bundle = output / relative
             if (
-                not bundle.is_file()
-                or bundle.is_symlink()
+                not regular_no_symlink(bundle)
                 or digest(bundle) != entry_sha256
             ):
                 return fail("bundle_checksum_failed")
@@ -282,27 +348,27 @@ def main() -> int:
         library = Path(state.get("dtvmLibrary", ""))
         if (
             state.get("networkExcludedFromReplay") is not True
-            or not replay_result.is_file()
+            or not regular_no_symlink(replay_result)
             or digest(replay_result) != state.get("replayResultSha256")
-            or not verify_script.is_file()
-            or verify_script.is_symlink()
+            or not regular_no_symlink(verify_script)
             or digest(verify_script) != state.get("verifyCorpusSha256")
-            or not library.is_file()
-            or library.is_symlink()
+            or not regular_no_symlink(library)
             or digest(library) != state.get("dtvmLibrarySha256")
             or not valid_replay(
                 load(replay_result),
                 state.get("requestedCount"),
                 state.get("dtvmLibrarySha256"),
+                approved_binary["realpath"],
                 approved_binary["sha256"],
+                state.get("manifestSha256"),
+                manifest_blocks,
             )
         ):
             return fail("strict_replay_evidence_failed")
     if state.get("evidenceSealed"):
         seal = Path(state.get("evidenceSeal", ""))
         if (
-            not seal.is_file()
-            or seal.is_symlink()
+            not regular_no_symlink(seal)
             or digest(seal) != state.get("evidenceSealSha256")
         ):
             return fail("seal_checksum_failed")
@@ -312,9 +378,12 @@ def main() -> int:
             return fail("seal_malformed")
         if (
             seal_value.get("schema") != "reth-dtvm.rpc-ha-evidence-seal.v1"
+            or seal_value.get("status") != "sealed"
+            or not isinstance(seal_value.get("sealedAtUtc"), str)
             or seal_value.get("credentialsRecorded") is not False
             or seal_value.get("configFingerprint")
             != state.get("configFingerprint")
+            or seal_value.get("frozenPin") != state.get("frozenPin")
             or seal_value.get("networkCaptureCompleted") is not True
             or seal_value.get("strictReplayCompleted") is not True
             or seal_value.get("networkExcludedFromReplay") is not True
@@ -347,8 +416,7 @@ def main() -> int:
         for item in by_role.values():
             path = Path(item["path"])
             if (
-                not path.is_file()
-                or path.is_symlink()
+                not regular_no_symlink(path)
                 or digest(path) != item["sha256"]
             ):
                 return fail("seal_input_checksum_failed")
@@ -387,32 +455,24 @@ def main() -> int:
             preseal = load(preseal_path)
         except (OSError, UnicodeError, json.JSONDecodeError):
             return fail("preseal_state_malformed")
-        continuity_fields = {
-            "schema",
-            "configFingerprint",
-            "requestedCount",
-            "output",
-            "frozenPin",
-            "manifestSha256",
-            "bundleSetSha256",
-            "replayOutput",
-            "replayResultSha256",
-            "verifyCorpusScript",
-            "verifyCorpusSha256",
-            "dtvmLibrary",
-            "dtvmLibrarySha256",
-            "approvedReplayer",
-            "networkCaptureCompleted",
-            "strictReplayCompleted",
-            "networkExcludedFromReplay",
-            "credentialsRecorded",
+        ignored = {"updatedAtUtc", "evidenceSeal", "evidenceSealSha256"}
+        expected_preseal = {
+            key: value
+            for key, value in state.items()
+            if key not in ignored
         }
-        if (
-            not isinstance(preseal, dict)
-            or preseal.get("phase") != "replayed"
-            or preseal.get("evidenceSealed") is not False
-            or any(preseal.get(field) != state.get(field) for field in continuity_fields)
-        ):
+        expected_preseal["phase"] = "replayed"
+        expected_preseal["evidenceSealed"] = False
+        actual_preseal = (
+            {
+                key: value
+                for key, value in preseal.items()
+                if key not in ignored
+            }
+            if isinstance(preseal, dict)
+            else None
+        )
+        if actual_preseal != expected_preseal:
             return fail("preseal_state_continuity_failed")
     print(
         json.dumps(

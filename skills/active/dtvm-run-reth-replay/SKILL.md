@@ -10,13 +10,36 @@ produce witnesses; a standard provider may contribute canonical quorum but
 never substitutes for `debug_executionWitnessByBlockHash(hash, "canonical")`.
 Fail closed if exact capability or canonical identity cannot be proved.
 
+## Restore the versioned suite
+
+Treat this skill directory as the only source of truth. The experiment adapter
+is a restored working copy, not an editable source. From a clean DTVMDotfiles
+checkout, restore the complete Python/shell/Rust suite into a new directory:
+
+```bash
+bash "$SKILL_ROOT/scripts/restore-reth-replay-suite.sh" install "$TARGET"
+bash "$SKILL_ROOT/scripts/restore-reth-replay-suite.sh" check "$TARGET"
+bash "$SKILL_ROOT/scripts/verify-hermetic-suite.sh" "$TARGET"
+export DTVM_RETH_SUITE_ROOT="$TARGET"
+```
+
+For an existing disposable adapter working copy, use `sync` and then `check`.
+Both modes preflight
+[assets/reth-replay-suite.sha256](assets/reth-replay-suite.sha256), reject
+symlinked paths, require the exact unique 30-file allowlist, reject unlisted
+files that could affect execution, and require byte equality.
+Maintain the client and validator under `scripts/`, operational source under
+`assets/witness-db-suite/`, config/schema under `assets/`, and the operations
+guide under `references/`. Refresh the manifest whenever a listed SSOT file
+changes; never patch the restored adapter first.
+
 ## Resolve inputs without exposing secrets
 
 Require these inputs:
 
 | Input | Contract |
 |---|---|
-| `DTVM_RETH_SUITE_ROOT` | Directory containing `reth_rpc_ha.py`, `capture-window.sh`, and `fetch-witness.sh` |
+| `DTVM_RETH_SUITE_ROOT` | Manifest-verified restored directory containing `reth_rpc_ha.py`, `capture-window.sh`, and `fetch-witness.sh` |
 | `RETH_RPC_HA_CONFIG` | Secret-free v1 config; endpoint fields name environment variables only |
 | endpoint URL/header variables | Values named by the config; inspect presence only |
 | `DTVM_RETH_OUTPUT` | New final corpus path |
@@ -47,16 +70,19 @@ network capture and offline replay as separate processes.
    mismatch, syncing, hash drift, and quorum disagreement as not ready.
 2. Run `capture`. Freeze `finalized`, capture 16 contiguous heights through the
    existing `capture-window.sh`, verify each bundle, recheck every height, and
-   publish only through the final directory rename. Resume only with a matching
-   config fingerprint, count, output and frozen pin.
+   publish only with an atomic no-replace directory rename. Resume only with a
+   matching config fingerprint, count, output and frozen pin.
 3. Run `replay`. Stop the gateway first. Remove all configured RPC variables
    from the replay child, require strict raw-block/witness verification and all
-   DTVM/Reth differential commitments, and keep replay wall time explicitly
-   disqualified from any conclusion that includes network capture.
+   DTVM/Reth differential commitments. Bind the report's manifest SHA-256,
+   block count, and every block number/hash/bundle path/bundle SHA-256 to the
+   frozen capture. Keep replay wall time explicitly disqualified from any
+   conclusion that includes network capture.
 4. Run `seal`. Bind the capture manifest, bundle-set checksums, resume state,
    replay runner and hash, capture-approved replayer binary, verified DTVM
    library and hash, metrics and strict replay result. Require
-   `credentialsRecorded == false`.
+   `credentialsRecorded == false`. Re-running `seal` must verify and return the
+   existing sealed evidence byte-for-byte without rewriting it.
 
 Run one phase:
 
@@ -81,7 +107,7 @@ Do not continue or weaken checks when any gate fails:
 - Require one primary plus at least one standby self-hosted Reth.
 - Require the exact by-hash canonical witness response on both witness roles.
 - Require the sealed approved-replayer manifest and keep its binary realpath
-  and SHA-256 continuous through capture, replay, and seal.
+  and SHA-256 continuous through capture, replay report, and seal.
 - Never use `eth_getProof`, a number-addressed witness, or a standard provider
   as the production witness source.
 - Require at least two matching canonical sources for pin and every height.
@@ -91,10 +117,19 @@ Do not continue or weaken checks when any gate fails:
 - Preserve the existing v1 capture manifest fields and one high-level fetch per
   hash per whole-window attempt.
 - Keep retries bounded. Retry 429 with bounded `Retry-After`; retry/fail over
-  timeout, transport and 5xx; stop authentication and identity failures.
-- Keep the final corpus no-overwrite and atomically published.
+  timeout, transport and 5xx. Readiness and quorum retry one endpoint within
+  budget before recording its single vote; stop authentication and identity
+  failures.
+- Normalize endpoint origins without DNS lookup, including legacy numeric IPv4
+  spellings. Normalize configured header names to lowercase, reject
+  case-insensitive duplicates and framing/hop-by-hop headers, and reject
+  explicit Authorization combined with URL userinfo.
+- Serialize capture, replay and seal on the state-directory workflow lock.
+- Keep the final corpus no-overwrite and atomically published with Linux
+  `RENAME_NOREPLACE`; fail closed when that primitive is unavailable.
 - Exclude network acquisition and readiness time from DTVM performance.
-- Require strict replay success before calling the evidence complete.
+- Require strict replay success plus manifest/identity continuity before
+  calling the evidence complete.
 
 ## Recover from interruption
 
@@ -103,6 +138,12 @@ the frozen historical hash on every available eligible source, requires the
 configured quorum, and reuses only
 checksummed immutable hash-addressed cache entries. A corrupt/truncated cache
 entry is ignored and atomically replaced.
+
+The workflow lock is non-blocking: another capture, replay, or seal using the
+same state directory returns `workflow_already_running`. After a successful
+seal, retry only with the same state directory and inputs; the sealed fast path
+revalidates every input, pre-seal continuity, state checksum, report identity,
+and seal bytes before returning the existing document.
 
 If the config fingerprint, count or output changes, start a new state directory.
 If a frozen hash loses quorum or has reorged, do not rewrite the old state into
@@ -115,6 +156,8 @@ history window.
 Run:
 
 ```bash
+PYTHONDONTWRITEBYTECODE=1 bash \
+  "$SKILL_ROOT/scripts/verify-hermetic-suite.sh" "$DTVM_RETH_SUITE_ROOT"
 PYTHONDONTWRITEBYTECODE=1 python3 \
   "$DTVM_RETH_SUITE_ROOT/tests/reth_rpc_ha_test.py"
 bash "$DTVM_RETH_SUITE_ROOT/tests/capture-window.sh"

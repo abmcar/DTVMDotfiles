@@ -35,6 +35,9 @@ height/hash separately.
 | strict replay mismatch | Preserve capture for diagnosis; do not seal success |
 
 Never turn identity, hash, proof, checksum, or replay failures into a warning.
+For readiness and canonical quorum, retry a transient failure on the same
+endpoint within the configured bound, then record exactly one success or
+failure vote for that endpoint. A retry is never an additional quorum vote.
 
 ## Resume boundaries
 
@@ -47,7 +50,15 @@ envelope and result checksum match.
 Do not cache numbered-height responses: the final full-window lookup must
 observe reorgs. Do not reuse an existing public partial corpus. The final
 directory remains no-overwrite and appears only after every bundle and
-checksum is complete.
+checksum is complete. On Linux, publish with `renameat2(RENAME_NOREPLACE)`;
+an existence check followed by replacement is not an atomic substitute. If
+the target wins a race or the primitive is unavailable, retain the private
+stage and fail closed without changing the target.
+
+Capture, replay, and seal share the state-directory workflow lock. A repeated
+seal is a read-only verification operation: require the original replayed
+pre-seal state, unchanged seal inputs, matching sealed-state checksum, and
+unchanged seal bytes.
 
 A full Reth node documents a recent 10,064-block historical state window.
 Choose archive Reth for recovery or historical capture that may exceed it.
@@ -58,6 +69,13 @@ Keep endpoint values only in environment variables named by the config.
 Optional header variables contain a JSON object of string headers. State,
 metrics, readiness, cache entries, manifests, failure JSON and reports may
 contain endpoint labels but never values.
+
+Normalize header names to lowercase and reject case-insensitive duplicates.
+Reject `Host`, `Content-Length`, `Transfer-Encoding`, `Connection`, and all
+other framing or hop-by-hop headers. URL userinfo may supply Basic
+Authorization only when no explicit Authorization header is configured.
+Normalize literal IP origins, including socket-compatible legacy numeric IPv4
+spellings, without resolving ordinary DNS names.
 
 Sanitize configured endpoint variables from capture/replay children. The
 capture child receives only the ephemeral loopback gateway. Replay receives no
@@ -71,7 +89,14 @@ Reject all legacy witness shapes even on loopback.
 Require a sealed approved-replayer manifest during capture. Revalidate its
 manifest and binary hashes before replay and seal, and include the approved
 binary in sealed inputs. The strict replay wrapper and DTVM library have
-independent expected SHA-256 inputs.
+independent expected SHA-256 inputs. Require the replay report to repeat the
+approved replayer realpath and SHA-256, capture manifest SHA-256 and block
+count, and to match every ordered block number/hash/bundle path/bundle SHA-256
+from the capture manifest. Reject missing, stale, or extra corpus identity.
+
+Every evidence path is lexical: reject a symlink in the file itself or in any
+ancestor component. Resolving the state/output path before checking it would
+erase the evidence of an ancestor symlink and is forbidden.
 
 ## Capacity baseline
 
