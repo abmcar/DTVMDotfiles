@@ -12,7 +12,8 @@ DTVM is a deterministic VM with EVM ABI compatibility. Core implementation is in
 ## Task Routing
 
 ### Direct Execution
-- Single-file bug fixes or small edits
+- Typo-only, comment-only, and test-only changes
+- Clearly behavior-preserving trivial fixes
 - Format checks, simple git operations
 - Code review or explanation of a specific function
 
@@ -71,8 +72,11 @@ points. Do not invoke them for current work.
 ## Development Workflow
 
 The default lifecycle (propose → plan → execute → verify-and-archive) is
-driven by the upstream `dev-workflow` skill (`.agents/skills/dev-workflow/`).
-Simple bug fixes or single-file edits may skip directly to execute.
+driven by the upstream `dev-workflow` skill (`.agents/skills/dev-workflow/`)
+for feature, enhancement, refactor, optimization, and bug-fix implementation.
+Classify every implementation before execution. Only typo-only, comment-only,
+test-only, or clearly behavior-preserving trivial fixes may skip proposal work;
+record a specific `N/A` reason when they do.
 
 For **feature implementation** or explicit `/dev-cycle` invocation, escalate
 to the opt-in `dev-cycle` skill (`~/claude-sync/skills/dev-cycle/`) — see its
@@ -87,6 +91,10 @@ fixes.
   project artifacts and ship with the PR, not personal drafts.
   - **Full tier** (`template.md`): cross-module, architecture, new capabilities
   - **Light tier** (`template-light.md`): single-module, well-scoped improvements
+- A change to runtime semantics, determinism, gas accounting, compiler
+  scheduling, a module contract, or security requires a change document.
+  Bug fixes with design implications require at least a Light document,
+  regardless of file count.
 - Consult relevant `docs/modules/` specs during planning.
 - High-stakes review (paper, plan, PR closure, direction-doc): dispatch Opus +
   Codex as parallel reviewers in separate Agent calls; target 1–2 rounds, hard-
@@ -146,7 +154,17 @@ generated `AGENTS.md`/`GEMINI.md` are documented in
 3. Relevant tests pass — run `tools/dtvm_local_test.sh --auto`, which selects suites by touched path per `.claude/rules/dtvm-local-test.md`
 4. No new compiler warnings in build output
 
-**Before creating commits/PRs:** follow `.claude/rules/commit-conventions.md`.
+**Before creating commits/PRs:**
+1. Provide exactly one declaration:
+   - `Change doc: docs/changes/YYYY-MM-DD-<slug>/README.md`
+   - `N/A: <specific reason allowed by the skip criteria above>`
+2. Validate it locally:
+   `python3 tools/check_change_doc.py --base-ref origin/main --declaration "<declaration>"`
+3. Follow `.claude/rules/commit-conventions.md`.
+
+The pull request template and CI require the same declaration. CI validates
+the declaration and referenced path; reviewers validate whether an `N/A`
+reason satisfies the semantic skip criteria.
 
 **After `git push` to a branch with an open PR:** follow the CI-watch loop in `.claude/rules/pr-push-ci-watch.md`.
 
