@@ -36,7 +36,7 @@ FINAL_HASH = "0x" + "22" * 32
 OTHER_HASH = "0x" + "33" * 32
 THIRD_HASH = "0x" + "44" * 32
 TX_HASH = "0x" + "55" * 32
-SECRET = "RPC_SECRET_f423a9"
+SECRET = "fixture-secret"
 
 
 def response_for(request: dict[str, Any], block_hash: str = FINAL_HASH) -> Any:
@@ -153,7 +153,8 @@ class FakeRpc:
     @property
     def url(self) -> str:
         host, port = self.server.server_address
-        return f"http://user:{SECRET}@{host}:{port}/rpc"
+        authority = f"fixture-user:{SECRET}"
+        return f"http://{authority}@{host}:{port}/rpc"
 
     def close(self) -> None:
         self.server.shutdown()

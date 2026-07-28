@@ -16,7 +16,10 @@ dtvm_identity_manifest="${temporary_root}/frozen-identity-epoch.json"
 fake_reth_repository="${temporary_root}/reth"
 fake_replayer="${temporary_root}/replay-block"
 replayer_manifest="${temporary_root}/approved-release-replayer-manifest.json"
-rpc_url="http://capture-user:CAPTURE_SECRET_9f31@rpc.invalid:8545/private"
+rpc_user="fixture-user"
+rpc_password="fixture-password"
+rpc_authority="${rpc_user}:${rpc_password}"
+rpc_url="http://${rpc_authority}@rpc.invalid:8545/private"
 scenario_count=0
 last_stdout=""
 last_stderr=""
@@ -107,7 +110,7 @@ assert_no_secret() {
     for path in "$@"; do
         [[ -e "${path}" ]] || continue
         if grep -R -F "${rpc_url}" "${path}" >/dev/null 2>&1 ||
-           grep -R -F "CAPTURE_SECRET_9f31" "${path}" >/dev/null 2>&1; then
+           grep -R -F "${rpc_password}" "${path}" >/dev/null 2>&1; then
             echo "RPC secret leaked into ${path}" >&2
             exit 1
         fi
