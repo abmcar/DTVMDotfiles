@@ -64,6 +64,8 @@ require_capture_inputs() {
     : "${DTVM_RETH_STATE_DIR:?set DTVM_RETH_STATE_DIR}"
     : "${DTVM_IDENTITY_MANIFEST:?set DTVM_IDENTITY_MANIFEST}"
     : "${DTVM_REPLAYER_MANIFEST:?set DTVM_REPLAYER_MANIFEST}"
+    : "${DTVM_VERIFY_WITNESS:?set DTVM_VERIFY_WITNESS}"
+    : "${DTVM_RETH_REPOSITORY:?set DTVM_RETH_REPOSITORY}"
 }
 
 run_capture() {
@@ -72,6 +74,7 @@ run_capture() {
     local selection_output
     selection_output="$(selection_arguments)" || return
     mapfile -t selection <<<"${selection_output}"
+    CAPTURE_WINDOW_RETH_REPOSITORY="${DTVM_RETH_REPOSITORY}" \
     python3 "${suite_root}/reth_rpc_ha.py" \
         --config "${config}" \
         capture \
@@ -80,7 +83,8 @@ run_capture() {
         --output "${DTVM_RETH_OUTPUT}" \
         --state-dir "${DTVM_RETH_STATE_DIR}" \
         --dtvm-identity-manifest "${DTVM_IDENTITY_MANIFEST}" \
-        --replayer-manifest "${DTVM_REPLAYER_MANIFEST}"
+        --replayer-manifest "${DTVM_REPLAYER_MANIFEST}" \
+        --verify-witness "${DTVM_VERIFY_WITNESS}"
 }
 
 require_replay_inputs() {

@@ -55,6 +55,8 @@ Require these inputs:
 | pruned-genesis policy | Keep `expectedChain.genesisPolicy` at `require-block` unless an exact fixed range is served by Reth nodes that return error code `4444` for block zero; only then set `allow-reth-pruned-history` |
 | `DTVM_IDENTITY_MANIFEST` | Frozen DTVM source-identity manifest |
 | `DTVM_REPLAYER_MANIFEST` | Sealed approval whose replayer realpath and SHA-256 are required at capture, replay, and seal |
+| `DTVM_VERIFY_WITNESS` | Explicit executable witness verifier passed into capture; never rely on a restored suite's relative build-directory default |
+| `DTVM_RETH_REPOSITORY` | Explicit frozen Reth Git checkout used only for capture source identity; never rely on a restored suite's relative source-directory default |
 | replay inputs | `DTVM_VERIFY_CORPUS_SCRIPT`, `DTVM_VERIFY_CORPUS_SHA256`, `DTVM_LIBRARY`, `DTVM_LIBRARY_SHA256`, `DTVM_REPLAY_OUTPUT`, and `DTVM_REPLAY_LABEL` |
 
 Never print, persist, interpolate into a command transcript, or report the
@@ -143,6 +145,10 @@ Do not continue or weaken checks when any gate fails:
   missing result, or the exception in finalized-tail mode.
 - Require one primary plus at least one standby self-hosted Reth.
 - Require the exact by-hash canonical witness response on both witness roles.
+- Require an explicit executable `DTVM_VERIFY_WITNESS` for capture so the
+  restored suite cannot silently depend on an unrelated relative build path.
+- Require an explicit `DTVM_RETH_REPOSITORY` and pass it only as the capture
+  source-identity checkout; do not infer a source tree from suite placement.
 - Require the sealed approved-replayer manifest and keep its binary realpath
   and SHA-256 continuous through capture, replay report, and seal.
 - Never use `eth_getProof`, a number-addressed witness, or a standard provider
