@@ -1,6 +1,6 @@
 ---
 name: dtvm-compiler-path-analysis
-description: Source-trace measured DTVM compile hotspots through the current dMIR, CGIR, register-allocation, and machine-code pipeline. Use when perf names a high-share compiler symbol, a suspected pass such as isDead or setInsertBlock, or a minimum source seam is needed before editing src/.
+description: Source-trace measured DTVM compile hotspots inside the current eager JIT timer through bytecode-cache/SPP work, dMIR, CGIR, register allocation, and machine code. Use when perf names a high-share compiler or cache symbol, a suspected pass such as isDead or setInsertBlock, or a minimum source seam is needed before editing src/.
 ---
 
 # DTVM Compiler Path Analysis
@@ -41,7 +41,8 @@ For ambiguous names such as `isDead` or `setInsertBlock`, identify the sampled
 class and its callers before assigning a stage. Follow the live route across:
 
 ```text
-EVM frontend → dMIR → CGIR lowering → RA → post-RA → MC → object loading
+eager JIT timer → conditional bytecode cache / SPP → EVM frontend → dMIR
+  → CGIR lowering → RA → post-RA → MC → object loading
 ```
 
 Use perf call chains as dynamic evidence and source call sites as static

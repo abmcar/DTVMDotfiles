@@ -1,0 +1,4 @@
+interface:
+  display_name: "DTVM Development Workflow"
+  short_description: "Drive DTVM changes through scoped implementation gates"
+  default_prompt: "Use $dtvm-dev-workflow to take this DTVM change from proposal through verified implementation."

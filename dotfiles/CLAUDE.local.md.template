@@ -16,9 +16,9 @@
 - For full build commands, see `.claude/rules/dtvm-build-config.md`
 
 ## Baseline Worktree
-- Path: `~/dtvm-baseline` (tracks upstream/main)
-- Build dir: `build-baseline/`
-- Auto-refresh before benchmark: `git -C ~/dtvm-baseline fetch upstream && git -C ~/dtvm-baseline checkout upstream/main`
+- No persistent baseline checkout
+- Create each disposable baseline from `upstream/main` with `dtvm-worktree-bootstrap`
+- Record the returned absolute worktree and `libdtvmapi.so` paths in the task
 
 ## Statetest Fixtures
 - Path: `tests/fixtures/fixtures/state_tests`

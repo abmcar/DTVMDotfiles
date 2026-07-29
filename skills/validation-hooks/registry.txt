@@ -1,0 +1,4 @@
+dtvm-cold-compile-profile
+dtvm-compile-time-optimize
+dtvm-run-reth-replay
+dtvm-write-report

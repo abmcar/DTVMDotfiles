@@ -77,12 +77,13 @@ Always run `tools/format.sh format` after editing C/C++ files.
 4. **`.so` naming** — The library must be named `libdtvmapi.so`. EVMC loader derives symbol name from filename; renaming breaks loading.
 5. **Code style** — LLVM conventions: PascalCase variables, camelCase functions. English comments only. See `.claude/rules/cpp-code-style.md`.
 6. **License header** — New `.h`/`.cpp` files must start with the Apache-2.0 header.
-7. **Worktrees** — Create worktrees via the `worktree-bootstrap` skill (backed by `bash DTVMDotfiles/worktree-init.sh <path>`), never raw `git worktree add` plus manual submodule/sync steps. To remove: `rm -rf <path> && git worktree prune` (not `git worktree remove`, which fails with submodules).
+7. **Worktrees** — Create worktrees via `$dtvm-worktree-bootstrap` (backed by `bash DTVMDotfiles/worktree-init.sh <path>`), never raw `git worktree add` plus manual submodule/sync steps. Before removal, resolve the exact registered path and verify clean tracked, untracked, and recursive-submodule status. Then use `git worktree remove --force <path>` and verify deregistration; the force flag handles initialized submodules and must not discard changes.
 
 ## Skills & References
 
 Read these for deeper domain knowledge when relevant:
-- dMIR compiler analysis: `.agents/skills/dmir-compiler-analysis/SKILL.md`
+- Measured compiler source trace: `$dtvm-compiler-path-analysis`
+- Isolated worktree and build gate: `$dtvm-worktree-bootstrap`
 - JIT log inspection: `.claude/commands/dtvm-jit-lowering-inspection.md`
 - CI build config: `.claude/rules/dtvm-build-config.md`
 

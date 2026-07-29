@@ -1,4 +1,10 @@
 {
+  "skillOverrides": {
+    "archive": "off",
+    "dev-workflow": "off",
+    "dmir-compiler-analysis": "off",
+    "dtvm-perf-profile": "off"
+  },
   "hooks": {
     "PreToolUse": [
       {

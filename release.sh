@@ -16,8 +16,10 @@ MANIFEST_PATH="$PARENT_DIR/.claude/$MANIFEST_FILENAME"
 echo "Release script - Releasing files from DTVMDotfiles to $PARENT_DIR"
 echo ""
 
-# Fail before any release write if a user-level skill destination collides.
-agentSkillsPreflight "$PARENT_DIR"
+# Fail before any release write on user-level collisions or a stale generated
+# Claude Code adapter.
+agentSkillsPreflight
+agentSkillsRequireClaudePolicyCurrent
 
 declare -A OldManifest=()
 readManifest "$MANIFEST_PATH" OldManifest 2>/dev/null || true
@@ -37,7 +39,7 @@ renderExcludeFile "$PARENT_DIR/.git/info/exclude"
 echo "  Released: $(basename "$EXCLUDE_MAP_FILE") → .git/info/exclude"
 syncClaudeAliases
 syncCodexPrompts
-syncAgentSkills "$PARENT_DIR"
+syncAgentSkills
 
 echo ""
 echo "✓ Release operation complete"

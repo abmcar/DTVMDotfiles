@@ -37,9 +37,16 @@ You own all documentation under `docs/`:
 
 ## Workflow
 
-Maintain the change-doc state machine: `Proposed → Accepted → Implemented`, with `Rejected` as a terminal state. Archival is a directory move to `docs/_archive/<YYYY-MM>/`, not a status value — and only on an explicit user request: halt at the local `git mv`, never open an archive PR (CLAUDE.md rule). The active workflow skill governs the phase-to-status mapping:
+Maintain the change-doc state machine: `Proposed → Accepted → Implemented`, with `Rejected` as a terminal state. Archival is a directory move to `docs/_archive/<YYYY-MM>/<slug>/`, not a status value — and only on an explicit user request: halt at the local `git mv`, never open an archive PR (CLAUDE.md rule). The active project-owned workflow skill governs the phase-to-status mapping:
 
-- Default workflow → `dev-workflow` skill (`.agents/skills/dev-workflow/`): Phase A for proposals, Phase D for post-implementation updates.
-- Opt-in feature workflow → `dev-cycle` skill (`~/claude-sync/skills/dev-cycle/`): Phase 1 for proposals, end of Phase 3 for status update to `Implemented`, `/dev-cycle archive` for archival.
+- Ordinary improvements and routine fixes → `dtvm-dev-workflow`: propose at
+  `Proposed`, move an accepted plan to `Accepted`, and set `Implemented` only
+  after verified implementation is merged.
+- Feature implementation, new features, architecture changes, breaking
+  changes, and explicit `/dev-cycle` requests → `dtvm-dev-cycle` when it is
+  discoverable in the current session. If unavailable, fall back to
+  `dtvm-dev-workflow` at Full tier; never depend on a machine-local skill path.
+- Archival → `$dtvm-archive`, only after merge and only on an explicit user
+  request. Stop at the local move and never open an archive PR.
 
 The invoked skill is the source of truth for templates, naming, and index maintenance.

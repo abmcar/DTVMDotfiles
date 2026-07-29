@@ -1,7 +1,7 @@
 #!/bin/bash
 # Auto-initialize agent worktrees created by Claude Code's isolation:"worktree" mode.
 # Delegates to DTVMDotfiles/worktree-init.sh — the single source of truth shared
-# with the `worktree-bootstrap` skill.
+# with `$dtvm-worktree-bootstrap`.
 #
 # Called automatically from session-check.sh on SessionStart.
 # Can also be run standalone: bash .claude/hooks/agent-worktree-bootstrap.sh

@@ -15,12 +15,19 @@ fail() {
 
 FAKE_REPO="$TEST_TMP/repo with spaces"
 BUILD_DIR="$TEST_TMP/build"
+DTVM_LIB_DIR="$BUILD_DIR/lib"
+DTVM_LIBRARY="$DTVM_LIB_DIR/libdtvmapi.so"
+DTVM_SONAME="$DTVM_LIB_DIR/libdtvmapi.so.1"
+DTVM_REAL_LIBRARY="$DTVM_LIB_DIR/libdtvmapi.so.1.2.3"
+POSITIONAL_LIB_DIR="$TEST_TMP/positional library"
+POSITIONAL_LIBRARY="$POSITIONAL_LIB_DIR/libdtvmapi.so"
+POSITIONAL_REAL_LIBRARY="$POSITIONAL_LIB_DIR/libdtvmapi.so.9.8.7"
 CORPUS="$FAKE_REPO/corpus.hex"
 SUBJECT="$FAKE_REPO/subject.sh"
 FAKE_PERF="$TEST_TMP/fake-perf"
 BUNDLE="$TEST_TMP/profile bundle"
 
-mkdir -p "$FAKE_REPO" "$BUILD_DIR"
+mkdir -p "$FAKE_REPO" "$DTVM_LIB_DIR" "$POSITIONAL_LIB_DIR"
 git -C "$FAKE_REPO" init -q
 git -C "$FAKE_REPO" config user.name test
 git -C "$FAKE_REPO" config user.email test@example.com
@@ -37,6 +44,11 @@ git -C "$FAKE_REPO" add .gitignore corpus.hex subject.sh
 git -C "$FAKE_REPO" commit -qm fixture
 printf 'CMAKE_HOME_DIRECTORY:INTERNAL=%s\n' "$FAKE_REPO" \
     > "$BUILD_DIR/CMakeCache.txt"
+printf '%s\n' 'fake dtvm library' > "$DTVM_REAL_LIBRARY"
+ln -s "$(basename "$DTVM_REAL_LIBRARY")" "$DTVM_SONAME"
+ln -s "$(basename "$DTVM_SONAME")" "$DTVM_LIBRARY"
+printf '%s\n' 'fake positional library' > "$POSITIONAL_REAL_LIBRARY"
+ln -s "$(basename "$POSITIONAL_REAL_LIBRARY")" "$POSITIONAL_LIBRARY"
 
 printf '%s\n' \
     '#!/bin/bash' \
@@ -92,7 +104,7 @@ bash "$PROFILE_SCRIPT" \
     --perf "$FAKE_PERF" \
     --corpus "$CORPUS" \
     --output-dir "$BUNDLE" \
-    -- "$SUBJECT" >/dev/null
+    -- "$SUBJECT" "$POSITIONAL_LIBRARY" >/dev/null
 [ ! -e "$BUNDLE" ] || fail "dry-run created the bundle"
 [ "$(stat -c '%y' "$FAKE_REPO/.git/index")" = "$INDEX_TIME_BEFORE" ] ||
     fail "dry-run refreshed the Git index"
@@ -104,7 +116,7 @@ bash "$PROFILE_SCRIPT" \
     --perf "$FAKE_PERF" \
     --corpus "$CORPUS" \
     --output-dir "$BUNDLE" \
-    -- "$SUBJECT" >/dev/null
+    -- "$SUBJECT" "$POSITIONAL_LIBRARY" >/dev/null
 
 grep -Fqx 'status=complete' "$BUNDLE/status.txt" ||
     fail "bundle did not complete"
@@ -123,11 +135,77 @@ grep -Fq objdump "$BUNDLE/child-process-signals.txt" ||
     fail "profiling implementation was not bundled"
 grep -Fq '$BUNDLE_DIR/metadata/profile_cold_compile.sh' "$BUNDLE/rerun-profile.sh" ||
     fail "rerun script still depends on the installed skill"
+grep -Fq '  ./status.txt' "$BUNDLE/manifest.sha256" ||
+    fail "bundle status is not protected by the integrity manifest"
+grep -Fq "$(printf 'symlink\tpath=%s\ttarget=%s' \
+    "$DTVM_LIBRARY" "$(basename "$DTVM_SONAME")")" \
+    "$BUNDLE/metadata/build-artifacts.identity" ||
+    fail "unversioned DTVM library symlink identity is missing"
+grep -Fq "$(printf 'symlink\tpath=%s\ttarget=%s' \
+    "$DTVM_SONAME" "$(basename "$DTVM_REAL_LIBRARY")")" \
+    "$BUNDLE/metadata/build-artifacts.identity" ||
+    fail "DTVM library SONAME symlink identity is missing"
+grep -Fq "$(printf 'realpath\tpath=%s' "$DTVM_REAL_LIBRARY")" \
+    "$BUNDLE/metadata/build-artifacts.identity" ||
+    fail "versioned DTVM library realpath identity is missing"
+printf -v POSITIONAL_LIBRARY_QUOTED '%q' "$POSITIONAL_LIBRARY"
+grep -Fq "$(printf 'artifact\tlogical=%s' "$POSITIONAL_LIBRARY_QUOTED")" \
+    "$BUNDLE/metadata/build-artifacts.identity" ||
+    fail "positional DTVM library outside the build tree is missing"
+grep -Fq "  $DTVM_REAL_LIBRARY" \
+    "$BUNDLE/metadata/build-artifacts.sha256" ||
+    fail "versioned DTVM library content hash is missing"
 
 RERUN_BUNDLE="$TEST_TMP/rerun bundle"
 "$BUNDLE/rerun-profile.sh" "$RERUN_BUNDLE" >/dev/null
 grep -Fqx 'status=complete' "$RERUN_BUNDLE/status.txt" ||
     fail "identity-checked rerun did not complete"
+
+printf 'status=tampered\n' > "$BUNDLE/status.txt"
+if (
+    cd "$BUNDLE"
+    sha256sum -c manifest.sha256 >/dev/null 2>&1
+); then
+    fail "integrity manifest accepted a tampered bundle status"
+fi
+if "$BUNDLE/rerun-profile.sh" "$TEST_TMP/status-tamper-bundle" \
+    >/dev/null 2>&1; then
+    fail "rerun accepted a tampered bundle status"
+fi
+[ ! -e "$TEST_TMP/status-tamper-bundle" ] ||
+    fail "status integrity failure created an output bundle"
+printf 'status=complete\n' > "$BUNDLE/status.txt"
+(
+    cd "$BUNDLE"
+    sha256sum -c manifest.sha256 >/dev/null
+)
+
+printf '%s\n' 'mutated positional library' > "$POSITIONAL_REAL_LIBRARY"
+if "$BUNDLE/rerun-profile.sh" "$TEST_TMP/changed-artifact-bundle" \
+    >/dev/null 2>"$TEST_TMP/changed-artifact.log"; then
+    fail "rerun accepted changed DTVM build artifact content"
+fi
+[ ! -e "$TEST_TMP/changed-artifact-bundle" ] ||
+    fail "build artifact identity failure created an output bundle"
+grep -Fq 'DTVM build artifacts differ from the expected identity' \
+    "$TEST_TMP/changed-artifact.log" ||
+    fail "artifact mutation did not fail the build identity expectation"
+printf '%s\n' 'fake positional library' > "$POSITIONAL_REAL_LIBRARY"
+
+DTVM_ALTERNATE_LIBRARY="$DTVM_LIB_DIR/libdtvmapi-alternate"
+cp "$DTVM_REAL_LIBRARY" "$DTVM_ALTERNATE_LIBRARY"
+ln -sfn "$(basename "$DTVM_ALTERNATE_LIBRARY")" "$DTVM_SONAME"
+if "$BUNDLE/rerun-profile.sh" "$TEST_TMP/changed-symlink-bundle" \
+    >/dev/null 2>"$TEST_TMP/changed-symlink.log"; then
+    fail "rerun accepted a changed DTVM library symlink chain"
+fi
+[ ! -e "$TEST_TMP/changed-symlink-bundle" ] ||
+    fail "symlink identity failure created an output bundle"
+grep -Fq 'DTVM build artifacts differ from the expected identity' \
+    "$TEST_TMP/changed-symlink.log" ||
+    fail "symlink mutation did not fail the build identity expectation"
+ln -sfn "$(basename "$DTVM_REAL_LIBRARY")" "$DTVM_SONAME"
+rm "$DTVM_ALTERNATE_LIBRARY"
 
 printf '%s\n' changed > "$CORPUS"
 if "$BUNDLE/rerun-profile.sh" "$TEST_TMP/changed-corpus-bundle" \

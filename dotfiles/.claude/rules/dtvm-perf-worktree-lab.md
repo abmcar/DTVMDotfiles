@@ -24,28 +24,32 @@ stale `evmone-for-test-*` if found. Treat `git worktree list` as authoritative.
 
 There is no persistent baseline worktree. When a perf comparison needs an
 `upstream/main` baseline, produce it on demand and PIN it to `upstream/main`
-(branching from the current HEAD would benchmark the branch against itself):
-`git worktree add .worktrees/baseline-main -b baseline-main upstream/main`, run
-`bash DTVMDotfiles/worktree-init.sh .worktrees/baseline-main`, configure with
-the EVM flags from `.claude/rules/dtvm-local-test.md`, build `dtvmapi`, then
-verify `git -C .worktrees/baseline-main rev-parse HEAD` equals `upstream/main`
-before benchmarking its `build/lib/libdtvmapi.so`. Remove the worktree
-afterward. Do not recreate a permanent `~/dtvm-baseline`. See
+(branching from the current HEAD would benchmark the branch against itself).
+Resolve the baseline commit, then invoke `$dtvm-worktree-bootstrap` with an
+explicit, unused temporary branch, a unique absent destination derived from
+the resolved commit and run ID, and `BASE_REF=upstream/main`. Record the
+resolved commit, use the benchmark's frozen configure command, build `dtvmapi`,
+and verify the worktree HEAD equals the recorded baseline commit before
+benchmarking its `build/lib/libdtvmapi.so`. Remove the worktree afterward. Do
+not recreate a permanent baseline checkout. See
 `.claude/commands/bench-compare.md` for the full recipe.
 
 ## Branch Worktrees
 
-- **Create**: use the `worktree-bootstrap` skill, which runs submodule init
+- **Create**: use `$dtvm-worktree-bootstrap`, which runs submodule init
   and dotfiles sync via `DTVMDotfiles/worktree-init.sh`. Place worktrees
   under `.worktrees/` (gitignored). Do NOT use raw `git worktree add` +
   manual submodule/dotfiles steps. Never `git checkout -b` an experimental
   branch (perf, algorithm, SPP) in the primary checkout (repo root); create it
   in a `.worktrees/` worktree, even when branching from a clean `main`. Note:
-  `worktree-bootstrap` uses `.worktrees/`;
+  `$dtvm-worktree-bootstrap` uses `.worktrees/`;
   the `EnterWorktree` tool uses `.claude/worktrees/`. Both are gitignored; this
-  rule governs `.worktrees/` created via `worktree-bootstrap`.
-- **Remove**: `rm -rf <path> && git worktree prune`.
-  Do NOT use `git worktree remove` — fails on worktrees with submodules.
+  rule governs `.worktrees/` created via `$dtvm-worktree-bootstrap`.
+- **Remove**: resolve the exact registered path with `git worktree list`,
+  then verify the worktree is clean, including untracked files and recursive
+  submodules. Use `git worktree remove --force <path>` and verify the path is
+  no longer registered. `--force` is required for initialized submodules; do
+  not use it to discard work.
 
 ## libdtvmapi.so Rules
 
@@ -80,7 +84,7 @@ non-empty gtest filter, and the right `-k fork_Cancun` per corpus). Also include
 
 - Do not run `.ci/run_test_suite.sh` locally.
 - Do not copy `.so` files; pass the absolute `$(pwd)/` path as the EVMC argument.
-- Create worktrees via the `worktree-bootstrap` skill, not raw `git worktree add`.
+- Create worktrees via `$dtvm-worktree-bootstrap`, not raw Git commands.
 
 ## Output Requirements
 

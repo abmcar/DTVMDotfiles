@@ -70,6 +70,18 @@ invent a missing dispersion measure or statistical interval. If the protocol
 cannot estimate an exact effect, say which quantity was observed and what
 matched measurement is still needed.
 
+The linter accepts a quantified opening only when it can identify the
+baseline and candidate, the absolute change, the relative change, the
+measurement unit, the workload, and the sample count. A percentage by itself,
+including `覆盖率 100%`, is not a quantified effect. A generic title blocks
+handoff in both default and methods-first modes. The title must positively
+state an observed result or explicit decision; a topic label such as
+`DTVM cold compilation optimization` does not pass.
+
+Count measurement repetitions, iterations, processes, or observations as the
+sample count. Workload cardinality such as `4 个区块` or `20 transactions`
+describes scope, not the number of repeated measurements.
+
 Attach a limitation to the claim it qualifies:
 
 ```text

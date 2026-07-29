@@ -1,10 +1,11 @@
 #!/bin/bash
 
-# User-level agent skill publishing and repository-skill suppression.
+# User-level Agent Skills publishing and name-based repository-skill suppression.
 # This file is sourced by lib/sync_common.sh.
 
 AGENT_SKILLS_BEGIN_MARKER="# BEGIN DTVMDotfiles managed agent skills"
 AGENT_SKILLS_END_MARKER="# END DTVMDotfiles managed agent skills"
+AGENT_SKILLS_TAIL_MARKER="# DTVMDotfiles agent skills tail anchor"
 
 agentSkillsActiveDir() {
     printf '%s' "${DTVMDOTFILES_ACTIVE_SKILLS_DIR:-$REPO_DIR/skills/active}"
@@ -24,6 +25,10 @@ agentSkillsClaudeDir() {
 
 agentSkillsConfigFile() {
     printf '%s' "${DTVMDOTFILES_CODEX_CONFIG_FILE:-$HOME/.codex/config.toml}"
+}
+
+agentSkillsClaudeSettingsFile() {
+    printf '%s' "${DTVMDOTFILES_CLAUDE_SETTINGS_FILE:-$DOTFILES_DIR/.claude/settings.json}"
 }
 
 agentSkillsDeclaredName() {
@@ -134,80 +139,101 @@ agentSkillsCollectLegacy() {
     fi
 
     for key in "${!DTVM_SKILLS_MAP[@]}"; do
-        [ "${DTVM_SKILLS_MAP[$key]}" = "legacy-repo" ] || continue
         if [[ ! "$key" =~ ^[a-z0-9][a-z0-9._-]*$ ]]; then
             echo "Error: Invalid legacy repository skill name: $key" >&2
             return 1
         fi
-        names+=("$key")
+        case "${DTVM_SKILLS_MAP[$key]}" in
+            legacy-repo) names+=("$key") ;;
+            *)
+                echo "Error: Unknown skill-map ownership for $key: ${DTVM_SKILLS_MAP[$key]}" >&2
+                return 1
+                ;;
+        esac
     done
     if [ "${#names[@]}" -gt 0 ]; then
         mapfile -t legacy_names_ref < <(printf '%s\n' "${names[@]}" | LC_ALL=C sort)
     fi
 }
 
-agentSkillsCollectWorktrees() {
-    local repo="$1"
-    local -n worktrees_ref="$2"
-    local field worktree
+agentSkillsBuildClaudeOverrides() {
+    local -a legacy_names=()
 
-    worktrees_ref=()
-    if ! git -C "$repo" rev-parse --git-dir >/dev/null 2>&1; then
-        echo "Error: DTVM repository not found at $repo" >&2
+    agentSkillsCollectLegacy legacy_names || return 1
+    if [ "${#legacy_names[@]}" -eq 0 ]; then
+        printf '{}\n'
+        return 0
+    fi
+    printf '%s\n' "${legacy_names[@]}" |
+        jq -Rn 'reduce inputs as $name ({}; .[$name] = "off")'
+}
+
+agentSkillsPreflightClaudeSettings() {
+    local settings_file
+
+    settings_file="$(agentSkillsClaudeSettingsFile)"
+    agentSkillsRequireSafePath "$settings_file" "Claude settings path" || return 1
+    if [ -L "$settings_file" ] || [ ! -f "$settings_file" ]; then
+        echo "Error: Claude settings must be a regular, non-symlink file: $settings_file" >&2
         return 1
     fi
-    if ! command -v iconv >/dev/null 2>&1; then
-        echo "Error: iconv is required to validate Codex skill paths" >&2
+    if ! command -v jq >/dev/null 2>&1; then
+        echo "Error: jq is required to reconcile Claude skill overrides" >&2
         return 1
     fi
-
-    while IFS= read -r -d '' field; do
-        case "$field" in
-            worktree\ *)
-                worktree="${field#worktree }"
-                if ! LC_ALL=C printf '%s' "$worktree" |
-                    iconv -f UTF-8 -t UTF-8 >/dev/null 2>&1; then
-                    printf 'Error: DTVM worktree path is not valid UTF-8: %q\n' \
-                        "$worktree" >&2
-                    return 1
-                fi
-                worktrees_ref+=("$worktree")
-                ;;
-        esac
-    done < <(git -C "$repo" worktree list --porcelain -z)
-
-    if [ "${#worktrees_ref[@]}" -eq 0 ]; then
-        echo "Error: No DTVM worktrees discovered from $repo" >&2
+    if ! jq -e '
+        type == "object" and
+        ((.skillOverrides // {}) | type == "object")
+    ' "$settings_file" >/dev/null; then
+        echo "Error: Invalid Claude settings JSON or skillOverrides object: $settings_file" >&2
         return 1
     fi
 }
 
-agentSkillsTomlEscape() {
-    local value="$1"
-    local result="" char escaped ordinal i
+agentSkillsClaudePolicyMatches() {
+    local settings_file expected_overrides actual_overrides
 
-    for ((i = 0; i < ${#value}; i++)); do
-        char="${value:i:1}"
-        case "$char" in
-            \\) escaped='\\' ;;
-            '"') escaped='\"' ;;
-            $'\b') escaped='\b' ;;
-            $'\t') escaped='\t' ;;
-            $'\n') escaped='\n' ;;
-            $'\f') escaped='\f' ;;
-            $'\r') escaped='\r' ;;
-            *)
-                printf -v ordinal '%d' "'$char"
-                if [ "$ordinal" -lt 32 ] || [ "$ordinal" -eq 127 ]; then
-                    printf -v escaped '\\u%04X' "$ordinal"
-                else
-                    escaped="$char"
-                fi
-                ;;
-        esac
-        result+="$escaped"
-    done
-    printf '%s' "$result"
+    settings_file="$(agentSkillsClaudeSettingsFile)"
+    agentSkillsPreflightClaudeSettings || return 2
+    expected_overrides="$(agentSkillsBuildClaudeOverrides)" || return 2
+    actual_overrides="$(jq -cS '.skillOverrides // {}' "$settings_file")" || return 2
+    expected_overrides="$(jq -cS . <<< "$expected_overrides")" || return 2
+    [ "$actual_overrides" = "$expected_overrides" ]
+}
+
+agentSkillsSyncClaudePolicy() {
+    local settings_file settings_dir expected_overrides tmp_file mode
+
+    settings_file="$(agentSkillsClaudeSettingsFile)"
+    settings_dir="$(dirname "$settings_file")"
+    if agentSkillsClaudePolicyMatches; then
+        return 0
+    fi
+    if [ "${RELEASE_CHECK:-0}" = "1" ]; then
+        echo "[release-dry] WOULD render Claude skillOverrides in $settings_file"
+        return 0
+    fi
+
+    expected_overrides="$(agentSkillsBuildClaudeOverrides)" || return 1
+    tmp_file="$(mktemp "$settings_dir/.settings.json.dtvm.XXXXXX")"
+    if ! jq --argjson overrides "$expected_overrides" \
+        '.skillOverrides = $overrides' "$settings_file" > "$tmp_file"; then
+        rm -f "$tmp_file"
+        return 1
+    fi
+    mode="$(stat -c '%a' "$settings_file" 2>/dev/null ||
+        stat -f '%Lp' "$settings_file")"
+    chmod "$mode" "$tmp_file"
+    mv "$tmp_file" "$settings_file"
+    echo "  Rendered: $settings_file"
+}
+
+agentSkillsRequireClaudePolicyCurrent() {
+    if ! agentSkillsClaudePolicyMatches; then
+        echo "Error: Claude skillOverrides are not current." >&2
+        echo "  Run: bash DTVMDotfiles/skills.sh sync" >&2
+        return 1
+    fi
 }
 
 agentSkillsRequireSafePath() {
@@ -243,23 +269,17 @@ agentSkillsRequireSafePath() {
 }
 
 agentSkillsBuildBlock() {
-    local repo="$1"
     local -a legacy_names=()
-    local -a worktrees=()
-    local worktree skill path
+    local skill
 
     agentSkillsCollectLegacy legacy_names || return 1
-    agentSkillsCollectWorktrees "$repo" worktrees || return 1
 
     printf '%s\n' "$AGENT_SKILLS_BEGIN_MARKER"
     printf '%s\n' "# Generated by DTVMDotfiles; edit dotfiles/skills.map.sh, not this block."
-    for worktree in "${worktrees[@]}"; do
-        for skill in "${legacy_names[@]}"; do
-            path="$worktree/.agents/skills/$skill/SKILL.md"
-            printf '%s\n' '[[skills.config]]'
-            printf 'path = "%s"\n' "$(agentSkillsTomlEscape "$path")"
-            printf '%s\n' 'enabled = false'
-        done
+    for skill in "${legacy_names[@]}"; do
+        printf '%s\n' '[[skills.config]]'
+        printf 'name = "%s"\n' "$skill"
+        printf '%s\n' 'enabled = false'
     done
     printf '%s\n' "$AGENT_SKILLS_END_MARKER"
 }
@@ -268,11 +288,14 @@ agentSkillsConfigMarkers() {
     local config_file="$1"
     local -n begin_ref="$2"
     local -n end_ref="$3"
+    local -n tail_ref="$4"
     local -a begins=()
     local -a ends=()
+    local -a tails=()
 
     begin_ref=0
     end_ref=0
+    tail_ref=0
     [ -e "$config_file" ] || return 0
     if [ -L "$config_file" ] || [ ! -f "$config_file" ]; then
         echo "Error: Codex config must be a regular, non-symlink file: $config_file" >&2
@@ -280,8 +303,13 @@ agentSkillsConfigMarkers() {
     fi
     mapfile -t begins < <(grep -nFxe "$AGENT_SKILLS_BEGIN_MARKER" "$config_file" 2>/dev/null | cut -d: -f1)
     mapfile -t ends < <(grep -nFxe "$AGENT_SKILLS_END_MARKER" "$config_file" 2>/dev/null | cut -d: -f1)
+    mapfile -t tails < <(grep -nFxe "$AGENT_SKILLS_TAIL_MARKER" "$config_file" 2>/dev/null | cut -d: -f1)
     if [ "${#begins[@]}" -ne "${#ends[@]}" ] || [ "${#begins[@]}" -gt 1 ]; then
         echo "Error: Malformed DTVMDotfiles managed block in $config_file" >&2
+        return 1
+    fi
+    if [ "${#tails[@]}" -gt 1 ]; then
+        echo "Error: Duplicate DTVMDotfiles tail anchor in $config_file" >&2
         return 1
     fi
     if [ "${#begins[@]}" -eq 1 ]; then
@@ -289,6 +317,13 @@ agentSkillsConfigMarkers() {
         end_ref="${ends[0]}"
         if [ "$begin_ref" -ge "$end_ref" ]; then
             echo "Error: Malformed DTVMDotfiles managed block in $config_file" >&2
+            return 1
+        fi
+    fi
+    if [ "${#tails[@]}" -eq 1 ]; then
+        tail_ref="${tails[0]}"
+        if [ "$end_ref" -eq 0 ] || [ "$tail_ref" -le "$end_ref" ]; then
+            echo "Error: Misplaced DTVMDotfiles tail anchor in $config_file" >&2
             return 1
         fi
     fi
@@ -334,15 +369,14 @@ agentSkillsPreflightRoot() {
 }
 
 agentSkillsPreflight() {
-    local repo="${1:-$PARENT_DIR}"
     local -a active_names=()
     local -a legacy_names=()
-    local -a worktrees=()
-    local config_file config_dir begin_line end_line
+    local config_file config_dir begin_line end_line tail_line
 
+    validateSkillPublishingGate || return 1
     agentSkillsCollectActive active_names || return 1
     agentSkillsCollectLegacy legacy_names || return 1
-    agentSkillsCollectWorktrees "$repo" worktrees || return 1
+    agentSkillsPreflightClaudeSettings || return 1
     agentSkillsPreflightRoot "$(agentSkillsCodexDir)" "${active_names[@]}" || return 1
     agentSkillsPreflightRoot "$(agentSkillsClaudeDir)" "${active_names[@]}" || return 1
 
@@ -353,7 +387,7 @@ agentSkillsPreflight() {
         echo "Error: Codex config parent is not a directory: $config_dir" >&2
         return 1
     fi
-    agentSkillsConfigMarkers "$config_file" begin_line end_line || return 1
+    agentSkillsConfigMarkers "$config_file" begin_line end_line tail_line || return 1
 }
 
 agentSkillsSyncRoot() {
@@ -403,26 +437,26 @@ agentSkillsSyncRoot() {
 }
 
 agentSkillsConfigMatches() {
-    local repo="$1"
-    local config_file begin_line end_line existing_block expected_block
+    local config_file begin_line end_line tail_line existing_block expected_block
     config_file="$(agentSkillsConfigFile)"
     [ -f "$config_file" ] && [ ! -L "$config_file" ] || return 1
-    agentSkillsConfigMarkers "$config_file" begin_line end_line || return 2
+    agentSkillsConfigMarkers "$config_file" begin_line end_line tail_line || return 2
     [ "$begin_line" -gt 0 ] || return 1
-    [ "$(tail -n 1 "$config_file")" = "$AGENT_SKILLS_END_MARKER" ] || return 1
+    [ "$tail_line" -gt "$end_line" ] || return 1
+    [ "$(tail -n 1 "$config_file")" = "$AGENT_SKILLS_TAIL_MARKER" ] || return 1
     existing_block="$(sed -n "${begin_line},${end_line}p" "$config_file")"
-    expected_block="$(agentSkillsBuildBlock "$repo")" || return 2
+    expected_block="$(agentSkillsBuildBlock)" || return 2
     [ "$existing_block" = "$expected_block" ]
 }
 
 agentSkillsWriteConfig() {
-    local repo="$1"
-    local config_file config_dir begin_line end_line tmp_file last_char
+    local config_file config_dir begin_line end_line tail_line tmp_file last_char
+    local foreign_start=0 total_lines=0
     config_file="$(agentSkillsConfigFile)"
     config_dir="$(dirname "$config_file")"
-    agentSkillsConfigMarkers "$config_file" begin_line end_line || return 1
+    agentSkillsConfigMarkers "$config_file" begin_line end_line tail_line || return 1
 
-    if agentSkillsConfigMatches "$repo"; then
+    if agentSkillsConfigMatches; then
         return 0
     fi
     if [ "${RELEASE_CHECK:-0}" = "1" ]; then
@@ -435,7 +469,40 @@ agentSkillsWriteConfig() {
     : > "$tmp_file"
     if [ "$begin_line" -gt 0 ]; then
         head -n "$((begin_line - 1))" "$config_file" >> "$tmp_file"
-        tail -n "+$((end_line + 1))" "$config_file" >> "$tmp_file"
+
+        # Codex may append its own table sections immediately before a trailing
+        # comment. Older releases left END as that comment, so preserve and
+        # relocate any foreign table suffix that landed inside the old block.
+        foreign_start="$(
+            awk \
+                -v first="$((begin_line + 1))" \
+                -v last="$((end_line - 1))" \
+                'NR >= first && NR <= last {
+                    header = $0
+                    sub(/^[[:space:]]*/, "", header)
+                    sub(/[[:space:]]*$/, "", header)
+                    if (header ~ /^\[/ && header != "[[skills.config]]") {
+                        print NR
+                        exit
+                    }
+                }' \
+                "$config_file"
+        )"
+        if [ -n "$foreign_start" ]; then
+            sed -n "${foreign_start},$((end_line - 1))p" "$config_file" >> "$tmp_file"
+        fi
+
+        if [ "$tail_line" -gt 0 ]; then
+            total_lines="$(awk 'END { print NR }' "$config_file")"
+            if [ "$end_line" -lt "$((tail_line - 1))" ]; then
+                sed -n "$((end_line + 1)),$((tail_line - 1))p" "$config_file" >> "$tmp_file"
+            fi
+            if [ "$tail_line" -lt "$total_lines" ]; then
+                tail -n "+$((tail_line + 1))" "$config_file" >> "$tmp_file"
+            fi
+        else
+            tail -n "+$((end_line + 1))" "$config_file" >> "$tmp_file"
+        fi
     elif [ -f "$config_file" ]; then
         cat "$config_file" >> "$tmp_file"
     fi
@@ -443,29 +510,33 @@ agentSkillsWriteConfig() {
         last_char="$(tail -c 1 "$tmp_file")"
         [ -z "$last_char" ] || printf '\n' >> "$tmp_file"
     fi
-    agentSkillsBuildBlock "$repo" >> "$tmp_file"
+    agentSkillsBuildBlock >> "$tmp_file"
+    printf '%s\n' "$AGENT_SKILLS_TAIL_MARKER" >> "$tmp_file"
     mv "$tmp_file" "$config_file"
     echo "  Updated: $config_file"
 }
 
 syncAgentSkills() {
-    local repo="${1:-$PARENT_DIR}"
     local -a active_names=()
 
-    agentSkillsPreflight "$repo" || return 1
+    agentSkillsPreflight || return 1
+    agentSkillsSyncClaudePolicy || return 1
     agentSkillsCollectActive active_names || return 1
     agentSkillsSyncRoot "$(agentSkillsCodexDir)" "${active_names[@]}"
     agentSkillsSyncRoot "$(agentSkillsClaudeDir)" "${active_names[@]}"
-    agentSkillsWriteConfig "$repo"
+    agentSkillsWriteConfig
 }
 
 checkAgentSkills() {
-    local repo="${1:-$PARENT_DIR}"
     local -a active_names=()
     local root skill source entry entry_target drift=0
 
-    agentSkillsPreflight "$repo" || return 1
+    agentSkillsPreflight || return 1
     agentSkillsCollectActive active_names || return 1
+    if ! agentSkillsClaudePolicyMatches; then
+        echo "Drift: Claude skillOverrides are not current" >&2
+        drift=1
+    fi
     for root in "$(agentSkillsCodexDir)" "$(agentSkillsClaudeDir)"; do
         if [ ! -d "$root" ]; then
             echo "Drift: missing agent skills directory: $root" >&2
@@ -489,7 +560,7 @@ checkAgentSkills() {
             drift=1
         done < <(find "$root" -mindepth 1 -maxdepth 1 -type l -print0)
     done
-    if ! agentSkillsConfigMatches "$repo"; then
+    if ! agentSkillsConfigMatches; then
         echo "Drift: Codex managed skill block is not current" >&2
         drift=1
     fi

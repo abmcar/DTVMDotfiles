@@ -1,0 +1,6 @@
+interface:
+  display_name: "DTVM Development Cycle"
+  short_description: "Run the opt-in gated DTVM feature lifecycle"
+  default_prompt: "Use $dtvm-dev-cycle to run this DTVM feature through proposal, planning, implementation, review, and verification."
+policy:
+  allow_implicit_invocation: false

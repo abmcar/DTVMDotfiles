@@ -33,6 +33,8 @@ declare -agr MIRRORED_ITEMS=(
     "tools/dtvm_local_test.sh"
 )
 
+# shellcheck source=lib/skill_validation.sh
+source "$REPO_DIR/lib/skill_validation.sh"
 # shellcheck source=lib/agent_skills.sh
 source "$REPO_DIR/lib/agent_skills.sh"
 

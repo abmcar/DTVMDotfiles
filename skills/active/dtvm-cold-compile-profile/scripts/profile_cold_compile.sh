@@ -23,6 +23,8 @@ Options:
                         Require current corpus identity to match FILE
   --expect-binary-sha256 SHA256
                         Require the subject binary to match SHA256
+  --expect-build-artifacts FILE
+                        Require current DTVM build artifacts to match FILE
   --expect-cache-sha256 SHA256
                         Require CMakeCache.txt to match SHA256
   --expect-source-commit COMMIT
@@ -108,6 +110,79 @@ write_corpus_manifest() {
   emit_corpus_manifest "$@" >"$destination"
 }
 
+emit_build_artifact_roots() {
+  local argument candidate name
+
+  find "$BUILD_DIR" -maxdepth 4 \( -type f -o -type l \) \
+    \( -name dtvm -o -name libdtvmapi.so -o -name 'libdtvmapi.so.*' \) \
+    -print0
+
+  for argument in "${COMMAND[@]:1}"; do
+    candidate=$argument
+    if [[ "$candidate" != /* ]]; then
+      candidate="$WORK_DIR/$candidate"
+    fi
+    if [[ -e "$candidate" || -L "$candidate" ]]; then
+      name=$(basename "$candidate")
+      if [[ "$name" == libdtvmapi.so || "$name" == libdtvmapi.so.* ]]; then
+        candidate=$(canonical_path "$candidate")
+        printf '%s\0' "$candidate"
+      fi
+    fi
+  done
+}
+
+emit_artifact_identity() {
+  local logical=$1
+  local current target final hash
+  declare -A visited=()
+
+  logical=$(canonical_path "$logical")
+  printf 'artifact\tlogical=%q\n' "$logical"
+  current=$logical
+  while [[ -L "$current" ]]; do
+    [[ -z "${visited[$current]+present}" ]] ||
+      die "build artifact symlink loop: $logical"
+    visited["$current"]=true
+    target=$(readlink -- "$current") ||
+      die "cannot read build artifact symlink: $current"
+    printf 'symlink\tpath=%q\ttarget=%q\n' "$current" "$target"
+    if [[ "$target" == /* ]]; then
+      current=$target
+    else
+      current="$(dirname "$current")/$target"
+    fi
+    current=$(realpath --canonicalize-missing --no-symlinks -- "$current")
+  done
+
+  final=$(realpath --canonicalize-existing -- "$logical") ||
+    die "cannot resolve build artifact: $logical"
+  [[ -f "$final" ]] || die "build artifact does not resolve to a file: $logical"
+  hash=$(sha256sum "$final" | awk '{print $1}')
+  printf 'realpath\tpath=%q\n' "$final"
+  printf 'sha256\thash=%s\n' "$hash"
+}
+
+emit_build_artifact_identity() {
+  local artifact
+  printf 'format=dtvm-build-artifacts-v1\n'
+  while IFS= read -r -d '' artifact; do
+    emit_artifact_identity "$artifact"
+  done < <(emit_build_artifact_roots | LC_ALL=C sort -zu)
+}
+
+emit_build_artifact_hashes() {
+  local artifact resolved
+  while IFS= read -r -d '' artifact; do
+    resolved=$(realpath --canonicalize-existing -- "$artifact")
+    printf '%s\0' "$resolved"
+  done < <(emit_build_artifact_roots | LC_ALL=C sort -zu) |
+    LC_ALL=C sort -zu |
+    while IFS= read -r -d '' artifact; do
+      sha256sum "$artifact"
+    done
+}
+
 dirty_submodules() {
   local repo="$1"
   GIT_OPTIONAL_LOCKS=0 git -C "$repo" submodule foreach --quiet --recursive '
@@ -130,6 +205,7 @@ DRY_RUN=false
 CORPORA=()
 EXPECTED_CORPUS_MANIFEST=""
 EXPECTED_BINARY_SHA256=""
+EXPECTED_BUILD_ARTIFACTS=""
 EXPECTED_CACHE_SHA256=""
 EXPECTED_SOURCE_COMMIT=""
 EXPECTED_SOURCE_STATUS=""
@@ -194,6 +270,11 @@ while [[ $# -gt 0 ]]; do
   --expect-binary-sha256)
     need_value "$@"
     EXPECTED_BINARY_SHA256=$2
+    shift 2
+    ;;
+  --expect-build-artifacts)
+    need_value "$@"
+    EXPECTED_BUILD_ARTIFACTS=$2
     shift 2
     ;;
   --expect-cache-sha256)
@@ -261,7 +342,8 @@ fi
 REPO=$(canonical_dir "$REPO")
 BUILD_DIR=$(canonical_dir "$BUILD_DIR")
 WORK_DIR=$(canonical_dir "$WORK_DIR")
-git -C "$REPO" rev-parse --is-inside-work-tree >/dev/null 2>&1 ||
+GIT_OPTIONAL_LOCKS=0 git -C "$REPO" rev-parse --is-inside-work-tree \
+  >/dev/null 2>&1 ||
   die "not a git worktree: $REPO"
 SOURCE_COMMIT=$(GIT_OPTIONAL_LOCKS=0 git -C "$REPO" rev-parse HEAD)
 [[ -z "$EXPECTED_SOURCE_COMMIT" ||
@@ -286,6 +368,7 @@ else
 fi
 [[ -x "$PERF_BIN" ]] || die "perf executable is not executable: $PERF_BIN"
 command -v sha256sum >/dev/null || die "sha256sum is required"
+command -v realpath >/dev/null || die "realpath is required"
 command -v /usr/bin/time >/dev/null || die "/usr/bin/time is required"
 
 CANONICAL_CORPORA=()
@@ -325,9 +408,19 @@ fi
 
 SUBJECT_BINARY_SHA256=$(sha256sum "${COMMAND[0]}" | awk '{print $1}')
 BUILD_CACHE_SHA256=$(sha256sum "$BUILD_DIR/CMakeCache.txt" | awk '{print $1}')
+BUILD_ARTIFACT_IDENTITY=$(emit_build_artifact_identity)
+BUILD_ARTIFACT_IDENTITY_SHA256=$(
+  printf '%s\n' "$BUILD_ARTIFACT_IDENTITY" | hash_stream
+)
 [[ -z "$EXPECTED_BINARY_SHA256" ||
   "$SUBJECT_BINARY_SHA256" == "$EXPECTED_BINARY_SHA256" ]] ||
   die "subject binary differs from the expected SHA-256"
+if [[ -n "$EXPECTED_BUILD_ARTIFACTS" ]]; then
+  EXPECTED_BUILD_ARTIFACTS=$(canonical_path "$EXPECTED_BUILD_ARTIFACTS")
+  cmp "$EXPECTED_BUILD_ARTIFACTS" \
+    <(printf '%s\n' "$BUILD_ARTIFACT_IDENTITY") ||
+    die "DTVM build artifacts differ from the expected identity"
+fi
 [[ -z "$EXPECTED_CACHE_SHA256" ||
   "$BUILD_CACHE_SHA256" == "$EXPECTED_CACHE_SHA256" ]] ||
   die "CMake cache differs from the expected SHA-256"
@@ -376,9 +469,14 @@ printf 'allow_dirty=%s\n' "$ALLOW_DIRTY"
 printf 'source_commit=%s\n' "$SOURCE_COMMIT"
 printf 'source_patch_sha256=%s\n' "$SOURCE_PATCH_SHA256"
 printf 'subject_binary_sha256=%s\n' "$SUBJECT_BINARY_SHA256"
+printf 'build_artifact_identity_sha256=%s\n' \
+  "$BUILD_ARTIFACT_IDENTITY_SHA256"
 printf 'build_cache_sha256=%s\n' "$BUILD_CACHE_SHA256"
 if [[ -n "$EXPECTED_CORPUS_MANIFEST" ]]; then
   printf 'expected_corpus_manifest=%s\n' "$EXPECTED_CORPUS_MANIFEST"
+fi
+if [[ -n "$EXPECTED_BUILD_ARTIFACTS" ]]; then
+  printf 'expected_build_artifacts=%s\n' "$EXPECTED_BUILD_ARTIFACTS"
 fi
 printf 'corpus=\n'
 printf '  %s\n' "${CANONICAL_CORPORA[@]}"
@@ -398,9 +496,7 @@ BUNDLE_COMPLETE=false
 
 finish() {
   local rc=$?
-  if [[ "$BUNDLE_COMPLETE" == true ]]; then
-    printf 'status=complete\n' >"$OUTPUT_DIR/status.txt"
-  else
+  if [[ "$BUNDLE_COMPLETE" != true ]]; then
     {
       printf 'status=failed\n'
       printf 'exit_code=%d\n' "$rc"
@@ -427,6 +523,8 @@ PROFILE_SCRIPT_SHA256=$(sha256sum "$PROFILE_SCRIPT_PATH" | awk '{print $1}')
   printf 'build_cache_sha256=%s\n' "$BUILD_CACHE_SHA256"
   printf 'subject_binary=%s\n' "${COMMAND[0]}"
   printf 'subject_binary_sha256=%s\n' "$SUBJECT_BINARY_SHA256"
+  printf 'build_artifact_identity_sha256=%s\n' \
+    "$BUILD_ARTIFACT_IDENTITY_SHA256"
   printf 'profile_script_sha256=%s\n' "$PROFILE_SCRIPT_SHA256"
   printf 'work_dir=%s\n' "$WORK_DIR"
   printf 'perf=%s\n' "$PERF_BIN"
@@ -463,12 +561,10 @@ printf 'source_patch_sha256=%s\n' \
   "$(sha256sum "$OUTPUT_DIR/metadata/source.patch" | awk '{print $1}')" \
   >>"$OUTPUT_DIR/metadata/identity.txt"
 
-find "$BUILD_DIR" -maxdepth 4 -type f \
-  \( -name dtvm -o -name libdtvmapi.so \) -print0 |
-  sort -z |
-  while IFS= read -r -d '' item; do
-    sha256sum "$item"
-  done >"$OUTPUT_DIR/metadata/build-artifacts.sha256"
+printf '%s\n' "$BUILD_ARTIFACT_IDENTITY" \
+  >"$OUTPUT_DIR/metadata/build-artifacts.identity"
+emit_build_artifact_hashes \
+  >"$OUTPUT_DIR/metadata/build-artifacts.sha256"
 
 find "$WORK_DIR" -maxdepth 1 -type f -name 'jit-*.dump' -print0 |
   sort -z |
@@ -481,6 +577,8 @@ chmod +x "$OUTPUT_DIR/metadata/profile_cold_compile.sh"
 {
   printf '#!/usr/bin/env bash\nset -euo pipefail\n'
   printf '%s\n' 'BUNDLE_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd -P)"'
+  printf '%s\n' \
+    '(cd "$BUNDLE_DIR" && sha256sum -c manifest.sha256 >/dev/null)'
   printf 'exec "$BUNDLE_DIR/metadata/profile_cold_compile.sh"'
   printf ' %q %q' --repo "$REPO"
   printf ' %q %q' --build-dir "$BUILD_DIR"
@@ -493,6 +591,8 @@ chmod +x "$OUTPUT_DIR/metadata/profile_cold_compile.sh"
     printf ' %q %q' --corpus "$corpus"
   done
   printf ' %q %q' --expect-binary-sha256 "$SUBJECT_BINARY_SHA256"
+  printf ' --expect-build-artifacts'
+  printf ' "$BUNDLE_DIR/metadata/build-artifacts.identity"'
   printf ' %q %q' --expect-cache-sha256 "$BUILD_CACHE_SHA256"
   printf ' %q %q' --expect-source-commit "$SOURCE_COMMIT"
   printf ' --expect-source-status "$BUNDLE_DIR/metadata/source-status.txt"'
@@ -593,13 +693,17 @@ POST_UNTRACKED_STATUS=$(
 CURRENT_BINARY_HASH=$(sha256sum "${COMMAND[0]}" | awk '{print $1}')
 [[ "$CURRENT_BINARY_HASH" == "$SUBJECT_BINARY_SHA256" ]] ||
   die "subject binary changed during profiling"
+cmp "$OUTPUT_DIR/metadata/build-artifacts.identity" \
+  <(emit_build_artifact_identity) ||
+  die "DTVM build artifacts changed during profiling"
 CURRENT_CACHE_HASH=$(sha256sum "$BUILD_DIR/CMakeCache.txt" | awk '{print $1}')
 [[ "$CURRENT_CACHE_HASH" == "$BUILD_CACHE_SHA256" ]] ||
   die "CMake cache changed during profiling"
 
+printf 'status=complete\n' >"$OUTPUT_DIR/status.txt"
 (
   cd "$OUTPUT_DIR"
-  find . -type f ! -name manifest.sha256 ! -name status.txt -print0 |
+  find . -type f ! -name manifest.sha256 -print0 |
     sort -z |
     xargs -0 sha256sum >manifest.sha256
 )

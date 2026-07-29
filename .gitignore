@@ -1,6 +1,10 @@
 dotfiles/.claude/worktrees/
 dotfiles/.claude/settings.local.json
 
+# Python cache artifacts
+__pycache__/
+*.py[cod]
+
 # Machine-local files (never sync per-machine state to a public repo)
 **/settings.local.json
 *.local.md
