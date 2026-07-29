@@ -8,6 +8,11 @@ description: Seal a reproducible Linux perf evidence bundle for one DTVM cold co
 Produce a **sealed baseline**: one cold compilation whose source, build, corpus,
 command, timing, raw samples, and reports remain auditable together.
 
+Keep repeated execution out of this workflow. EVM basic-block, host-function,
+hashing, and interpreter-versus-JIT runtime profiles answer a different
+question and belong to the delegated runtime-performance workflow. Do not mix
+their warmups or high execution counts into a cold-compile bundle.
+
 ## 1. Fix the experiment identity
 
 Use a clean DTVM commit and a configured Release build. Identify the exact
@@ -49,13 +54,16 @@ Run the same command without `--dry-run`:
 The script refuses to reuse an output path. It records inherited child
 processes, retains raw `perf.data`, copies new JIT dumps, injects JIT symbols
 when available, bundles its own profiling helper, and writes an integrity
-manifest. It rejects untracked source and corpus symlinks. Use `--allow-dirty`
-only for tracked-source diagnosis; dirty submodules are rejected because their
-contents cannot be sealed by the superproject patch. A dirty run is not an
-optimization baseline.
+manifest. It seals discovered DTVM build artifacts plus positional
+`libdtvmapi.so*` command arguments as logical paths, complete symlink chains,
+resolved realpaths, and content hashes. It rejects untracked source and corpus
+symlinks. Use `--allow-dirty` only for tracked-source diagnosis; dirty
+submodules are rejected because their contents cannot be sealed by the
+superproject patch. A dirty run is not an optimization baseline.
 
 Completion criterion: the command and reports exit zero,
-`status.txt` says `complete`, and `manifest.sha256` verifies.
+`status.txt` says `complete`, and `manifest.sha256` verifies it with the rest
+of the bundle.
 
 ## 3. Separate compiler work from instrumentation
 
@@ -65,8 +73,21 @@ Read:
 - `perf-report-comm.txt` and `child-process-signals.txt` for inherited tools;
 - `timing.txt` for wall time;
 - `metadata/CMakeCache.txt` for the exact build;
-- `metadata/identity.txt`, corpus manifests, the bundled helper, and
-  `rerun-profile.sh` for identity-guarded reproduction.
+- `metadata/identity.txt`, `metadata/build-artifacts.identity`, corpus
+  manifests, the bundled helper, and `rerun-profile.sh` for identity-guarded
+  reproduction.
+
+Record whether JIT perf support was enabled:
+
+```bash
+grep -E '^ZEN_ENABLE_LINUX_PERF:BOOL=' \
+  "$BUNDLE/metadata/CMakeCache.txt"
+```
+
+When a compiler symbol needs instruction-level evidence, annotate it against
+`perf.jit.data` if the bundle contains that injected file, otherwise
+`perf.data`. Keep the annotation with the bundle and name the exact raw symbol;
+never annotate against data from another run.
 
 Treat `objdump`, `llvm-objdump`, shells, linkers, and similar commands as child
 cost until source proves otherwise. In current DTVM sources,
@@ -90,7 +111,8 @@ inherited child, runtime/loader, kernel, or unresolved.
 Keep these items in the sealed bundle and its supporting notes:
 
 1. source commit, clean state, and tracked patch identity;
-2. binary, CMake cache, corpus, and normalized command hashes;
+2. subject binary, DTVM build-artifact path/symlink/realpath identities,
+   CMake cache, corpus, and normalized command hashes;
 3. wall time and perf sampling configuration;
 4. top symbols with command/DSO;
 5. inherited-child share, explicitly including any objdump signal;

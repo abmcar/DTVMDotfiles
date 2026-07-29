@@ -6,10 +6,181 @@ TEST_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 REPO_DIR="$(cd "$TEST_DIR/.." && pwd)"
 TEST_TMP="$(mktemp -d)"
 trap 'rm -rf "$TEST_TMP"' EXIT
+export DTVMDOTFILES_VALIDATION_ACTIVE_SKILLS_DIR="${DTVMDOTFILES_VALIDATION_ACTIVE_SKILLS_DIR:-$REPO_DIR/skills/active}"
+export DTVMDOTFILES_REPO_SKILL_TEST_CHILD="${DTVMDOTFILES_REPO_SKILL_TEST_CHILD:-1}"
 
 fail() {
     echo "FAIL: $*" >&2
     exit 1
+}
+
+grep_flat() {
+    tr '\n\t' '  ' < "$1" | tr -s ' ' | grep -Fq -- "$2"
+}
+
+# Keep the reader-facing inventory aligned with the lifecycle directories and
+# the single suppression-policy map.
+expected_active=(
+    dtvm-archive
+    dtvm-cold-compile-profile
+    dtvm-compile-time-optimize
+    dtvm-compiler-path-analysis
+    dtvm-dev-cycle
+    dtvm-dev-workflow
+    dtvm-run-reth-replay
+    dtvm-worktree-bootstrap
+    dtvm-write-report
+)
+expected_retired=(
+    dmir-compiler-analysis
+    dtvm-perf-profile
+)
+expected_suppressed=(
+    archive
+    dev-workflow
+    dmir-compiler-analysis
+    dtvm-perf-profile
+)
+mapfile -t actual_active < <(
+    find "$REPO_DIR/skills/active" -mindepth 1 -maxdepth 1 -type d \
+        -printf '%f\n' | LC_ALL=C sort
+)
+mapfile -t actual_retired < <(
+    find "$REPO_DIR/skills/retired" -mindepth 1 -maxdepth 1 -type d \
+        -printf '%f\n' | LC_ALL=C sort
+)
+[ "${actual_active[*]}" = "${expected_active[*]}" ] ||
+    fail "active skill inventory drifted"
+[ "${actual_retired[*]}" = "${expected_retired[*]}" ] ||
+    fail "retired skill inventory drifted"
+
+inventory_docs=(
+    "$REPO_DIR/README.md"
+    "$REPO_DIR/SETUP_GUIDE.md"
+    "$REPO_DIR/dotfiles/.claude/rules/dtvm-dotfiles-usage.md"
+    "$REPO_DIR/dotfiles/CLAUDE.md"
+    "$REPO_DIR/docs/changes/2026-07-23-personal-agent-skills/README.md"
+)
+for inventory_doc in "${inventory_docs[@]}"; do
+    for skill_name in "${expected_active[@]}" "${expected_retired[@]}" \
+        "${expected_suppressed[@]}"; do
+        grep -Fq "$skill_name" "$inventory_doc" ||
+            fail "skill inventory missing $skill_name: $inventory_doc"
+    done
+done
+[ "$(grep -Fc -- '- **`dtvm-dev-cycle`**:' "$REPO_DIR/dotfiles/CLAUDE.md")" -eq 1 ] ||
+    fail "project routing must list dtvm-dev-cycle exactly once"
+grep -Fqx -- '- **Status**: Accepted' \
+    "$REPO_DIR/docs/changes/2026-07-23-personal-agent-skills/README.md" ||
+    fail "unmerged personal-skill change must remain Accepted"
+
+# The DTVM-owned replacement must publish under a distinct active name while
+# the repository-owned workflow name remains suppressed. The checked-in
+# Claude adapter must also equal, not merely contain, the policy rendered from
+# the shared map.
+(
+    unset DTVM_SKILLS_MAP
+    # shellcheck source=/dev/null
+    source "$REPO_DIR/dotfiles/skills.map.sh"
+    [ "${DTVM_SKILLS_MAP[dev-workflow]:-}" = "legacy-repo" ] ||
+        fail "repository dev-workflow is not suppressed"
+    [ -z "${DTVM_SKILLS_MAP[dtvm-dev-workflow]+x}" ] ||
+        fail "personal dtvm-dev-workflow is suppressed by name"
+    [ -f "$REPO_DIR/skills/active/dtvm-dev-workflow/SKILL.md" ] ||
+        fail "personal dtvm-dev-workflow is not active"
+    grep_flat "$REPO_DIR/dotfiles/CLAUDE.md" \
+        'ordinary improvements and routine fixes is driven by the DTVMDotfiles-owned `dtvm-dev-workflow` skill' ||
+        fail "project routing does not select dtvm-dev-workflow"
+    grep_flat "$REPO_DIR/dotfiles/CLAUDE.md" \
+        'For feature implementation, a new feature, an architecture change, a breaking change, or an explicit `/dev-cycle` invocation' ||
+        fail "project routing does not escalate feature work"
+    grep_flat "$REPO_DIR/dotfiles/CLAUDE.md" \
+        'Do not auto-invoke it for ordinary improvements or routine fixes.' ||
+        fail "project routing does not preserve the routine-work boundary"
+    grep_flat "$REPO_DIR/skills/active/dtvm-dev-workflow/SKILL.md" \
+        'For feature implementation, a new feature, an architecture change, a breaking change, or an explicit `dev-cycle` request' ||
+        fail "workflow skill does not escalate feature work"
+    grep_flat "$REPO_DIR/skills/active/dtvm-dev-workflow/SKILL.md" \
+        'If `dtvm-dev-cycle` is not discoverable, state that once and continue here at Full tier.' ||
+        fail "workflow skill is missing the Full-tier fallback"
+    grep_flat "$REPO_DIR/dotfiles/.claude/agents/doc-agent.md" \
+        'Feature implementation, new features, architecture changes, breaking changes, and explicit `/dev-cycle` requests' ||
+        fail "doc-agent routing does not escalate feature work"
+    grep_flat "$REPO_DIR/skills/active/dtvm-dev-workflow/SKILL.md" \
+        'Until merge, report implementation and verification as complete while leaving the status `Accepted`.' ||
+        fail "workflow skill does not preserve Accepted until merge"
+    grep_flat "$REPO_DIR/dotfiles/.claude/agents/doc-agent.md" \
+        'set `Implemented` only after verified implementation is merged.' ||
+        fail "doc-agent marks changes Implemented before merge"
+    if grep -Fq '.agents/skills/dev-workflow/' \
+        "$REPO_DIR/dotfiles/CLAUDE.md" \
+        "$REPO_DIR/dotfiles/.claude/agents/doc-agent.md"; then
+        fail "deployed guidance still depends on upstream dev-workflow"
+    fi
+    if grep -Fq '~/claude-sync/skills/dev-cycle/' \
+        "$REPO_DIR/skills/active/dtvm-dev-workflow/SKILL.md" \
+        "$REPO_DIR/dotfiles/CLAUDE.md" \
+        "$REPO_DIR/dotfiles/.claude/agents/doc-agent.md"; then
+        fail "deployed routing depends on a machine-local dev-cycle path"
+    fi
+    if grep -Fq 'use `archive`' \
+        "$REPO_DIR/skills/active/dtvm-dev-workflow/SKILL.md" \
+        "$REPO_DIR/dotfiles/CLAUDE.md" \
+        "$REPO_DIR/dotfiles/.claude/agents/doc-agent.md" ||
+        grep -Fq 'invoke `archive`' \
+            "$REPO_DIR/skills/active/dtvm-dev-workflow/SKILL.md" \
+            "$REPO_DIR/dotfiles/CLAUDE.md" \
+            "$REPO_DIR/dotfiles/.claude/agents/doc-agent.md" ||
+        grep -Fq '$archive' \
+        "$REPO_DIR/skills/active/dtvm-dev-workflow/SKILL.md" \
+        "$REPO_DIR/dotfiles/CLAUDE.md" \
+        "$REPO_DIR/dotfiles/.claude/agents/doc-agent.md"; then
+        fail "deployed routing uses the legacy archive skill name"
+    fi
+    expected_overrides="$(
+        printf '%s\n' "${!DTVM_SKILLS_MAP[@]}" |
+            LC_ALL=C sort |
+            jq -Rn 'reduce inputs as $name ({}; .[$name] = "off")'
+    )"
+    actual_overrides="$(
+        jq -cS '.skillOverrides // {}' \
+            "$REPO_DIR/dotfiles/.claude/settings.json"
+    )"
+    expected_overrides="$(jq -cS . <<< "$expected_overrides")"
+    [ "$actual_overrides" = "$expected_overrides" ] ||
+        fail "checked-in Claude overrides differ from the shared skill map"
+    for skill_name in "${!DTVM_SKILLS_MAP[@]}"; do
+        [ "${DTVM_SKILLS_MAP[$skill_name]}" = "legacy-repo" ] ||
+            fail "unexpected skill-map ownership: $skill_name"
+    done
+    mapfile -t actual_suppressed < <(
+        printf '%s\n' "${!DTVM_SKILLS_MAP[@]}" | LC_ALL=C sort
+    )
+    [ "${actual_suppressed[*]}" = "${expected_suppressed[*]}" ] ||
+        fail "suppression-policy inventory drifted"
+)
+
+write_skill_fixture() {
+    local root="$1"
+    local name="$2"
+    mkdir -p "$root/$name/agents"
+    printf '%s\n' \
+        '---' \
+        "name: $name" \
+        'description: Validate an isolated agent-skill publication fixture.' \
+        '---' \
+        '' \
+        '# Fixture Skill' \
+        '' \
+        'Validate publication behavior without touching live user state.' \
+        > "$root/$name/SKILL.md"
+    {
+        printf '%s\n' \
+            'interface:' \
+            '  display_name: "Fixture Skill"' \
+            '  short_description: "Validate isolated skill publication"'
+        printf '  default_prompt: "Use $%s to validate this fixture."\n' "$name"
+    } > "$root/$name/agents/openai.yaml"
 }
 
 assert_link() {
@@ -18,30 +189,41 @@ assert_link() {
 }
 
 FAKE_DTVM="$TEST_TMP/dtvm"
-ODD_WORKTREE="$TEST_TMP/worktree with \"quote\" and \\slash"
-CONTROL_WORKTREE="$TEST_TMP/worktree"$'\v'"control"
+INIT_WORKTREE="$TEST_TMP/worktree-init"
+DYNAMIC_WORKTREE="$TEST_TMP/worktree-dynamic"
 ACTIVE_ROOT="$TEST_TMP/source/skills/active"
 INCUBATOR_ROOT="$TEST_TMP/source/skills/incubator"
 RETIRED_ROOT="$TEST_TMP/source/skills/retired"
 MAP_FILE="$TEST_TMP/skills.map.sh"
+CLAUDE_SETTINGS_FILE="$TEST_TMP/source/settings.json"
 
 mkdir -p \
     "$FAKE_DTVM" \
-    "$ACTIVE_ROOT/active-one" \
-    "$ACTIVE_ROOT/retire-me" \
-    "$ACTIVE_ROOT/retire-direct" \
     "$INCUBATOR_ROOT/not-published"
-printf '%s\n' '---' 'name: active-one' 'description: test' '---' > "$ACTIVE_ROOT/active-one/SKILL.md"
-printf '%s\n' '---' 'name: retire-me' 'description: test' '---' > "$ACTIVE_ROOT/retire-me/SKILL.md"
-printf '%s\n' '---' 'name: retire-direct' 'description: test' '---' \
-    > "$ACTIVE_ROOT/retire-direct/SKILL.md"
-printf '%s\n' '---' 'name: not-published' 'description: test' '---' > "$INCUBATOR_ROOT/not-published/SKILL.md"
+write_skill_fixture "$ACTIVE_ROOT" active-one
+write_skill_fixture "$ACTIVE_ROOT" retire-me
+write_skill_fixture "$ACTIVE_ROOT" retire-direct
+printf '%s\n' '---' 'name: not-published' 'description: test' '---' \
+    > "$INCUBATOR_ROOT/not-published/SKILL.md"
+cp "$REPO_DIR/dotfiles/skills.map.sh" "$MAP_FILE"
 printf '%s\n' \
-    '#!/usr/bin/env bash' \
-    'declare -Ag DTVM_SKILLS_MAP=(' \
-    '    ["old-analysis"]="legacy-repo"' \
-    '    ["old-profile"]="legacy-repo"' \
-    ')' > "$MAP_FILE"
+    '{' \
+    '  "skillOverrides": {' \
+    '    "stale-policy": "off"' \
+    '  },' \
+    '  "preserved": true' \
+    '}' > "$CLAUDE_SETTINGS_FILE"
+unset DTVM_SKILLS_MAP
+# shellcheck source=/dev/null
+source "$MAP_FILE"
+mapfile -t EXPECTED_LEGACY_NAMES < <(
+    printf '%s\n' "${!DTVM_SKILLS_MAP[@]}" | LC_ALL=C sort
+)
+EXPECTED_OVERRIDES="$(
+    printf '%s\n' "${EXPECTED_LEGACY_NAMES[@]}" |
+        jq -Rn 'reduce inputs as $name ({}; .[$name] = "off")'
+)"
+export DTVMDOTFILES_CLAUDE_SETTINGS_FILE="$CLAUDE_SETTINGS_FILE"
 
 git -C "$FAKE_DTVM" init -q
 git -C "$FAKE_DTVM" config user.name test
@@ -49,8 +231,7 @@ git -C "$FAKE_DTVM" config user.email test@example.com
 printf '%s\n' seed > "$FAKE_DTVM/seed"
 git -C "$FAKE_DTVM" add seed
 git -C "$FAKE_DTVM" commit -qm seed
-git -C "$FAKE_DTVM" worktree add -q -b test-odd "$ODD_WORKTREE"
-git -C "$FAKE_DTVM" worktree add -q -b test-control "$CONTROL_WORKTREE"
+git -C "$FAKE_DTVM" worktree add -q -b test-init "$INIT_WORKTREE"
 
 HOME_ONE="$TEST_TMP/home-one"
 CODEX_ONE="$HOME_ONE/.agents/skills"
@@ -81,6 +262,20 @@ run_skills() {
 }
 
 run_skills sync >/dev/null
+jq -e --argjson expected "$EXPECTED_OVERRIDES" '
+    .skillOverrides == $expected and .preserved == true
+' "$CLAUDE_SETTINGS_FILE" >/dev/null ||
+    fail "Claude policy was not rendered from the shared map"
+jq '.skillOverrides["stale-again"] = "off"' \
+    "$CLAUDE_SETTINGS_FILE" > "$TEST_TMP/settings.with-stale.json"
+mv "$TEST_TMP/settings.with-stale.json" "$CLAUDE_SETTINGS_FILE"
+if run_skills check >/dev/null 2>&1; then
+    fail "Claude policy check accepted a stale override"
+fi
+run_skills sync >/dev/null
+jq -e --argjson expected "$EXPECTED_OVERRIDES" \
+    '.skillOverrides == $expected' "$CLAUDE_SETTINGS_FILE" >/dev/null ||
+    fail "Claude policy sync retained a stale override"
 assert_link "$CODEX_ONE/active-one" "$ACTIVE_ROOT/active-one"
 assert_link "$CLAUDE_ONE/active-one" "$ACTIVE_ROOT/active-one"
 assert_link "$CODEX_ONE/retire-me" "$ACTIVE_ROOT/retire-me"
@@ -96,27 +291,69 @@ assert_link "$CLAUDE_ONE/retire-direct" "$ACTIVE_ROOT/retire-direct"
 grep -Fqx 'model = "keep-before"' "$CONFIG_ONE" || fail "config prefix changed"
 grep -Fqx '# outside-before = \literal' "$CONFIG_ONE" || fail "config prefix bytes changed"
 grep -Fqx 'approval_policy = "never"' "$CONFIG_ONE" || fail "config suffix changed"
-[ "$(tail -n 1 "$CONFIG_ONE")" = '# END DTVMDotfiles managed agent skills' ] ||
-    fail "managed TOML block is not at EOF"
-[ "$(grep -c 'enabled = false' "$CONFIG_ONE")" -eq 6 ] || fail "wrong disabled skill count"
-grep -Fq '\"quote\" and \\slash/.agents/skills/old-analysis/SKILL.md' "$CONFIG_ONE" ||
-    fail "TOML path was not escaped"
-grep -Fq '\u000Bcontrol/.agents/skills/old-analysis/SKILL.md' "$CONFIG_ONE" ||
-    fail "TOML control character was not escaped"
-python3 - "$CONFIG_ONE" <<'PY'
+[ "$(tail -n 1 "$CONFIG_ONE")" = '# DTVMDotfiles agent skills tail anchor' ] ||
+    fail "managed TOML tail anchor is not at EOF"
+[ "$(grep -c 'enabled = false' "$CONFIG_ONE")" -eq "${#EXPECTED_LEGACY_NAMES[@]}" ] ||
+    fail "wrong disabled skill count"
+python3 - "$CONFIG_ONE" "${EXPECTED_LEGACY_NAMES[@]}" <<'PY'
 import sys
 import tomllib
 
 with open(sys.argv[1], "rb") as config_file:
     config = tomllib.load(config_file)
 assert config["approval_policy"] == "never"
-assert len(config["skills"]["config"]) == 6
-assert "approval_policy" not in config["skills"]["config"][-1]
+expected = [{"name": name, "enabled": False} for name in sys.argv[2:]]
+assert config["skills"]["config"] == expected
 PY
 run_skills check >/dev/null
 cp "$CONFIG_ONE" "$TEST_TMP/config.before"
 run_skills sync >/dev/null
 cmp -s "$TEST_TMP/config.before" "$CONFIG_ONE" || fail "sync is not idempotent"
+
+# Preserve Codex-owned tables inserted before the tail anchor, outside the
+# closed managed block.
+sed -i '$i\
+\
+[plugins."outside-managed-block"]\
+enabled = true' "$CONFIG_ONE"
+cp "$CONFIG_ONE" "$TEST_TMP/config.codex-owned-outside"
+run_skills check >/dev/null
+run_skills sync >/dev/null
+cmp -s "$TEST_TMP/config.codex-owned-outside" "$CONFIG_ONE" ||
+    fail "sync changed a Codex-owned table outside the managed block"
+
+# Migrate tables that an older EOF-only block accidentally enclosed instead of
+# deleting client-owned configuration.
+sed -i '/# END DTVMDotfiles managed agent skills/i\
+\
+  [plugins."inside-old-managed-block"]  \
+enabled = true' "$CONFIG_ONE"
+run_skills sync >/dev/null
+python3 - "$CONFIG_ONE" <<'PY'
+import sys
+import tomllib
+
+with open(sys.argv[1], "rb") as config_file:
+    config = tomllib.load(config_file)
+assert config["plugins"]["outside-managed-block"]["enabled"] is True
+assert config["plugins"]["inside-old-managed-block"]["enabled"] is True
+PY
+inside_line="$(grep -nF '  [plugins."inside-old-managed-block"]  ' "$CONFIG_ONE" | cut -d: -f1)"
+begin_line="$(grep -nF '# BEGIN DTVMDotfiles managed agent skills' "$CONFIG_ONE" | cut -d: -f1)"
+[ "$inside_line" -lt "$begin_line" ] ||
+    fail "Codex-owned table was not moved outside the managed block"
+run_skills check >/dev/null
+
+# Worktree additions and removals do not affect the static name policy.
+cp "$CONFIG_ONE" "$TEST_TMP/config.worktree-independent"
+git -C "$FAKE_DTVM" worktree add -q -b test-dynamic "$DYNAMIC_WORKTREE"
+run_skills sync >/dev/null
+cmp -s "$TEST_TMP/config.worktree-independent" "$CONFIG_ONE" ||
+    fail "adding a worktree changed the static skill policy"
+git -C "$FAKE_DTVM" worktree remove --force "$DYNAMIC_WORKTREE"
+run_skills sync >/dev/null
+cmp -s "$TEST_TMP/config.worktree-independent" "$CONFIG_ONE" ||
+    fail "removing a worktree changed the static skill policy"
 
 # Moving an active skill out of the lifecycle removes only its managed links.
 mv "$ACTIVE_ROOT/retire-me" "$INCUBATOR_ROOT/retire-me"
@@ -296,6 +533,28 @@ if env \
 fi
 [ ! -e "$HOME_BAD_ACTIVE" ] || fail "invalid active metadata caused writes"
 
+# An unknown ownership value in the policy map fails closed instead of
+# silently removing a suppression rule from both clients.
+BAD_MAP="$TEST_TMP/skills.bad.map.sh"
+HOME_BAD_MAP="$TEST_TMP/home-bad-map"
+printf '%s\n' \
+    '#!/usr/bin/env bash' \
+    'declare -Ag DTVM_SKILLS_MAP=(' \
+    '    ["old-profile"]="legacy-reop"' \
+    ')' > "$BAD_MAP"
+cp "$CLAUDE_SETTINGS_FILE" "$TEST_TMP/settings.before-bad-map.json"
+if env \
+    HOME="$HOME_BAD_MAP" \
+    DTVMDOTFILES_PARENT_DIR="$FAKE_DTVM" \
+    DTVMDOTFILES_ACTIVE_SKILLS_DIR="$ACTIVE_ROOT" \
+    DTVMDOTFILES_SKILLS_MAP_FILE="$BAD_MAP" \
+    bash "$REPO_DIR/skills.sh" sync >/dev/null 2>&1; then
+    fail "unknown skill-map ownership unexpectedly succeeded"
+fi
+[ ! -e "$HOME_BAD_MAP" ] || fail "invalid skill map caused user-level writes"
+cmp -s "$TEST_TMP/settings.before-bad-map.json" "$CLAUDE_SETTINGS_FILE" ||
+    fail "invalid skill map changed the Claude adapter"
+
 # All ambiguous marker shapes fail closed without creating link roots.
 assert_bad_markers() {
     local label="$1"
@@ -333,30 +592,17 @@ assert_bad_markers duplicate-end \
     '# BEGIN DTVMDotfiles managed agent skills' \
     '# END DTVMDotfiles managed agent skills' \
     '# END DTVMDotfiles managed agent skills'
-
-# A Git-accepted non-UTF-8 worktree path fails before any user-level write.
-INVALID_UTF8_DTVM="$TEST_TMP/dtvm-invalid-utf8"
-INVALID_UTF8_WORKTREE="$TEST_TMP/worktree-"$'\xff'
-HOME_INVALID_UTF8="$TEST_TMP/home-invalid-utf8"
-mkdir -p "$INVALID_UTF8_DTVM"
-git -C "$INVALID_UTF8_DTVM" init -q
-git -C "$INVALID_UTF8_DTVM" config user.name test
-git -C "$INVALID_UTF8_DTVM" config user.email test@example.com
-printf '%s\n' seed > "$INVALID_UTF8_DTVM/seed"
-git -C "$INVALID_UTF8_DTVM" add seed
-git -C "$INVALID_UTF8_DTVM" commit -qm seed
-git -C "$INVALID_UTF8_DTVM" worktree add -q -b invalid-utf8 \
-    "$INVALID_UTF8_WORKTREE"
-if env \
-    HOME="$HOME_INVALID_UTF8" \
-    DTVMDOTFILES_PARENT_DIR="$INVALID_UTF8_DTVM" \
-    DTVMDOTFILES_ACTIVE_SKILLS_DIR="$ACTIVE_ROOT" \
-    DTVMDOTFILES_SKILLS_MAP_FILE="$MAP_FILE" \
-    bash "$REPO_DIR/skills.sh" sync >/dev/null 2>&1; then
-    fail "non-UTF-8 worktree path unexpectedly succeeded"
-fi
-[ ! -e "$HOME_INVALID_UTF8" ] ||
-    fail "non-UTF-8 worktree path caused user-level writes"
+assert_bad_markers orphan-tail \
+    '# DTVMDotfiles agent skills tail anchor'
+assert_bad_markers misplaced-tail \
+    '# BEGIN DTVMDotfiles managed agent skills' \
+    '# DTVMDotfiles agent skills tail anchor' \
+    '# END DTVMDotfiles managed agent skills'
+assert_bad_markers duplicate-tail \
+    '# BEGIN DTVMDotfiles managed agent skills' \
+    '# END DTVMDotfiles managed agent skills' \
+    '# DTVMDotfiles agent skills tail anchor' \
+    '# DTVMDotfiles agent skills tail anchor'
 
 # RELEASE_CHECK is a complete no-write reconciliation.
 HOME_THREE="$TEST_TMP/home-three"
@@ -374,7 +620,7 @@ else
     fail "dry-run failed"
 fi
 
-# A missing config is created as valid TOML with all known worktree entries.
+# A missing config is created as valid TOML with the static name policy.
 HOME_VALID_TOML="$TEST_TMP/home-valid-toml"
 env \
     HOME="$HOME_VALID_TOML" \
@@ -382,16 +628,42 @@ env \
     DTVMDOTFILES_ACTIVE_SKILLS_DIR="$ACTIVE_ROOT" \
     DTVMDOTFILES_SKILLS_MAP_FILE="$MAP_FILE" \
     bash "$REPO_DIR/skills.sh" sync >/dev/null
-python3 - "$HOME_VALID_TOML/.codex/config.toml" <<'PY'
+python3 - \
+    "$HOME_VALID_TOML/.codex/config.toml" \
+    "${EXPECTED_LEGACY_NAMES[@]}" <<'PY'
 import sys
 import tomllib
 
 with open(sys.argv[1], "rb") as config_file:
     config = tomllib.load(config_file)
 entries = config["skills"]["config"]
-assert len(entries) == 6, entries
-assert all(entry["enabled"] is False for entry in entries), entries
+expected = [{"name": name, "enabled": False} for name in sys.argv[2:]]
+assert entries == expected, entries
 PY
+[ "$(tail -n 1 "$HOME_VALID_TOML/.codex/config.toml")" = \
+    '# DTVMDotfiles agent skills tail anchor' ] ||
+    fail "new Codex config is missing the tail anchor"
+
+# release refuses a stale generated Claude adapter before touching either the
+# project checkout or user state.
+HOME_STALE_RELEASE="$TEST_TMP/home-stale-release"
+STALE_RELEASE_STATUS="$(git -C "$FAKE_DTVM" status --porcelain)"
+jq '.skillOverrides["stale-before-release"] = "off"' \
+    "$CLAUDE_SETTINGS_FILE" > "$TEST_TMP/settings.stale-before-release.json"
+mv "$TEST_TMP/settings.stale-before-release.json" "$CLAUDE_SETTINGS_FILE"
+if env \
+    HOME="$HOME_STALE_RELEASE" \
+    DTVMDOTFILES_PARENT_DIR="$FAKE_DTVM" \
+    DTVMDOTFILES_ACTIVE_SKILLS_DIR="$ACTIVE_ROOT" \
+    DTVMDOTFILES_SKILLS_MAP_FILE="$MAP_FILE" \
+    bash "$REPO_DIR/release.sh" >/dev/null 2>&1; then
+    fail "release accepted a stale Claude skill adapter"
+fi
+[ "$(git -C "$FAKE_DTVM" status --porcelain)" = "$STALE_RELEASE_STATUS" ] ||
+    fail "stale Claude adapter changed the DTVM repository"
+[ ! -e "$HOME_STALE_RELEASE" ] ||
+    fail "stale Claude adapter caused user-level writes"
+run_skills sync >/dev/null
 
 # The release entry point also keeps RELEASE_CHECK fully read-only.
 HOME_FIVE="$TEST_TMP/home-five"
@@ -607,52 +879,39 @@ cmp -s "$FAKE_DTVM/CLAUDE.md" "$FAKE_DTVM/AGENTS.md" ||
     fail "release did not generate AGENTS.md from CLAUDE.md"
 cmp -s "$FAKE_DTVM/CLAUDE.md" "$FAKE_DTVM/GEMINI.md" ||
     fail "release did not generate GEMINI.md from CLAUDE.md"
+cmp -s \
+    "$REPO_DIR/dotfiles/.claude/settings.json" \
+    "$FAKE_DTVM/.claude/settings.json" ||
+    fail "release did not deploy Claude skill overrides"
 assert_link "$HOME_RELEASE/.agents/skills/active-one" "$ACTIVE_ROOT/active-one"
 assert_link "$HOME_RELEASE/.claude/skills/active-one" "$ACTIVE_ROOT/active-one"
 
-# worktree-init propagates reconciler failures, then succeeds end to end.
-mkdir -p "$ODD_WORKTREE/evmc/include"
+# worktree-init is independent of global personal-skill reconciliation.
+mkdir -p "$INIT_WORKTREE/evmc/include"
 HOME_INIT_COLLISION="$TEST_TMP/home-init-collision"
 CODEX_INIT_COLLISION="$HOME_INIT_COLLISION/.agents/skills"
+CONFIG_INIT_COLLISION="$HOME_INIT_COLLISION/.codex/config.toml"
 mkdir -p "$CODEX_INIT_COLLISION/active-one"
-if env \
+mkdir -p "$(dirname "$CONFIG_INIT_COLLISION")"
+printf '%s\n' foreign > "$CODEX_INIT_COLLISION/active-one/owner"
+printf '%s\n' untouched > "$CONFIG_INIT_COLLISION"
+env \
     HOME="$HOME_INIT_COLLISION" \
     DTVMDOTFILES_PARENT_DIR="$FAKE_DTVM" \
     DTVMDOTFILES_ACTIVE_SKILLS_DIR="$ACTIVE_ROOT" \
     DTVMDOTFILES_SKILLS_MAP_FILE="$MAP_FILE" \
     DTVM_WORKTREE_INIT_USE_GIT_MIRRORS=0 \
-    bash "$REPO_DIR/worktree-init.sh" --minimal "$ODD_WORKTREE" >/dev/null 2>&1; then
-    fail "worktree-init swallowed an agent-skill collision"
-fi
+    bash "$REPO_DIR/worktree-init.sh" --minimal "$INIT_WORKTREE" >/dev/null
+grep -Fqx foreign "$CODEX_INIT_COLLISION/active-one/owner" ||
+    fail "worktree-init changed the global skill collision"
+[ "$(find "$CODEX_INIT_COLLISION" -mindepth 1 -maxdepth 1 | wc -l)" -eq 1 ] ||
+    fail "worktree-init published user-level Codex skill links"
+[ ! -e "$HOME_INIT_COLLISION/.claude" ] ||
+    fail "worktree-init published user-level Claude skill links"
+[ "$(cat "$CONFIG_INIT_COLLISION")" = "untouched" ] ||
+    fail "worktree-init changed the user-level Codex config"
+[ -L "$INIT_WORKTREE/AGENTS.md" ] || fail "worktree-init did not link AGENTS.md"
 
-HOME_FOUR="$TEST_TMP/home-four"
-env \
-    HOME="$HOME_FOUR" \
-    DTVMDOTFILES_PARENT_DIR="$FAKE_DTVM" \
-    DTVMDOTFILES_ACTIVE_SKILLS_DIR="$ACTIVE_ROOT" \
-    DTVMDOTFILES_SKILLS_MAP_FILE="$MAP_FILE" \
-    DTVM_WORKTREE_INIT_USE_GIT_MIRRORS=0 \
-    bash "$REPO_DIR/worktree-init.sh" --minimal "$ODD_WORKTREE" >/dev/null
-assert_link "$HOME_FOUR/.agents/skills/active-one" "$ACTIVE_ROOT/active-one"
-assert_link "$HOME_FOUR/.claude/skills/active-one" "$ACTIVE_ROOT/active-one"
-[ -L "$ODD_WORKTREE/AGENTS.md" ] || fail "worktree-init did not link AGENTS.md"
-
-# Removing a worktree prunes only its generated exact-path disables.
-git -C "$FAKE_DTVM" worktree remove --force "$ODD_WORKTREE"
-git -C "$FAKE_DTVM" worktree remove --force "$CONTROL_WORKTREE"
-run_skills sync >/dev/null
-[ "$(grep -c 'enabled = false' "$CONFIG_ONE")" -eq 2 ] ||
-    fail "removed worktree entries were not pruned"
-if grep -Fq 'worktree with' "$CONFIG_ONE"; then
-    fail "removed worktree path remained in config"
-fi
-python3 - "$CONFIG_ONE" <<'PY'
-import sys
-import tomllib
-
-with open(sys.argv[1], "rb") as config_file:
-    config = tomllib.load(config_file)
-assert len(config["skills"]["config"]) == 2
-PY
+bash "$REPO_DIR/tests/worktree_sync_test.sh"
 
 echo "PASS: agent skill integration"

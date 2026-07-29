@@ -1,0 +1,6 @@
+interface:
+  display_name: "DTVM Archive Change"
+  short_description: "Archive one merged DTVM change on explicit request"
+  default_prompt: "Use $dtvm-archive to archive this exact merged DTVM change locally."
+policy:
+  allow_implicit_invocation: false

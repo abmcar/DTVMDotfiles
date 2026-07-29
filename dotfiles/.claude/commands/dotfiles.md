@@ -32,7 +32,7 @@ Requires the worktree path as argument.
 Run `bash DTVMDotfiles/worktree-init.sh <path>` to bootstrap a freshly created worktree:
 submodule init + dotfiles sync. CMake FetchContent reuse happens at configure time
 through `FETCHCONTENT_BASE_DIR`. Use only to repair an existing worktree; for new
-worktrees use the `worktree-bootstrap` skill instead.
+worktrees use `$dtvm-worktree-bootstrap` instead.
 
 ### `setup`
 Run `bash DTVMDotfiles/setup_from_dotfiles.sh` for first-time DTVM workspace bootstrap.

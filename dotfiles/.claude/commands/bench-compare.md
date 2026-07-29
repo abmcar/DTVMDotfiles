@@ -12,20 +12,17 @@ Quick before/after benchmark comparison between current branch and baseline.
 1. **Prepare the baseline worktree** — there is no persistent baseline; create
    one PINNED to `upstream/main`. Pinning is the correctness step: branching
    from the current HEAD benchmarks the branch against itself (silent
-   zero-delta). Create and configure here; step 2 builds branch + baseline
-   together for a fair same-window comparison.
+   zero-delta). Fetch `upstream`, record `BASELINE_COMMIT`, then invoke
+   `$dtvm-worktree-bootstrap` with `upstream/main` as the base ref and a fresh
+   disposable branch/path. Set `BASE_WT` to the absolute path returned by the
+   skill. The skill owns initialization, CI-derived configuration, and the
+   `dtvmapi` build gate.
    ```bash
    git fetch -q upstream
-   BASE_WT=.worktrees/baseline-main
-   git worktree add "$BASE_WT" -b baseline-main upstream/main   # start-point = upstream/main
-   bash DTVMDotfiles/worktree-init.sh "$BASE_WT"                # submodule init + dotfiles sync
-   [ "$(git -C "$BASE_WT" rev-parse HEAD)" = "$(git rev-parse upstream/main)" ] \
+   BASELINE_COMMIT="$(git rev-parse upstream/main)"
+   # Invoke $dtvm-worktree-bootstrap here and capture its absolute worktree path.
+   [ "$(git -C "$BASE_WT" rev-parse HEAD)" = "$BASELINE_COMMIT" ] \
      || { echo "baseline not at upstream/main"; exit 1; }
-   # configure with the EVM flags from dtvm-local-test.md "Building libdtvmapi.so locally":
-   cmake -G Ninja -B "$BASE_WT/build" -S "$BASE_WT" -DCMAKE_BUILD_TYPE=Release \
-     -DZEN_ENABLE_EVM=ON -DZEN_ENABLE_LIBEVM=ON -DZEN_ENABLE_MULTIPASS_JIT=ON \
-     -DZEN_ENABLE_SPEC_TEST=ON -DZEN_ENABLE_JIT_PRECOMPILE_FALLBACK=ON \
-     -DLLVM_DIR=<llvm15-prefix>/lib/cmake/llvm
    BASE_SO="$BASE_WT/build/lib/libdtvmapi.so"
    ```
 
@@ -45,7 +42,11 @@ Quick before/after benchmark comparison between current branch and baseline.
 4. **Run branch benchmark** — Run immediately after step 3 in the same shell session; ~8pp drift between morning and afternoon makes same-window execution a correctness requirement. Use `/dtvm-evmone-benchmark` with the branch library at `build/lib/libdtvmapi.so`, adding `--benchmark_repetitions=3 --benchmark_out=/tmp/bench-branch.json --benchmark_out_format=json`.
 
 5. **Compare** — Parse both JSON outputs, compute per-benchmark speedup and geo mean.
-6. **Clean up** — remove the scratch baseline worktree: `rm -rf "$BASE_WT" && git worktree prune`.
+6. **Clean up** — verify `BASE_WT` is the exact registered disposable
+   worktree and that tracked, untracked, and recursive-submodule status is
+   clean. Then run `git worktree remove --force "$BASE_WT"` and confirm it no
+   longer appears in `git worktree list`. The force flag handles initialized
+   submodules; it must not discard changes.
 
 ## Output Format
 

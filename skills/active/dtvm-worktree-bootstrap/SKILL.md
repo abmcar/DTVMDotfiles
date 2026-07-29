@@ -76,14 +76,82 @@ The initializer is the single source of truth for recursive submodules and
 DTVMDotfiles links. Do not reproduce those operations in this skill.
 
 Completion criterion: the initializer exits zero, recursive submodules have no
-`-` prefix in `git -C "$WORKTREE_PATH" submodule status --recursive`, and these
-checks pass:
+`-` prefix in `git -C "$WORKTREE_PATH" submodule status --recursive`, and every
+present managed source passes the same exact-target contract as
+`worktree-sync.sh`:
 
 ```bash
-test -e "$WORKTREE_PATH/.claude"
-test -e "$WORKTREE_PATH/CLAUDE.md"
-test -e "$WORKTREE_PATH/AGENTS.md"
+assert_link() {
+  local relative="$1"
+  local source="${2:-$REPO_ROOT/$relative}"
+  test -L "$WORKTREE_PATH/$relative"
+  test "$(readlink "$WORKTREE_PATH/$relative")" = "$source"
+}
+
+for relative in \
+  .claude/rules .claude/commands .claude/hooks .claude/agents \
+  .claude/settings.json CLAUDE.md GEMINI.md init.sh perf; do
+  test ! -e "$REPO_ROOT/$relative" || assert_link "$relative" || exit 1
+done
+
+assert_agents_adapter() {
+  local relative="AGENTS.md"
+  local expected="$REPO_ROOT/DTVMDotfiles/dotfiles/CLAUDE.md"
+  local main_mode_summary worktree_mode_summary
+  test -f "$expected" || return 1
+  test -f "$REPO_ROOT/AGENTS.md" || return 1
+  test ! -L "$REPO_ROOT/AGENTS.md" || return 1
+  if git -C "$REPO_ROOT" ls-files --error-unmatch -- "$relative" \
+    >/dev/null 2>&1; then
+    git -C "$REPO_ROOT" diff --cached --quiet -- "$relative" || return 1
+    main_mode_summary="$(git -C "$REPO_ROOT" diff --summary -- "$relative")" ||
+      return 1
+    test -z "$main_mode_summary" || return 1
+  fi
+  cmp -s "$REPO_ROOT/AGENTS.md" "$expected" || return 1
+  if ! git -C "$WORKTREE_PATH" ls-files --error-unmatch -- "$relative" \
+    >/dev/null 2>&1; then
+    assert_link "$relative" "$expected"
+    return
+  fi
+  test -f "$WORKTREE_PATH/$relative" || return 1
+  test ! -L "$WORKTREE_PATH/$relative" || return 1
+  git -C "$WORKTREE_PATH" diff --cached --quiet -- "$relative" || return 1
+  worktree_mode_summary="$(
+    git -C "$WORKTREE_PATH" diff --summary -- "$relative"
+  )" || return 1
+  test -z "$worktree_mode_summary" || return 1
+  cmp -s "$WORKTREE_PATH/$relative" "$expected"
+}
+
+assert_tracked_skills_or_linked() {
+  local relative=".claude/skills"
+  local status_output
+  if ! git -C "$WORKTREE_PATH" ls-files --error-unmatch -- "$relative" \
+    >/dev/null 2>&1; then
+    test ! -e "$REPO_ROOT/$relative" || assert_link "$relative"
+    return
+  fi
+  test -d "$WORKTREE_PATH/$relative" || return 1
+  test ! -L "$WORKTREE_PATH/$relative" || return 1
+  status_output="$(git -C "$WORKTREE_PATH" status --porcelain \
+    --untracked-files=all -- "$relative")" || return 1
+  test -z "$status_output"
+}
+
+assert_agents_adapter || exit 1
+assert_tracked_skills_or_linked || exit 1
 ```
+
+`AGENTS.md` and `.claude/skills` are the only permitted real-path exceptions
+because DTVM tracks them. Generate `AGENTS.md` from
+`DTVMDotfiles/dotfiles/CLAUDE.md`; its expected unstaged derived diff is valid
+when the main checkout contains that same normal generated diff. Validate the
+main and target files independently against the SSOT; do not compare them with
+each other. Keep `.claude/skills` branch-owned and Git-clean without comparing
+checkouts. Staged, type, mode, or non-generated drift is a failed, partial
+bootstrap. A warning, path existence alone, or a link to another source is not
+success.
 
 ## 3. Derive a CI-based local build
 

@@ -35,6 +35,14 @@ fi
 echo "✅ Repository ready"
 echo ""
 
+# release.sh renders the Claude Code adapter from the shared skill map.
+if ! command -v jq >/dev/null 2>&1; then
+    echo "📦 Installing jq for skill-policy reconciliation..."
+    sudo apt update
+    sudo apt install -y jq
+    echo ""
+fi
+
 # Step 2: Run release.sh
 echo "🔓 Running release.sh to release files..."
 echo ""

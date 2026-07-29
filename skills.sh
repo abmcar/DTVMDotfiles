@@ -7,16 +7,20 @@ SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 source "$SCRIPT_DIR/lib/sync_common.sh"
 
 case "${1:-}" in
+    validate)
+        validateSkillPublishingGate
+        echo "✓ Skill publishing gate passed"
+        ;;
     check)
-        checkAgentSkills "$PARENT_DIR"
+        checkAgentSkills
         echo "✓ Agent skills are current"
         ;;
     sync)
-        syncAgentSkills "$PARENT_DIR"
+        syncAgentSkills
         echo "✓ Agent skills synchronized"
         ;;
     *)
-        echo "Usage: bash DTVMDotfiles/skills.sh {check|sync}" >&2
+        echo "Usage: bash DTVMDotfiles/skills.sh {validate|check|sync}" >&2
         exit 2
         ;;
 esac

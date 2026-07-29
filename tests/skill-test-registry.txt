@@ -1,0 +1,8 @@
+# Explicit, non-recursive repository-level skill and adapter regression tests.
+tests/skill_validation_test.sh
+tests/agent_skills_test.sh
+tests/worktree_sync_test.sh
+tests/dtvm_archive_skill_test.sh
+tests/dtvm_dev_cycle_skill_test.sh
+tests/retired_dmir_skill_test.sh
+tests/perf_agent_routing_test.sh

@@ -243,7 +243,7 @@ else
 fi
 
 if ! bash "$SCRIPT_DIR/worktree-sync.sh" "$WORKTREE_PATH" >/dev/null; then
-    echo "Error: worktree dotfiles/agent-skill synchronization failed" >&2
+    echo "Error: worktree dotfiles synchronization failed" >&2
     exit 1
 fi
 ACTIONS+=("dotfiles synced")
