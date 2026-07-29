@@ -2,6 +2,10 @@
 
 set -euo pipefail
 
+# This test exercises a writable adapter fixture; the outer validation command
+# may itself be a no-write release check.
+unset RELEASE_CHECK
+
 TEST_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 REPO_DIR="$(cd "$TEST_DIR/.." && pwd)"
 SKILL_DIR="$REPO_DIR/skills/active/dtvm-dev-cycle"
