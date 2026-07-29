@@ -39,6 +39,12 @@ SCHEMA_READINESS = "reth-dtvm.rpc-ha-readiness.v1"
 SCHEMA_METRICS = "reth-dtvm.rpc-ha-metrics.v1"
 SCHEMA_STATE = "reth-dtvm.rpc-ha-resume-state.v1"
 SCHEMA_SEAL = "reth-dtvm.rpc-ha-evidence-seal.v1"
+SCHEMA_FIXED_READINESS = "reth-dtvm.rpc-ha-fixed-range-readiness.v1"
+SCHEMA_FIXED_STATE = "reth-dtvm.rpc-ha-fixed-range-resume-state.v2"
+SCHEMA_FIXED_MANIFEST = "reth-dtvm.atomic-fixed-range-capture.v1"
+SCHEMA_FIXED_SEAL = "reth-dtvm.rpc-ha-fixed-range-evidence-seal.v1"
+SELECTION_FINALIZED = "finalized_tail"
+SELECTION_FIXED = "exact_fixed_range"
 MAINNET_CHAIN_ID = "0x1"
 MAINNET_GENESIS_HASH = (
     "0xd4e56740f876aef8c010b86a40d5f56745a118d0906a34e69aec8c0db1cb8fa3"
@@ -111,6 +117,66 @@ class JsonObjectPairs(list[tuple[Any, Any]]):
     """JSON object pairs preserved so duplicate header names remain visible."""
 
 
+@dataclasses.dataclass(frozen=True)
+class WindowSelection:
+    mode: str
+    count: int
+    start: int | None = None
+    end: int | None = None
+
+    @classmethod
+    def finalized(cls, count: int) -> "WindowSelection":
+        cls._require_count(count)
+        return cls(SELECTION_FINALIZED, count)
+
+    @classmethod
+    def fixed(cls, start: int, end: int, count: int) -> "WindowSelection":
+        cls._require_count(count)
+        if (
+            isinstance(start, bool)
+            or isinstance(end, bool)
+            or not isinstance(start, int)
+            or not isinstance(end, int)
+            or start < 0
+            or end < start
+        ):
+            raise ConfigError("invalid_fixed_range")
+        if end - start + 1 != count:
+            raise ConfigError("fixed_range_count_mismatch")
+        return cls(SELECTION_FIXED, count, start, end)
+
+    @staticmethod
+    def _require_count(count: int) -> None:
+        if (
+            isinstance(count, bool)
+            or not isinstance(count, int)
+            or count < 1
+            or count > 256
+        ):
+            raise ConfigError("count_out_of_range")
+
+    @property
+    def fixed_range(self) -> bool:
+        return self.mode == SELECTION_FIXED
+
+    def as_json(self) -> dict[str, Any]:
+        if not self.fixed_range:
+            return {
+                "mode": SELECTION_FINALIZED,
+                "tag": "finalized",
+                "count": self.count,
+            }
+        assert self.start is not None and self.end is not None
+        return {
+            "mode": SELECTION_FIXED,
+            "startNumber": self.start,
+            "startNumberHex": quantity(self.start),
+            "endNumber": self.end,
+            "endNumberHex": quantity(self.end),
+            "count": self.count,
+        }
+
+
 def canonical_json(value: Any) -> bytes:
     return json.dumps(
         value, sort_keys=True, separators=(",", ":"), ensure_ascii=True
@@ -127,6 +193,66 @@ def sha256_file(path: Path) -> str:
         for chunk in iter(lambda: stream.read(1024 * 1024), b""):
             digest.update(chunk)
     return digest.hexdigest()
+
+
+def quantity(value: int) -> str:
+    return f"0x{value:x}"
+
+
+def ordered_height_commitment(entries: Iterable[dict[str, Any]]) -> str:
+    ordered = [
+        {
+            "number": entry["number"],
+            "numberHex": entry["numberHex"],
+            "hash": entry["hash"].lower(),
+        }
+        for entry in entries
+    ]
+    return sha256_bytes(canonical_json(ordered))
+
+
+def ordered_block_commitment(entries: Iterable[dict[str, Any]]) -> str:
+    return sha256_bytes(
+        canonical_json(
+            [
+                {
+                    "number": entry["number"],
+                    "hash": entry["hash"].lower(),
+                }
+                for entry in entries
+            ]
+        )
+    )
+
+
+def selection_from_args(args: argparse.Namespace) -> WindowSelection:
+    start = getattr(args, "start_block", None)
+    end = getattr(args, "end_block", None)
+    count = getattr(args, "count", 16)
+    if (start is None) != (end is None):
+        raise ConfigError("fixed_range_requires_start_and_end")
+    if start is None:
+        return WindowSelection.finalized(count)
+    return WindowSelection.fixed(start, end, count)
+
+
+def selection_from_json(value: Any) -> WindowSelection:
+    if not isinstance(value, dict):
+        raise ConfigError("selection_contract_failed")
+    mode = value.get("mode")
+    if mode == SELECTION_FINALIZED:
+        selection = WindowSelection.finalized(value.get("count"))
+    elif mode == SELECTION_FIXED:
+        selection = WindowSelection.fixed(
+            value.get("startNumber"),
+            value.get("endNumber"),
+            value.get("count"),
+        )
+    else:
+        raise ConfigError("selection_contract_failed")
+    if value != selection.as_json():
+        raise ConfigError("selection_contract_failed")
+    return selection
 
 
 def lexical_absolute(path: Path) -> Path:
@@ -1359,11 +1485,12 @@ def readiness(
     client: RpcClient,
     *,
     frozen_pin: dict[str, Any] | None = None,
+    selector_override: str | None = None,
 ) -> dict[str, Any]:
     selector = (
         frozen_pin["numberHex"]
         if frozen_pin is not None
-        else "finalized"
+        else selector_override or "finalized"
     )
     expected_pin = frozen_pin
     reports = [
@@ -1444,6 +1571,238 @@ def readiness(
         "endpoints": reports,
         "failureCategories": sorted(set(failures)),
         "secretMaterialRecorded": False,
+    }
+
+
+def probe_oldest_witness_readiness(
+    client: RpcClient,
+    endpoints: tuple[EndpointRuntime, ...],
+    endpoint_reports: list[dict[str, Any]],
+    config: Config,
+    oldest: dict[str, Any],
+) -> dict[str, Any]:
+    by_name = {report["name"]: report for report in endpoint_reports}
+    reports: list[dict[str, Any]] = []
+    ready_endpoints: list[str] = []
+    for endpoint in endpoints:
+        if endpoint.role not in WITNESS_ROLES:
+            continue
+        identity = by_name.get(endpoint.name, {})
+        report = {
+            "name": endpoint.name,
+            "role": endpoint.role,
+            "ready": False,
+            "failureCategory": None,
+        }
+        if not (
+            identity.get("chainId") is True
+            and identity.get("genesisHash") is True
+            and identity.get("syncing") is True
+        ):
+            report["failureCategory"] = (
+                identity.get("failureCategory") or "endpoint_not_ready"
+            )
+            reports.append(report)
+            continue
+        try:
+            witness = client.request_endpoint_retry(
+                endpoint,
+                "debug_executionWitnessByBlockHash",
+                [oldest["hash"], "canonical"],
+            )
+            if not (
+                isinstance(witness, dict)
+                and isinstance(witness.get("state"), list)
+                and isinstance(witness.get("codes"), list)
+                and isinstance(witness.get("headers"), list)
+            ):
+                raise RpcFailure("malformed_response", endpoint.name)
+            report["ready"] = True
+            ready_endpoints.append(endpoint.name)
+        except RpcFailure as failure:
+            report["failureCategory"] = failure.category
+        reports.append(report)
+    failures = [
+        {
+            "name": report["name"],
+            "failureCategory": report["failureCategory"],
+        }
+        for report in reports
+        if report["failureCategory"] is not None
+    ]
+    return {
+        "number": oldest["number"],
+        "numberHex": oldest["numberHex"],
+        "hash": oldest["hash"],
+        "method": "debug_executionWitnessByBlockHash",
+        "mode": "canonical",
+        "required": config.policy.witness_ready,
+        "readyEndpoints": ready_endpoints,
+        "satisfied": len(ready_endpoints) >= config.policy.witness_ready,
+        "endpoints": reports,
+        "failures": failures,
+    }
+
+
+def readiness_fixed_range(
+    config: Config,
+    endpoints: tuple[EndpointRuntime, ...],
+    client: RpcClient,
+    selection: WindowSelection,
+    *,
+    frozen_range: dict[str, Any] | None = None,
+) -> dict[str, Any]:
+    if not selection.fixed_range:
+        raise ConfigError("fixed_range_selection_required")
+    assert selection.start is not None and selection.end is not None
+    expected_anchor = None
+    if frozen_range is not None:
+        if (
+            not isinstance(frozen_range, dict)
+            or frozen_range.get("requestedSelection") != selection.as_json()
+            or not isinstance(frozen_range.get("rangeAnchor"), dict)
+        ):
+            raise ConfigError("frozen_range_contract_failed")
+        expected_anchor = frozen_range["rangeAnchor"]
+    base = readiness(
+        config,
+        endpoints,
+        client,
+        frozen_pin=expected_anchor,
+        selector_override=quantity(selection.end),
+    )
+    eligible_names = {
+        report["name"]
+        for report in base["endpoints"]
+        if (
+            report.get("chainId") is True
+            and report.get("genesisHash") is True
+            and report.get("syncing") is True
+            and report.get("finalized") is True
+        )
+    }
+    ordered: list[dict[str, Any]] = []
+    failure_categories = set(base["failureCategories"])
+    try:
+        for height in range(selection.start, selection.end + 1):
+            result = client.quorum_call(
+                "eth_getBlockByNumber",
+                [quantity(height), False],
+                eligible_names=eligible_names,
+            )
+            if (
+                not valid_block(result)
+                or int(result["number"], 16) != height
+                or not isinstance(result.get("parentHash"), str)
+                or not HASH_RE.fullmatch(result["parentHash"])
+            ):
+                raise RpcFailure("malformed_response")
+            ordered.append(
+                {
+                    "number": height,
+                    "numberHex": quantity(height),
+                    "hash": result["hash"].lower(),
+                    "parentHash": result["parentHash"].lower(),
+                }
+            )
+        for previous, current in zip(ordered, ordered[1:]):
+            if current["parentHash"] != previous["hash"]:
+                raise RpcFailure("parent_hash_discontinuity")
+        if frozen_range is not None:
+            expected_order = frozen_range.get("orderedHeightHashes")
+            if expected_order != [
+                {
+                    "number": item["number"],
+                    "numberHex": item["numberHex"],
+                    "hash": item["hash"],
+                }
+                for item in ordered
+            ]:
+                raise RpcFailure("canonical_window_changed")
+    except RpcFailure as failure:
+        failure_categories.add(failure.category)
+        ordered = []
+    oldest_witness: dict[str, Any] = {
+        "number": selection.start,
+        "numberHex": quantity(selection.start),
+        "hash": None,
+        "method": "debug_executionWitnessByBlockHash",
+        "mode": "canonical",
+        "required": config.policy.witness_ready,
+        "readyEndpoints": [],
+        "satisfied": False,
+        "endpoints": [],
+        "failures": [],
+    }
+    if ordered:
+        oldest_witness = probe_oldest_witness_readiness(
+            client,
+            endpoints,
+            base["endpoints"],
+            config,
+            ordered[0],
+        )
+        failure_categories.update(
+            failure["failureCategory"]
+            for failure in oldest_witness["failures"]
+        )
+        if not oldest_witness["satisfied"]:
+            failure_categories.add(
+                "oldest_witness_quorum_unavailable"
+            )
+    frozen: dict[str, Any] | None = None
+    if ordered:
+        ordered_hashes = [
+            {
+                "number": item["number"],
+                "numberHex": item["numberHex"],
+                "hash": item["hash"],
+            }
+            for item in ordered
+        ]
+        frozen = {
+            "requestedSelection": selection.as_json(),
+            "range": {
+                "firstNumber": selection.start,
+                "firstNumberHex": quantity(selection.start),
+                "lastNumber": selection.end,
+                "lastNumberHex": quantity(selection.end),
+            },
+            "rangeAnchor": {
+                "number": selection.end,
+                "numberHex": quantity(selection.end),
+                "hash": ordered[-1]["hash"],
+                "agreedEndpoints": (
+                    base["frozenPin"].get("agreedEndpoints", [])
+                    if isinstance(base.get("frozenPin"), dict)
+                    else []
+                ),
+            },
+            "orderedHeightHashes": ordered_hashes,
+            "orderedCommitmentSha256": ordered_height_commitment(ordered_hashes),
+        }
+        if frozen_range is not None:
+            frozen["rangeAnchor"]["agreedEndpoints"] = frozen_range[
+                "rangeAnchor"
+            ].get("agreedEndpoints", [])
+        if frozen_range is not None and frozen != frozen_range:
+            failure_categories.add("canonical_window_changed")
+            frozen = None
+    success = bool(
+        base["success"]
+        and frozen is not None
+        and oldest_witness["satisfied"]
+    )
+    return {
+        **base,
+        "schema": SCHEMA_FIXED_READINESS,
+        "status": "ready" if success else "not_ready",
+        "success": success,
+        "requestedSelection": selection.as_json(),
+        "frozenPin": None,
+        "frozenRange": frozen,
+        "oldestWitnessReadiness": oldest_witness,
+        "failureCategories": sorted(failure_categories),
     }
 
 
@@ -1574,6 +1933,39 @@ class Gateway:
                     )
                     if not valid_params:
                         raise RpcFailure("method_parameters_not_allowed")
+                    fixed_range = gateway.readiness_report.get("frozenRange")
+                    if isinstance(fixed_range, dict):
+                        requested = fixed_range.get("requestedSelection", {})
+                        frozen_hashes = {
+                            item.get("hash")
+                            for item in fixed_range.get("orderedHeightHashes", [])
+                            if isinstance(item, dict)
+                        }
+                        if method == "eth_getBlockByNumber":
+                            selector = params[0]
+                            if (
+                                selector == "finalized"
+                                or not isinstance(selector, str)
+                                or not QUANTITY_RE.fullmatch(selector)
+                                or int(selector, 16)
+                                < requested.get("startNumber", -1)
+                                or int(selector, 16)
+                                > requested.get("endNumber", -1)
+                            ):
+                                raise RpcFailure("method_parameters_not_allowed")
+                        if method in {
+                            "eth_getBlockByHash",
+                            "debug_getRawHeader",
+                            "debug_executionWitnessByBlockHash",
+                            "debug_getRawBlock",
+                        }:
+                            block_hash = (
+                                params[0]
+                                if isinstance(params[0], str)
+                                else params[0].get("blockHash")
+                            )
+                            if block_hash.lower() not in frozen_hashes:
+                                raise RpcFailure("method_parameters_not_allowed")
                     frozen = gateway.readiness_report.get("frozenPin")
                     if (
                         method == "eth_getBlockByNumber"
@@ -1899,30 +2291,35 @@ def initialize_or_load_state(
     state_path: Path,
     config: Config,
     output: Path,
-    count: int,
+    selection: WindowSelection,
 ) -> dict[str, Any]:
+    fixed = selection.fixed_range
+    schema = SCHEMA_FIXED_STATE if fixed else SCHEMA_STATE
     if state_path.is_file():
         state = safe_json_load(state_path)
         if (
             not isinstance(state, dict)
-            or state.get("schema") != SCHEMA_STATE
+            or state.get("schema") != schema
             or state.get("configFingerprint") != config.public_fingerprint
-            or state.get("requestedCount") != count
+            or state.get("requestedCount") != selection.count
             or state.get("output") != str(output)
+            or (
+                fixed
+                and state.get("requestedSelection") != selection.as_json()
+            )
         ):
             raise ConfigError("resume_state_mismatch")
         return state
-    return {
-        "schema": SCHEMA_STATE,
+    state = {
+        "schema": schema,
         "status": "in_progress",
         "phase": "initializing",
         "createdAtUtc": utc_now(),
         "updatedAtUtc": utc_now(),
         "configFingerprint": config.public_fingerprint,
-        "requestedTag": "finalized",
-        "requestedCount": count,
+        "requestedTag": None if fixed else "finalized",
+        "requestedCount": selection.count,
         "output": str(output),
-        "frozenPin": None,
         "lastFailureCategory": None,
         "captureAttempts": 0,
         "networkCaptureCompleted": False,
@@ -1930,6 +2327,34 @@ def initialize_or_load_state(
         "evidenceSealed": False,
         "credentialsRecorded": False,
     }
+    if fixed:
+        state.update(
+            {
+                "requestedSelection": selection.as_json(),
+                "frozenRange": None,
+                "readinessSha256": None,
+                "preCaptureOrderedHeightHashes": None,
+                "postCaptureOrderedHeightHashes": None,
+                "preCaptureOrderedCommitmentSha256": None,
+                "postCaptureOrderedCommitmentSha256": None,
+                "orderedBlockCommitmentSha256": None,
+            }
+        )
+    else:
+        state["frozenPin"] = None
+    return state
+
+
+def fixed_state(state: dict[str, Any]) -> bool:
+    return state.get("schema") == SCHEMA_FIXED_STATE
+
+
+def state_capture_identity(
+    state: dict[str, Any],
+) -> tuple[dict[str, Any] | None, dict[str, Any] | None]:
+    if fixed_state(state):
+        return None, state.get("frozenRange")
+    return state.get("frozenPin"), None
 
 
 def update_state(state_path: Path, state: dict[str, Any], **changes: Any) -> None:
@@ -1943,6 +2368,7 @@ def validate_and_checksum_corpus(
     expected_count: int,
     expected_pin: dict[str, Any] | None = None,
     *,
+    expected_fixed_range: dict[str, Any] | None = None,
     expected_replayer: dict[str, Any],
     write_checksums: bool = True,
 ) -> dict[str, Any]:
@@ -1956,9 +2382,15 @@ def validate_and_checksum_corpus(
     manifest_path = stage / "manifest.json"
     require_regular_no_symlink(manifest_path, "capture_manifest_missing_or_symlinked")
     manifest = safe_json_load(manifest_path)
+    fixed = expected_fixed_range is not None
+    expected_schema = (
+        SCHEMA_FIXED_MANIFEST
+        if fixed
+        else "reth-dtvm.atomic-capture-window.v1"
+    )
     if (
         not isinstance(manifest, dict)
-        or manifest.get("schema") != "reth-dtvm.atomic-capture-window.v1"
+        or manifest.get("schema") != expected_schema
         or manifest.get("success") is not True
         or manifest.get("count") != expected_count
         or not isinstance(manifest.get("blocks"), list)
@@ -1985,7 +2417,39 @@ def validate_and_checksum_corpus(
         != expected_replayer["replayer"]["sha256"]
     ):
         raise ConfigError("capture_replayer_identity_mismatch")
-    if expected_pin is not None:
+    expected_order: list[dict[str, Any]] | None = None
+    if fixed:
+        assert expected_fixed_range is not None
+        selection = selection_from_json(
+            expected_fixed_range.get("requestedSelection")
+        )
+        if not selection.fixed_range:
+            raise ConfigError("capture_manifest_selection_mismatch")
+        assert selection.start is not None and selection.end is not None
+        expected_order = expected_fixed_range.get("orderedHeightHashes")
+        if (
+            manifest.get("requestedTag") is not None
+            or manifest.get("pinnedHead") is not None
+            or manifest.get("requestedSelection") != selection.as_json()
+            or manifest.get("range")
+            != {
+                "firstNumber": selection.start,
+                "firstNumberHex": quantity(selection.start),
+                "lastNumber": selection.end,
+                "lastNumberHex": quantity(selection.end),
+            }
+            or manifest.get("rangeAnchor")
+            != {
+                "number": selection.end,
+                "numberHex": quantity(selection.end),
+                "hash": expected_fixed_range["rangeAnchor"]["hash"],
+            }
+            or not isinstance(expected_order, list)
+            or len(expected_order) != expected_count
+        ):
+            raise ConfigError("capture_manifest_selection_mismatch")
+        expected_first = selection.start
+    elif expected_pin is not None:
         pinned = manifest.get("pinnedHead")
         if (
             manifest.get("requestedTag") != "finalized"
@@ -2000,14 +2464,37 @@ def validate_and_checksum_corpus(
             raise ConfigError("capture_manifest_range_invalid")
     else:
         expected_first = None
+    witness = manifest.get("witness", {})
     if (
-        manifest.get("canonicalRecheck", {}).get("checkedCount") != expected_count
-        or manifest.get("canonicalRecheck", {}).get("allPinnedHashesUnchanged")
-        is not True
-        or manifest.get("witness", {}).get("method")
+        witness.get("method")
         != "debug_executionWitnessByBlockHash"
-        or manifest.get("witness", {}).get("mode") != "canonical"
-        or manifest.get("witness", {}).get("policy") != "production"
+        or witness.get("mode") != "canonical"
+        or witness.get("policy") != "production"
+    ):
+        raise ConfigError("capture_manifest_safety_contract_failed")
+    recheck = manifest.get("canonicalRecheck", {})
+    if fixed:
+        before = recheck.get("beforeCapture")
+        after = recheck.get("afterCapture")
+        if (
+            recheck.get("allOrderedHashesUnchanged") is not True
+            or not isinstance(before, dict)
+            or not isinstance(after, dict)
+            or before.get("phase") != "before_capture"
+            or after.get("phase") != "after_capture"
+            or before.get("checkedCount") != expected_count
+            or after.get("checkedCount") != expected_count
+            or before.get("orderedHeightHashes") != expected_order
+            or after.get("orderedHeightHashes") != expected_order
+            or before.get("orderedCommitmentSha256")
+            != ordered_height_commitment(expected_order or [])
+            or after.get("orderedCommitmentSha256")
+            != ordered_height_commitment(expected_order or [])
+        ):
+            raise ConfigError("capture_manifest_safety_contract_failed")
+    elif (
+        recheck.get("checkedCount") != expected_count
+        or recheck.get("allPinnedHashesUnchanged") is not True
     ):
         raise ConfigError("capture_manifest_safety_contract_failed")
     entries: list[dict[str, Any]] = []
@@ -2031,6 +2518,17 @@ def validate_and_checksum_corpus(
             or (
                 expected_first is not None
                 and block["number"] != expected_first + index
+            )
+            or (
+                fixed
+                and expected_order is not None
+                and (
+                    block["number"] != expected_order[index]["number"]
+                    or block["numberHex"].lower()
+                    != expected_order[index]["numberHex"].lower()
+                    or block["hash"].lower()
+                    != expected_order[index]["hash"].lower()
+                )
             )
             or (previous_hash is not None and block["parentHash"].lower() != previous_hash)
             or not isinstance(relative, str)
@@ -2058,6 +2556,15 @@ def validate_and_checksum_corpus(
         )
     if expected_pin is not None and previous_hash != expected_pin["hash"].lower():
         raise ConfigError("capture_manifest_pin_mismatch")
+    if fixed:
+        assert expected_fixed_range is not None
+        if (
+            previous_hash
+            != expected_fixed_range["rangeAnchor"]["hash"].lower()
+            or manifest.get("orderedBlockCommitmentSha256")
+            != ordered_block_commitment(expected_fixed_range["orderedHeightHashes"])
+        ):
+            raise ConfigError("capture_manifest_selection_mismatch")
     checksum_lines = [
         f"{entry['sha256']}  {entry['path']}" for entry in sorted(entries, key=lambda x: x["path"])
     ]
@@ -2172,6 +2679,7 @@ def run_capture_workflow(args: argparse.Namespace, config: Config) -> dict[str, 
     output = lexical_absolute(Path(args.output))
     state_dir = lexical_absolute(Path(args.state_dir))
     state_path = state_dir / "resume-state.json"
+    selection = selection_from_args(args)
     approved_replayer = validate_replayer_approval(Path(args.replayer_manifest))
     with workflow_lock(state_dir):
         metrics = Metrics(state_dir / "metrics.json")
@@ -2182,7 +2690,7 @@ def run_capture_workflow(args: argparse.Namespace, config: Config) -> dict[str, 
         )
         endpoints = resolve_endpoints(config)
         client = RpcClient(config, endpoints, metrics, cache)
-        state = initialize_or_load_state(state_path, config, output, args.count)
+        state = initialize_or_load_state(state_path, config, output, selection)
         if state.get("approvedReplayer") is None:
             update_state(
                 state_path,
@@ -2191,14 +2699,15 @@ def run_capture_workflow(args: argparse.Namespace, config: Config) -> dict[str, 
             )
         elif state.get("approvedReplayer") != approved_replayer:
             raise ConfigError("resume_replayer_identity_mismatch")
-        frozen = state.get("frozenPin")
+        frozen_pin, frozen_range = state_capture_identity(state)
         if output.exists():
-            if frozen is None:
-                raise ConfigError("published_output_without_frozen_pin")
+            if frozen_pin is None and frozen_range is None:
+                raise ConfigError("published_output_without_frozen_identity")
             checksums = validate_and_checksum_corpus(
                 output,
-                args.count,
-                frozen,
+                selection.count,
+                frozen_pin,
+                expected_fixed_range=frozen_range,
                 expected_replayer=approved_replayer,
                 write_checksums=False,
             )
@@ -2229,8 +2738,23 @@ def run_capture_workflow(args: argparse.Namespace, config: Config) -> dict[str, 
                 client.close()
                 return state
             raise ConfigError("output_exists")
-        report = readiness(config, endpoints, client, frozen_pin=frozen)
+        if selection.fixed_range:
+            report = readiness_fixed_range(
+                config,
+                endpoints,
+                client,
+                selection,
+                frozen_range=frozen_range,
+            )
+        else:
+            report = readiness(
+                config,
+                endpoints,
+                client,
+                frozen_pin=frozen_pin,
+            )
         atomic_write_json(state_dir / "readiness.json", report)
+        readiness_sha256 = sha256_file(state_dir / "readiness.json")
         if not report["success"]:
             update_state(
                 state_path,
@@ -2241,16 +2765,35 @@ def run_capture_workflow(args: argparse.Namespace, config: Config) -> dict[str, 
             )
             client.close()
             raise RpcFailure("endpoint_not_ready")
-        if frozen is None:
-            frozen = report["frozenPin"]
+        if selection.fixed_range and frozen_range is None:
+            frozen_range = report["frozenRange"]
             update_state(
                 state_path,
                 state,
                 phase="ready",
                 status="in_progress",
-                frozenPin=frozen,
+                frozenRange=frozen_range,
+                readinessSha256=readiness_sha256,
                 capabilityMatrix=report["endpoints"],
                 lastFailureCategory=None,
+            )
+        elif not selection.fixed_range and frozen_pin is None:
+            frozen_pin = report["frozenPin"]
+            update_state(
+                state_path,
+                state,
+                phase="ready",
+                status="in_progress",
+                frozenPin=frozen_pin,
+                capabilityMatrix=report["endpoints"],
+                lastFailureCategory=None,
+            )
+        elif selection.fixed_range:
+            update_state(
+                state_path,
+                state,
+                readinessSha256=readiness_sha256,
+                capabilityMatrix=report["endpoints"],
             )
 
         stage = output.parent / f".{output.name}.reth-ha-stage"
@@ -2258,8 +2801,9 @@ def run_capture_workflow(args: argparse.Namespace, config: Config) -> dict[str, 
             try:
                 validate_and_checksum_corpus(
                     stage,
-                    args.count,
-                    frozen,
+                    selection.count,
+                    frozen_pin,
+                    expected_fixed_range=frozen_range,
                     expected_replayer=approved_replayer,
                 )
             except ConfigError as error:
@@ -2284,10 +2828,8 @@ def run_capture_workflow(args: argparse.Namespace, config: Config) -> dict[str, 
                 )
             command = [
                 str(Path(args.capture_script).resolve()),
-                "--tag",
-                "finalized",
                 "--count",
-                str(args.count),
+                str(selection.count),
                 "--max-attempts",
                 str(args.capture_attempts),
                 "--output",
@@ -2295,6 +2837,16 @@ def run_capture_workflow(args: argparse.Namespace, config: Config) -> dict[str, 
                 "--dtvm-identity-manifest",
                 str(Path(args.dtvm_identity_manifest).resolve()),
             ]
+            if selection.fixed_range:
+                assert selection.start is not None and selection.end is not None
+                command[1:1] = [
+                    "--start-block",
+                    str(selection.start),
+                    "--end-block",
+                    str(selection.end),
+                ]
+            else:
+                command[1:1] = ["--tag", "finalized"]
             command.extend(
                 [
                     "--replayer-manifest",
@@ -2343,6 +2895,29 @@ def run_capture_workflow(args: argparse.Namespace, config: Config) -> dict[str, 
             if not stage.is_dir():
                 client.close()
                 raise RpcFailure("capture_stage_missing")
+            captured_manifest = safe_json_load(stage / "manifest.json")
+            fixed_capture_state: dict[str, Any] = {}
+            if selection.fixed_range:
+                canonical_recheck = captured_manifest.get(
+                    "canonicalRecheck", {}
+                )
+                fixed_capture_state = {
+                    "preCaptureOrderedHeightHashes": canonical_recheck.get(
+                        "beforeCapture", {}
+                    ).get("orderedHeightHashes"),
+                    "postCaptureOrderedHeightHashes": canonical_recheck.get(
+                        "afterCapture", {}
+                    ).get("orderedHeightHashes"),
+                    "preCaptureOrderedCommitmentSha256": canonical_recheck.get(
+                        "beforeCapture", {}
+                    ).get("orderedCommitmentSha256"),
+                    "postCaptureOrderedCommitmentSha256": canonical_recheck.get(
+                        "afterCapture", {}
+                    ).get("orderedCommitmentSha256"),
+                    "orderedBlockCommitmentSha256": captured_manifest.get(
+                        "orderedBlockCommitmentSha256"
+                    ),
+                }
             update_state(
                 state_path,
                 state,
@@ -2350,20 +2925,44 @@ def run_capture_workflow(args: argparse.Namespace, config: Config) -> dict[str, 
                 status="in_progress",
                 networkCaptureCompleted=True,
                 lastFailureCategory=None,
+                **fixed_capture_state,
             )
 
         checksums = validate_and_checksum_corpus(
             stage,
-            args.count,
-            frozen,
+            selection.count,
+            frozen_pin,
+            expected_fixed_range=frozen_range,
             expected_replayer=approved_replayer,
         )
+        fixed_checksum_state: dict[str, Any] = {}
+        if selection.fixed_range:
+            captured_manifest = safe_json_load(stage / "manifest.json")
+            canonical_recheck = captured_manifest["canonicalRecheck"]
+            fixed_checksum_state = {
+                "preCaptureOrderedHeightHashes": canonical_recheck[
+                    "beforeCapture"
+                ]["orderedHeightHashes"],
+                "postCaptureOrderedHeightHashes": canonical_recheck[
+                    "afterCapture"
+                ]["orderedHeightHashes"],
+                "preCaptureOrderedCommitmentSha256": canonical_recheck[
+                    "beforeCapture"
+                ]["orderedCommitmentSha256"],
+                "postCaptureOrderedCommitmentSha256": canonical_recheck[
+                    "afterCapture"
+                ]["orderedCommitmentSha256"],
+                "orderedBlockCommitmentSha256": captured_manifest[
+                    "orderedBlockCommitmentSha256"
+                ],
+            }
         update_state(
             state_path,
             state,
             phase="checksummed",
             bundleSetSha256=checksums["bundleSetSha256"],
             manifestSha256=checksums["manifestSha256"],
+            **fixed_checksum_state,
         )
         atomic_publish_directory_noreplace(stage, output)
         directory_fd = os.open(output.parent, os.O_RDONLY | os.O_DIRECTORY)
@@ -2399,7 +2998,7 @@ def run_replay_locked(
     state = safe_json_load(state_path)
     if (
         not isinstance(state, dict)
-        or state.get("schema") != SCHEMA_STATE
+        or state.get("schema") not in {SCHEMA_STATE, SCHEMA_FIXED_STATE}
         or state.get("phase") not in {"published", "replayed", "sealed"}
     ):
         raise ConfigError("capture_not_published")
@@ -2432,10 +3031,12 @@ def run_replay_locked(
         or sha256_file(dtvm_library) != expected_library_sha
     ):
         raise ConfigError("replay_identity_mismatch")
+    frozen_pin, frozen_range = state_capture_identity(state)
     checksums = validate_and_checksum_corpus(
         output,
         state["requestedCount"],
-        state["frozenPin"],
+        frozen_pin,
+        expected_fixed_range=frozen_range,
         expected_replayer=approved_replayer,
         write_checksums=False,
     )
@@ -2552,7 +3153,7 @@ def seal_inputs(
     replay_result: Path,
     state: dict[str, Any],
 ) -> list[dict[str, str]]:
-    return [
+    inputs = [
         {
             "role": "capture_manifest",
             "path": str(manifest),
@@ -2599,6 +3200,17 @@ def seal_inputs(
             "sha256": sha256_file(replay_result),
         },
     ]
+    if fixed_state(state):
+        readiness_path = metrics_path.parent / "readiness.json"
+        inputs.insert(
+            1,
+            {
+                "role": "readiness_report",
+                "path": str(readiness_path),
+                "sha256": sha256_file(readiness_path),
+            },
+        )
+    return inputs
 
 
 def validate_preseal_continuity(
@@ -2626,7 +3238,10 @@ def validate_preseal_continuity(
 def run_seal_locked(config: Config, state_dir: Path) -> dict[str, Any]:
     state_path = state_dir / "resume-state.json"
     state = safe_json_load(state_path)
-    if not isinstance(state, dict) or state.get("schema") != SCHEMA_STATE:
+    if (
+        not isinstance(state, dict)
+        or state.get("schema") not in {SCHEMA_STATE, SCHEMA_FIXED_STATE}
+    ):
         raise ConfigError("resume_state_missing")
     if state.get("configFingerprint") != config.public_fingerprint:
         raise ConfigError("seal_config_fingerprint_mismatch")
@@ -2655,10 +3270,12 @@ def run_seal_locked(config: Config, state_dir: Path) -> dict[str, Any]:
     checksums = output / "bundle-checksums.json"
     if not manifest.is_file() or not checksums.is_file():
         raise ConfigError("capture_evidence_missing")
+    frozen_pin, frozen_range = state_capture_identity(state)
     corpus = validate_and_checksum_corpus(
         output,
         state["requestedCount"],
-        state["frozenPin"],
+        frozen_pin,
+        expected_fixed_range=frozen_range,
         expected_replayer=approved_replayer,
         write_checksums=False,
     )
@@ -2709,6 +3326,14 @@ def run_seal_locked(config: Config, state_dir: Path) -> dict[str, Any]:
         or metrics.get("secretMaterialRecorded") is not False
     ):
         raise ConfigError("metrics_contract_failed")
+    if fixed_state(state):
+        readiness_path = state_dir / "readiness.json"
+        require_regular_no_symlink(
+            readiness_path,
+            "readiness_evidence_missing_or_changed",
+        )
+        if sha256_file(readiness_path) != state.get("readinessSha256"):
+            raise ConfigError("readiness_evidence_missing_or_changed")
     preseal_state = state_dir / "resume-state-before-seal.json"
     already_sealed = (
         state.get("phase") == "sealed"
@@ -2751,14 +3376,16 @@ def run_seal_locked(config: Config, state_dir: Path) -> dict[str, Any]:
         if sha256_file(seal_path) != state["evidenceSealSha256"]:
             raise ConfigError("sealed_evidence_changed")
         existing_seal = safe_json_load(seal_path)
+        expected_seal_schema = (
+            SCHEMA_FIXED_SEAL if fixed_state(state) else SCHEMA_SEAL
+        )
         if not (
             isinstance(existing_seal, dict)
-            and existing_seal.get("schema") == SCHEMA_SEAL
+            and existing_seal.get("schema") == expected_seal_schema
             and existing_seal.get("status") == "sealed"
             and isinstance(existing_seal.get("sealedAtUtc"), str)
             and existing_seal.get("configFingerprint")
             == config.public_fingerprint
-            and existing_seal.get("frozenPin") == state.get("frozenPin")
             and existing_seal.get("networkCaptureCompleted") is True
             and existing_seal.get("strictReplayCompleted") is True
             and existing_seal.get("networkExcludedFromReplay") is True
@@ -2766,6 +3393,19 @@ def run_seal_locked(config: Config, state_dir: Path) -> dict[str, Any]:
             and existing_seal.get("metrics") == metrics
             and existing_seal.get("credentialsRecorded") is False
         ):
+            raise ConfigError("sealed_evidence_contract_failed")
+        if fixed_state(state):
+            if (
+                existing_seal.get("requestedSelection")
+                != state.get("requestedSelection")
+                or existing_seal.get("frozenRange")
+                != state.get("frozenRange")
+                or existing_seal.get("readinessSha256")
+                != state.get("readinessSha256")
+                or "frozenPin" in existing_seal
+            ):
+                raise ConfigError("sealed_evidence_contract_failed")
+        elif existing_seal.get("frozenPin") != state.get("frozenPin"):
             raise ConfigError("sealed_evidence_contract_failed")
         return existing_seal
     if state.get("phase") != "replayed" or state.get("evidenceSealed") is not False:
@@ -2783,11 +3423,10 @@ def run_seal_locked(config: Config, state_dir: Path) -> dict[str, Any]:
         state,
     )
     seal = {
-        "schema": SCHEMA_SEAL,
+        "schema": SCHEMA_FIXED_SEAL if fixed_state(state) else SCHEMA_SEAL,
         "status": "sealed",
         "sealedAtUtc": utc_now(),
         "configFingerprint": config.public_fingerprint,
-        "frozenPin": state.get("frozenPin"),
         "networkCaptureCompleted": state.get("networkCaptureCompleted") is True,
         "strictReplayCompleted": state.get("strictReplayCompleted") is True,
         "networkExcludedFromReplay": state.get("networkExcludedFromReplay") is True,
@@ -2795,6 +3434,16 @@ def run_seal_locked(config: Config, state_dir: Path) -> dict[str, Any]:
         "metrics": metrics,
         "credentialsRecorded": False,
     }
+    if fixed_state(state):
+        seal.update(
+            {
+                "requestedSelection": state["requestedSelection"],
+                "frozenRange": state["frozenRange"],
+                "readinessSha256": state["readinessSha256"],
+            }
+        )
+    else:
+        seal["frozenPin"] = state.get("frozenPin")
     seal_path = state_dir / "evidence-seal.json"
     atomic_write_json(seal_path, seal, 0o400)
     update_state(
@@ -2809,12 +3458,24 @@ def run_seal_locked(config: Config, state_dir: Path) -> dict[str, Any]:
     return seal
 
 
-def command_health(config: Config, full: bool) -> dict[str, Any]:
+def command_health(
+    config: Config,
+    full: bool,
+    selection: WindowSelection | None = None,
+) -> dict[str, Any]:
     metrics = Metrics()
     endpoints = resolve_endpoints(config)
     client = RpcClient(config, endpoints, metrics)
     if full:
-        result = readiness(config, endpoints, client)
+        if selection is not None and selection.fixed_range:
+            result = readiness_fixed_range(
+                config,
+                endpoints,
+                client,
+                selection,
+            )
+        else:
+            result = readiness(config, endpoints, client)
     else:
         endpoint_reports = []
         for endpoint in endpoints:
@@ -2930,7 +3591,12 @@ def build_parser() -> argparse.ArgumentParser:
     parser.add_argument("--config", required=True, help="secret-free JSON config")
     subparsers = parser.add_subparsers(dest="command", required=True)
     subparsers.add_parser("health", help="cheap chain liveness")
-    subparsers.add_parser("readiness", help="full exact capability matrix")
+    readiness_parser = subparsers.add_parser(
+        "readiness", help="full exact capability matrix"
+    )
+    readiness_parser.add_argument("--count", type=int, default=16)
+    readiness_parser.add_argument("--start-block", type=int)
+    readiness_parser.add_argument("--end-block", type=int)
 
     fetch = subparsers.add_parser("fetch", help="fetch a block, transaction, or witness")
     fetch.add_argument("--kind", choices=("block", "transaction", "witness"), required=True)
@@ -2948,6 +3614,8 @@ def build_parser() -> argparse.ArgumentParser:
     capture.add_argument("--output", required=True)
     capture.add_argument("--state-dir", required=True)
     capture.add_argument("--count", type=int, default=16)
+    capture.add_argument("--start-block", type=int)
+    capture.add_argument("--end-block", type=int)
     capture.add_argument("--capture-attempts", type=int, default=3)
     capture.add_argument("--capture-timeout", type=float, default=86400)
     capture.add_argument("--dtvm-identity-manifest", required=True)
@@ -2999,12 +3667,15 @@ def main() -> int:
         if args.command == "health":
             result = command_health(config, False)
         elif args.command == "readiness":
-            result = command_health(config, True)
+            result = command_health(
+                config,
+                True,
+                selection_from_args(args),
+            )
         elif args.command == "fetch":
             result = command_fetch(args, config)
         elif args.command == "capture":
-            if args.count < 1 or args.count > 256:
-                raise ConfigError("count_out_of_range")
+            selection_from_args(args)
             if args.capture_attempts < 1 or args.capture_attempts > 10:
                 raise ConfigError("capture_attempts_out_of_range")
             result = run_capture_workflow(args, config)

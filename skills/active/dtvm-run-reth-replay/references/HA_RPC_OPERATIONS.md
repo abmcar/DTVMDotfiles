@@ -1,6 +1,6 @@
 # Adopt three sources after readiness: 1 Reth loss → 2 canonical votes remain.
 
-## Adopt a three-source deployment for available finalized replay
+## Adopt a three-source deployment for available finalized or fixed replay
 
 Adopt a three-source steady-state deployment: a self-hosted Reth primary and
 replica for
@@ -14,11 +14,12 @@ Reth nodes. Add an independent standard provider when the canonical quorum
 must also span a separate operational failure domain, for four total sources.
 
 The suite in `reth_rpc_ha.py` keeps network capture outside DTVM replay timing,
-freezes a finalized hash, reuses the existing `capture-window.sh` and
-`fetch-witness.sh`, verifies every bundle, and publishes the 16-block corpus
-only after a full-height canonical recheck. It fails closed when chain identity,
-the witness capability, quorum, checksums, replay-to-corpus identity, or
-approved replayer identity cannot be proved.
+freezes either a finalized pin or an explicitly requested ordered block range,
+reuses the existing `capture-window.sh` and `fetch-witness.sh`, verifies every
+bundle, and publishes the 16-block corpus only after a full-height canonical
+recheck. It fails closed when chain identity, the witness capability, quorum,
+checksums, replay-to-corpus identity, or approved replayer identity cannot be
+proved.
 
 ## Standard providers cannot replace a Reth witness source
 
@@ -64,29 +65,39 @@ URLs or authentication headers. `readiness` performs:
 1. `eth_chainId`.
 2. `eth_getBlockByNumber("0x0", false)` and exact genesis-hash comparison.
 3. `eth_syncing == false`.
-4. an exact finalized number/hash quorum.
+4. an exact finalized number/hash quorum in finalized-tail mode, or an exact
+   number/hash quorum for every requested height in fixed-range mode.
 5. raw header, `debug_executionWitnessByBlockHash(hash, "canonical")`, and raw
-   block probes on both Reth roles.
+   block probes on both Reth roles. Fixed-range readiness separately records
+   the oldest requested block's witness capability as
+   `oldestWitnessReadiness`.
 
 Each readiness or canonical-quorum endpoint gets a bounded same-endpoint retry
 for 429, 5xx, timeout, or transport failure before its one vote is recorded.
 A retry never counts as another vote.
 
 During capture, a loopback gateway is reachable only through a per-process
-high-entropy path. It returns the frozen finalized block, executes numbered
-block lookups through quorum, and permits only the exact `eth_*` and `debug_*`
-methods and parameter shapes required by the existing capture protocol. Debug
-calls route only to configured Reth roles; witness requests must be exactly
-`[hash, "canonical"]`, raw reads must require the canonical hash, and legacy or
-all other calls are rejected. Each connection pool is bounded, each endpoint
-has a token bucket, and identical immutable hash requests are coalesced and
-stored in a checksummed, private resume cache. Numeric-height responses are
-never cached, so the existing full-window recheck still observes a reorg.
+high-entropy path. In finalized-tail mode it returns the frozen finalized
+block; in fixed-range mode it admits only the frozen ordered number/hash
+vector. It executes numbered block lookups through quorum and permits only the
+exact `eth_*` and `debug_*` methods and parameter shapes required by the
+existing capture protocol. Debug calls route only to configured Reth roles;
+witness requests must be exactly `[hash, "canonical"]`, raw reads must require
+the canonical hash, and legacy or all other calls are rejected. Each connection
+pool is bounded, each endpoint has a token bucket, and identical immutable hash
+requests are coalesced and stored in a checksummed, private resume cache.
+Numeric-height responses are never cached, so the existing full-window recheck
+still observes a reorg.
 
-`capture-window.sh` remains the capture protocol. It resolves one contiguous
-window, enforces parent continuity, invokes one production witness fetch per
-hash per whole-window attempt, verifies every raw block and witness, and
-rechecks all 16 canonical hashes. The HA wrapper adds `BUNDLE_SHA256SUMS`,
+`capture-window.sh` remains the capture protocol. It accepts either the
+finalized selector or an exact `--start-block`/`--end-block` pair, resolves one
+contiguous window, enforces parent continuity, invokes one production witness
+fetch per hash per whole-window attempt, verifies every raw block and witness,
+and rechecks all 16 canonical hashes. Selector and exact-range inputs are
+mutually exclusive. A fixed manifest records `requestedSelection`, `range`,
+`rangeAnchor`, the ordered vectors in
+`canonicalRecheck.beforeCapture`/`afterCapture`, and
+`orderedBlockCommitmentSha256`. The HA wrapper adds `BUNDLE_SHA256SUMS`,
 `bundle-checksums.json`, metrics, a capability matrix, and a machine-readable
 resume state before atomically renaming the final directory.
 Publication uses Linux `renameat2(RENAME_NOREPLACE)`: a target created after
@@ -112,10 +123,14 @@ check followed by replacement.
 
 `resume-state.json` is updated with write–fsync–rename and records only endpoint
 labels, public configuration fingerprint, frozen hashes, phases, checksums and
-failure categories. A restart revalidates chain/genesis and the frozen hash on
-every available eligible source, then requires the configured quorums. The
-persistent cache can reuse completed immutable block/witness responses; a
-truncated or checksum-invalid cache entry is ignored and replaced atomically.
+failure categories. Finalized-tail state uses the v1 frozen-pin schema.
+Fixed-range state uses the v2 schema and binds the exact requested selection,
+ordered height/hash vector, readiness checksum, and ordered commitment. A
+restart revalidates chain/genesis and either the frozen pin or every height/hash
+in the fixed vector on every available eligible source, then requires the
+configured quorums. The persistent cache can reuse completed immutable
+block/witness responses; a truncated or checksum-invalid cache entry is ignored
+and replaced atomically.
 The final corpus is never assembled from an existing public partial output. If
 the process stops after the final directory rename but before its state update,
 resume accepts that directory only after the frozen pin, manifest contract and
@@ -210,6 +225,34 @@ PYTHONDONTWRITEBYTECODE=1 python3 reth_rpc_ha.py \
   --dtvm-identity-manifest /private/path/dtvm-identity.json \
   --replayer-manifest /private/path/approved-replayer.json
 ```
+
+For a reproducible experiment, request the exact inclusive range. Both bounds
+are mandatory, the declared count must match the range length, and this mode
+does not resolve or follow a block tag:
+
+```bash
+PYTHONDONTWRITEBYTECODE=1 python3 reth_rpc_ha.py \
+  --config /private/path/reth-rpc-ha.json readiness \
+  --start-block 25625000 \
+  --end-block 25625015 \
+  --count 16
+
+PYTHONDONTWRITEBYTECODE=1 python3 reth_rpc_ha.py \
+  --config /private/path/reth-rpc-ha.json capture \
+  --start-block 25625000 \
+  --end-block 25625015 \
+  --count 16 \
+  --output /private/path/block-25625000-25625015-corpus \
+  --state-dir /private/path/block-25625000-25625015-state \
+  --dtvm-identity-manifest /private/path/dtvm-identity.json \
+  --replayer-manifest /private/path/approved-replayer.json
+```
+
+Fixed readiness, resume state, capture manifest, and seal use distinct schemas.
+Validators dispatch on those exact schema names rather than inferring mode from
+optional fields. The fixed seal includes the state directory's
+`readiness.json` under the `readiness_report` input role so later replay cannot
+substitute a different quorum decision or oldest witness-readiness result.
 
 Fetch a transaction, full block or production witness without changing the
 capture protocol:

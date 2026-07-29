@@ -17,7 +17,9 @@
 
 `"canonical"` selects the witness construction mode. It does not enforce that
 the block hash remains on the canonical chain. Always freeze and recheck the
-height/hash separately.
+height/hash separately. For a fixed range, require quorum for every requested
+height before capture and bind the complete ordered height/hash vector to
+readiness, state, manifest and seal.
 
 ## Failure classification
 
@@ -42,11 +44,13 @@ failure vote for that endpoint. A retry is never an additional quorum vote.
 
 ## Resume boundaries
 
-Resume requires the same public config fingerprint, output, count and state
-directory. Revalidate chain/genesis and the frozen numbered hash on every
-available eligible source, then require the configured canonical and witness
-quorums. Reuse only successful immutable hash-addressed responses whose cache
-envelope and result checksum match.
+Resume requires the same public config fingerprint, output, count, selection
+mode and state directory. Finalized-tail v1 revalidates its frozen numbered
+hash. Fixed-range v2 revalidates the exact start/end/count selection, complete
+ordered height/hash vector and readiness checksum. Require chain/genesis plus
+the configured canonical and witness quorums in both modes. Reuse only
+successful immutable hash-addressed responses whose cache envelope and result
+checksum match.
 
 Do not cache numbered-height responses: the final full-window lookup must
 observe reorgs. Do not reuse an existing public partial corpus. The final

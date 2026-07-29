@@ -97,6 +97,25 @@ if [[ "${scenario}" == "gap" && "${height}" == 5 ]]; then
 fi
 
 case "${scenario}" in
+    fixed_reorg_retry)
+        if (( step == 16 )); then
+            # Fixed attempt one observes a changed first height on recheck.
+            emit_block "${height}" b
+        elif (( step >= 17 )); then
+            emit_block "${height}" b
+        else
+            emit_block "${height}" a
+        fi
+        ;;
+    fixed_retry_exhausted)
+        # A failed fixed attempt consumes 17 numbered calls:
+        # 16 pre-capture headers and the first canonical recheck.
+        if (( step % 17 == 16 )); then
+            emit_block "${height}" b
+        else
+            emit_block "${height}" a
+        fi
+        ;;
     reorg_retry)
         if (( step == 17 )); then
             # First attempt's first canonical recheck observes a new hash.

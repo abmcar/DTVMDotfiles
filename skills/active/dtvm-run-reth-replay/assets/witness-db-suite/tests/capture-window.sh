@@ -62,6 +62,7 @@ run_capture() {
     local scenario="$1"
     local max_attempts="${2:-2}"
     local output_name="${3:-${scenario}-output}"
+    local selection="${4:-finalized}"
     local state="${temporary_root}/${scenario}.state"
     local -a capture_command
     last_stdout="${temporary_root}/${scenario}.stdout.json"
@@ -77,12 +78,19 @@ run_capture() {
 
     capture_command=(
         "${crate_root}/capture-window.sh"
-        --tag finalized
         --count 16
         --max-attempts "${max_attempts}"
         --dtvm-identity-manifest "${dtvm_identity_manifest}"
         --output "${last_output}"
     )
+    if [[ "${selection}" == fixed ]]; then
+        capture_command+=(
+            --start-block 1
+            --end-block 16
+        )
+    else
+        capture_command+=(--tag finalized)
+    fi
     if [[ "${scenario}" == "secret_redaction" ]]; then
         capture_command+=(--replayer-manifest "${replayer_manifest}")
     fi
@@ -217,6 +225,119 @@ assert_success() {
     scenario_count=$((scenario_count + 1))
 }
 
+assert_fixed_success() {
+    local scenario="$1"
+    local expected_attempts="$2"
+    local expected_fetches="$3"
+    local expected_numbered_calls="$4"
+    local before_commitment after_commitment block_commitment
+    run_capture "${scenario}" 2 "${scenario}-output" fixed
+    if [[ "${last_status}" != 0 ]]; then
+        echo "${scenario} failed unexpectedly" >&2
+        cat "${last_stdout}" >&2
+        cat "${last_stderr}" >&2
+        exit 1
+    fi
+    jq -e \
+        '
+            .schema == "reth-dtvm.atomic-fixed-range-capture.v1" and
+            .status == "success" and
+            .success == true and
+            .requestedTag == null and
+            .requestedSelection == {
+                mode: "exact_fixed_range",
+                startNumber: 1,
+                startNumberHex: "0x1",
+                endNumber: 16,
+                endNumberHex: "0x10",
+                count: 16
+            } and
+            .chainId == "0x1" and
+            .count == 16 and
+            .range == {
+                firstNumber: 1,
+                firstNumberHex: "0x1",
+                lastNumber: 16,
+                lastNumberHex: "0x10"
+            } and
+            .rangeAnchor == {
+                number: 16,
+                numberHex: "0x10",
+                hash: .blocks[-1].hash
+            } and
+            .pinnedHead == null and
+            .canonicalRecheck.beforeCapture.phase == "before_capture" and
+            .canonicalRecheck.beforeCapture.checkedCount == 16 and
+            .canonicalRecheck.afterCapture.phase == "after_capture" and
+            .canonicalRecheck.afterCapture.checkedCount == 16 and
+            .canonicalRecheck.beforeCapture.orderedHeightHashes ==
+                .canonicalRecheck.afterCapture.orderedHeightHashes and
+            .canonicalRecheck.allOrderedHashesUnchanged == true and
+            (.blocks | length) == 16 and
+            ([.blocks[].number] == [range(1; 17)]) and
+            .witness.method == "debug_executionWitnessByBlockHash" and
+            .witness.mode == "canonical" and
+            .witness.policy == "production" and
+            .witness.fetchesPerHashPerAttempt == 1 and
+            .rpcUrlRecorded == false and
+            .atomicPublication == true
+        ' "${last_stdout}" >/dev/null
+    before_commitment="$(
+        jq -cS \
+            '.canonicalRecheck.beforeCapture.orderedHeightHashes' \
+            "${last_stdout}" |
+            tr -d '\n' |
+            sha256sum |
+            awk '{print $1}'
+    )"
+    after_commitment="$(
+        jq -cS \
+            '.canonicalRecheck.afterCapture.orderedHeightHashes' \
+            "${last_stdout}" |
+            tr -d '\n' |
+            sha256sum |
+            awk '{print $1}'
+    )"
+    block_commitment="$(
+        jq -cS '[.blocks[] | {number, hash}]' "${last_stdout}" |
+            tr -d '\n' |
+            sha256sum |
+            awk '{print $1}'
+    )"
+    jq -e \
+        --arg before "${before_commitment}" \
+        --arg after "${after_commitment}" \
+        --arg blocks "${block_commitment}" \
+        '
+            .canonicalRecheck.beforeCapture.orderedCommitmentSha256 ==
+                $before and
+            .canonicalRecheck.afterCapture.orderedCommitmentSha256 ==
+                $after and
+            .orderedBlockCommitmentSha256 == $blocks
+        ' "${last_stdout}" >/dev/null
+    cmp -s "${last_stdout}" "${last_output}/manifest.json"
+    test "$(find "${last_output}/bundles" -maxdepth 1 -type f | wc -l)" = 16
+    test "$(wc -l <"${last_fetch_log}")" = "${expected_fetches}"
+    test "$(wc -l <"${last_verify_log}")" = "${expected_fetches}"
+    test "$(
+        jq -s \
+            '[.[] | select(
+                .method == "eth_getBlockByNumber" and
+                .params[0] == "finalized"
+            )] | length' \
+            "${last_rpc_log}"
+    )" = 0
+    test "$(
+        jq -s \
+            '[.[] | select(.method == "eth_getBlockByNumber")] | length' \
+            "${last_rpc_log}"
+    )" = "${expected_numbered_calls}"
+    assert_no_secret \
+        "${last_stdout}" "${last_stderr}" "${last_rpc_log}" \
+        "${last_fetch_log}" "${last_verify_log}" "${last_output}"
+    scenario_count=$((scenario_count + 1))
+}
+
 assert_failure() {
     local scenario="$1"
     local last_category="$2"
@@ -303,6 +424,60 @@ scenario_count=$((scenario_count + 1))
 # 9: a separate successful run makes credential-redaction an explicit gate.
 assert_success "secret_redaction" 1 16
 assert_no_secret "${temporary_root}"
+
+# 10: exact-height selection never resolves or records a moving tag.
+assert_fixed_success "fixed_success" 1 16 32
+
+# 11: a fixed-window reorg discards the whole first attempt and succeeds only
+# after a fresh pre-capture resolution and full canonical recheck.
+assert_fixed_success "fixed_reorg_retry" 2 32 49
+
+# 12: fixed and tag selection are mutually exclusive before any RPC.
+last_stdout="${temporary_root}/fixed-mixed-selection.stdout.json"
+last_stderr="${temporary_root}/fixed-mixed-selection.stderr"
+last_output="${temporary_root}/fixed-mixed-selection-output"
+last_rpc_log="${temporary_root}/fixed-mixed-selection.rpc.jsonl"
+last_fetch_log="${temporary_root}/fixed-mixed-selection.fetch.tsv"
+last_verify_log="${temporary_root}/fixed-mixed-selection.verify.txt"
+: >"${last_rpc_log}"
+: >"${last_fetch_log}"
+: >"${last_verify_log}"
+if PATH="${fake_bin}:${PATH}" \
+    FAKE_CAPTURE_SCENARIO="fixed_success" \
+    FAKE_CAPTURE_STATE="${temporary_root}/fixed-mixed-selection.state" \
+    FAKE_CAPTURE_RPC_LOG="${last_rpc_log}" \
+    FAKE_CAPTURE_FETCH_LOG="${last_fetch_log}" \
+    FAKE_CAPTURE_VERIFY_LOG="${last_verify_log}" \
+    CAPTURE_WINDOW_FETCH_WITNESS="${fake_fetch}" \
+    CAPTURE_WINDOW_VERIFY_WITNESS="${fake_verify}" \
+    CAPTURE_WINDOW_RETH_REPOSITORY="${fake_reth_repository}" \
+    RETH_RPC_URL="${rpc_url}" \
+    "${crate_root}/capture-window.sh" \
+        --tag finalized \
+        --start-block 1 \
+        --end-block 16 \
+        --count 16 \
+        --dtvm-identity-manifest "${dtvm_identity_manifest}" \
+        --output "${last_output}" >"${last_stdout}" 2>"${last_stderr}"; then
+    echo "mixed fixed/tag selection unexpectedly succeeded" >&2
+    exit 1
+else
+    last_status="$?"
+fi
+test "${last_status}" = 2
+jq -e \
+    '.schema == "reth-dtvm.fixed-range-failure.v1" and
+     .failureCategory == "invalid_arguments" and
+     .detail == "fixed_range_must_not_use_tag" and
+     .requestedTag == null and
+     .rpcUrlRecorded == false and
+     .outputPublished == false' \
+    "${last_stdout}" >/dev/null
+test "$(wc -l <"${last_rpc_log}")" = 0
+test "$(wc -l <"${last_fetch_log}")" = 0
+[[ ! -e "${last_output}" ]]
+assert_no_secret "${last_stdout}" "${last_stderr}" "${last_rpc_log}"
+scenario_count=$((scenario_count + 1))
 
 jq -cn \
     --argjson passed "${scenario_count}" \
