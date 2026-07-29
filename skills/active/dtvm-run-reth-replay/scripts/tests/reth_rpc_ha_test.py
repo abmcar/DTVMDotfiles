@@ -223,6 +223,7 @@ def write_config(
     quorum: int = 2,
     backoff_initial_ms: int = 0,
     backoff_max_ms: int = 0,
+    genesis_policy: str | None = None,
 ) -> Path:
     path = root / "config.json"
     value = {
@@ -261,6 +262,8 @@ def write_config(
             },
         ],
     }
+    if genesis_policy is not None:
+        value["expectedChain"]["genesisPolicy"] = genesis_policy
     path.write_text(json.dumps(value), encoding="utf-8")
     return path
 
@@ -528,6 +531,108 @@ class RethRpcHaTests(unittest.TestCase):
                 )
             )
         self.assertFalse(report["secretMaterialRecorded"])
+
+    def test_fixed_readiness_explicitly_accepts_reth_pruned_genesis(self) -> None:
+        selection = HA.WindowSelection.fixed(
+            FIXED_START,
+            FIXED_END,
+            FIXED_COUNT,
+        )
+
+        def pruned_genesis(
+            request: dict[str, Any],
+        ) -> tuple[int, Any, dict[str, str], float]:
+            if (
+                request["method"] == "eth_getBlockByNumber"
+                and request.get("params", [None])[0] == "0x0"
+            ):
+                return (
+                    200,
+                    {
+                        "error": {
+                            "code": 4444,
+                            "message": "pruned history unavailable",
+                        }
+                    },
+                    {},
+                    0,
+                )
+            return fixed_range_behavior(request)
+
+        with fake_cluster(
+            [pruned_genesis, pruned_genesis, pruned_genesis]
+        ) as servers:
+            config, endpoints, _metrics, client = self.client(
+                servers,
+                genesis_policy="allow-reth-pruned-history",
+            )
+            fixed_report = HA.readiness_fixed_range(
+                config,
+                endpoints,
+                client,
+                selection,
+            )
+            finalized_report = HA.readiness(config, endpoints, client)
+        self.assertTrue(fixed_report["success"])
+        self.assertEqual(
+            fixed_report["expectedChain"]["genesisPolicy"],
+            "allow-reth-pruned-history",
+        )
+        for endpoint in fixed_report["endpoints"]:
+            self.assertTrue(endpoint["genesisHash"])
+            self.assertEqual(
+                endpoint["genesisVerification"],
+                {
+                    "policy": "allow-reth-pruned-history",
+                    "mode": "reth-pruned-history",
+                    "rpcBlockVerified": False,
+                    "prunedHistoryAccepted": True,
+                    "rpcErrorCode": 4444,
+                },
+            )
+        self.assertFalse(finalized_report["success"])
+        self.assertIn(
+            "pruned_history_unavailable",
+            finalized_report["failureCategories"],
+        )
+
+    def test_pruned_genesis_fails_closed_without_explicit_policy(self) -> None:
+        selection = HA.WindowSelection.fixed(
+            FIXED_START,
+            FIXED_END,
+            FIXED_COUNT,
+        )
+
+        def pruned_genesis(
+            request: dict[str, Any],
+        ) -> tuple[int, Any, dict[str, str], float]:
+            if (
+                request["method"] == "eth_getBlockByNumber"
+                and request.get("params", [None])[0] == "0x0"
+            ):
+                return (
+                    200,
+                    {"error": {"code": 4444, "message": "pruned"}},
+                    {},
+                    0,
+                )
+            return fixed_range_behavior(request)
+
+        with fake_cluster(
+            [pruned_genesis, pruned_genesis, pruned_genesis]
+        ) as servers:
+            config, endpoints, _metrics, client = self.client(servers)
+            report = HA.readiness_fixed_range(
+                config,
+                endpoints,
+                client,
+                selection,
+            )
+        self.assertFalse(report["success"])
+        self.assertIn(
+            "pruned_history_unavailable",
+            report["failureCategories"],
+        )
 
     def test_fixed_readiness_fails_if_oldest_witness_role_fails(self) -> None:
         selection = HA.WindowSelection.fixed(

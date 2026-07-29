@@ -63,7 +63,11 @@ The secret-free config names environment variables; it never contains endpoint
 URLs or authentication headers. `readiness` performs:
 
 1. `eth_chainId`.
-2. `eth_getBlockByNumber("0x0", false)` and exact genesis-hash comparison.
+2. `eth_getBlockByNumber("0x0", false)` and exact genesis-hash comparison by
+   default. An explicit fixed range may use
+   `expectedChain.genesisPolicy = "allow-reth-pruned-history"` to accept only
+   Reth JSON-RPC error code `4444`; finalized-tail mode never uses this
+   exception.
 3. `eth_syncing == false`.
 4. an exact finalized number/hash quorum in finalized-tail mode, or an exact
    number/hash quorum for every requested height in fixed-range mode.
@@ -71,6 +75,12 @@ URLs or authentication headers. `readiness` performs:
    block probes on both Reth roles. Fixed-range readiness separately records
    the oldest requested block's witness capability as
    `oldestWitnessReadiness`.
+
+The pruned-genesis exception does not establish identity by itself. It is
+accepted only together with exact Mainnet chain ID, `eth_syncing == false`,
+canonical quorum for every requested height/hash, and both oldest/end witness
+checks. Readiness records `genesisVerification.mode` as `rpc-block` or
+`reth-pruned-history`; any code other than `4444` fails closed.
 
 Each readiness or canonical-quorum endpoint gets a bounded same-endpoint retry
 for 429, 5xx, timeout, or transport failure before its one vote is recorded.
@@ -114,6 +124,7 @@ check followed by replacement.
 | 401/403 | No retry storm | Stop as authentication failure |
 | `-32601` | Mark exact method missing | Required witness quorum unavailable |
 | `-32602` | Mark method/version incompatible | Required witness quorum unavailable |
+| Reth `4444` for block zero | Accept only for explicit fixed-range readiness with `allow-reth-pruned-history`; record the exception | Default or finalized-tail policy, another RPC code, or any remaining identity/quorum gate fails |
 | Malformed/oversized response | Reject response and try another eligible endpoint | No valid response |
 | Chain/genesis mismatch or syncing | Remove endpoint from readiness | Required quorum unavailable |
 | Finalized/hash drift or quorum disagreement | Do not select a winner | Stop the whole window |

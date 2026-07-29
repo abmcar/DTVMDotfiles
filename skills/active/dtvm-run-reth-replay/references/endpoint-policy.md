@@ -21,6 +21,14 @@ height/hash separately. For a fixed range, require quorum for every requested
 height before capture and bind the complete ordered height/hash vector to
 readiness, state, manifest and seal.
 
+Keep `expectedChain.genesisPolicy` at its default `require-block` whenever
+block zero is available. A pruned Reth may return JSON-RPC error code `4444`
+instead. Set `allow-reth-pruned-history` only for an explicit fixed range and
+only when every endpoint still passes Mainnet chain ID, syncing, the complete
+ordered number/hash quorum, and the required witness probes. This exception
+accepts exactly code `4444`; it never accepts a different RPC failure and is
+never active for finalized-tail readiness.
+
 ## Failure classification
 
 | Category | Recovery |
@@ -30,6 +38,7 @@ readiness, state, manifest and seal.
 | `authentication_failed` | Stop immediately; repair secret/config outside logs |
 | `capability_missing` | Do not retry the same method as transient |
 | `capability_incompatible` | Upgrade Reth or correct the versioned method |
+| `pruned_history_unavailable` | In explicit fixed-range mode only, accept exact Reth code `4444` when `genesisPolicy` opts in and all range-identity gates pass; otherwise remove from readiness |
 | `malformed_response`, `response_too_large` | Reject; try one other eligible endpoint |
 | `chain_mismatch`, `genesis_mismatch`, `endpoint_syncing` | Remove from readiness |
 | `finalized_hash_drift`, `canonical_quorum_disagreement` | Stop the frozen window |
@@ -51,6 +60,12 @@ ordered height/hash vector and readiness checksum. Require chain/genesis plus
 the configured canonical and witness quorums in both modes. Reuse only
 successful immutable hash-addressed responses whose cache envelope and result
 checksum match.
+
+Here, “genesis” means a direct exact block-zero hash under `require-block`. In
+fixed-range mode with `allow-reth-pruned-history`, it means an exact Reth
+`4444` response recorded as `reth-pruned-history`, combined with the immutable
+configured Mainnet genesis hash, exact chain ID, and full frozen range identity.
+The readiness report records which mode each endpoint used.
 
 Do not cache numbered-height responses: the final full-window lookup must
 observe reorgs. Do not reuse an existing public partial corpus. The final

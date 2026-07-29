@@ -52,6 +52,7 @@ Require these inputs:
 | `DTVM_RETH_OUTPUT` | New final corpus path |
 | `DTVM_RETH_STATE_DIR` | Private durable resume/metrics/seal directory |
 | fixed-range selection | Set both `DTVM_RETH_START_BLOCK` and `DTVM_RETH_END_BLOCK`; unset both for finalized-tail mode |
+| pruned-genesis policy | Keep `expectedChain.genesisPolicy` at `require-block` unless an exact fixed range is served by Reth nodes that return error code `4444` for block zero; only then set `allow-reth-pruned-history` |
 | `DTVM_IDENTITY_MANIFEST` | Frozen DTVM source-identity manifest |
 | `DTVM_REPLAYER_MANIFEST` | Sealed approval whose replayer realpath and SHA-256 are required at capture, replay, and seal |
 | replay inputs | `DTVM_VERIFY_CORPUS_SCRIPT`, `DTVM_VERIFY_CORPUS_SHA256`, `DTVM_LIBRARY`, `DTVM_LIBRARY_SHA256`, `DTVM_REPLAY_OUTPUT`, and `DTVM_REPLAY_LABEL` |
@@ -74,7 +75,12 @@ network capture and offline replay as separate processes.
 
 1. Run `readiness`. Require exact chain ID and genesis, `eth_syncing == false`,
    two exact witness-ready Reth roles, and either one finalized number/hash
-   quorum or a quorum-frozen ordered fixed range.
+   quorum or a quorum-frozen ordered fixed range. The default requires the
+   genesis block over RPC. Exact fixed-range mode may instead accept Reth error
+   code `4444` only when `expectedChain.genesisPolicy` explicitly selects
+   `allow-reth-pruned-history`; it still requires Mainnet chain ID, quorum for
+   every requested number/hash, and both boundary witness probes. Never apply
+   that exception to finalized-tail readiness.
    Treat `-32601`, `-32602`, malformed responses, chain mismatch, genesis
    mismatch, syncing, hash drift, and quorum disagreement as not ready.
 2. Run `capture`. In finalized-tail mode, freeze `finalized`. In fixed-range
@@ -131,6 +137,10 @@ bash "$SKILL_ROOT/scripts/run-frozen-replay.sh" all
 Do not continue or weaken checks when any gate fails:
 
 - Use the hard-coded Mainnet chain ID and genesis hash exactly.
+- Keep genesis policy fail-closed by default. Permit Reth's exact pruned-history
+  error code `4444` only for an explicit fixed range with
+  `allow-reth-pruned-history`; do not accept another code, an invalid block, a
+  missing result, or the exception in finalized-tail mode.
 - Require one primary plus at least one standby self-hosted Reth.
 - Require the exact by-hash canonical witness response on both witness roles.
 - Require the sealed approved-replayer manifest and keep its binary realpath

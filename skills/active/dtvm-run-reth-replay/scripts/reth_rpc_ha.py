@@ -106,11 +106,13 @@ class RpcFailure(Exception):
         endpoint: str | None = None,
         *,
         retry_after: float | None = None,
+        error_code: int | None = None,
     ) -> None:
         super().__init__(category)
         self.category = category
         self.endpoint = endpoint
         self.retry_after = retry_after
+        self.error_code = error_code
 
 
 class JsonObjectPairs(list[tuple[Any, Any]]):
@@ -425,6 +427,7 @@ class Config:
     path: Path
     chain_id: str
     genesis_hash: str
+    genesis_policy: str
     policy: Policy
     endpoints: tuple[EndpointConfig, ...]
     public_fingerprint: str
@@ -451,13 +454,23 @@ def load_config(path: Path) -> Config:
     chain = raw.get("expectedChain")
     if not isinstance(chain, dict):
         raise ConfigError("expected_chain_must_be_object")
-    require_keys(chain, {"chainId", "genesisHash"}, "expected_chain")
+    require_keys(
+        chain,
+        {"chainId", "genesisHash", "genesisPolicy"},
+        "expected_chain",
+    )
     chain_id = chain.get("chainId")
     genesis_hash = chain.get("genesisHash")
+    genesis_policy = chain.get("genesisPolicy", "require-block")
     if not isinstance(chain_id, str) or not QUANTITY_RE.fullmatch(chain_id):
         raise ConfigError("invalid_expected_chain_id")
     if not isinstance(genesis_hash, str) or not HASH_RE.fullmatch(genesis_hash):
         raise ConfigError("invalid_expected_genesis_hash")
+    if genesis_policy not in {
+        "require-block",
+        "allow-reth-pruned-history",
+    }:
+        raise ConfigError("invalid_expected_genesis_policy")
     if (
         chain_id.lower() != MAINNET_CHAIN_ID
         or genesis_hash.lower() != MAINNET_GENESIS_HASH
@@ -568,6 +581,7 @@ def load_config(path: Path) -> Config:
         path=path.resolve(),
         chain_id=chain_id.lower(),
         genesis_hash=genesis_hash.lower(),
+        genesis_policy=genesis_policy,
         policy=policy,
         endpoints=tuple(endpoints),
         public_fingerprint=sha256_bytes(canonical_json(raw)),
@@ -1132,6 +1146,8 @@ class RpcClient:
                 category = "capability_missing"
             elif code == -32602:
                 category = "capability_incompatible"
+            elif code == 4444:
+                category = "pruned_history_unavailable"
             else:
                 category = "rpc_error"
             self.metrics.record(
@@ -1140,7 +1156,7 @@ class RpcClient:
                 category=category,
                 latency_ms=latency,
             )
-            raise RpcFailure(category, endpoint.name)
+            raise RpcFailure(category, endpoint.name, error_code=code)
         if "result" not in document:
             self.metrics.record(
                 method=method,
@@ -1378,6 +1394,7 @@ def probe_endpoint(
     expected_pin: dict[str, str] | None,
     *,
     probe_witness: bool,
+    allow_pruned_genesis: bool = False,
 ) -> dict[str, Any]:
     report: dict[str, Any] = {
         "name": endpoint.name,
@@ -1385,6 +1402,12 @@ def probe_endpoint(
         "configured": True,
         "chainId": False,
         "genesisHash": False,
+        "genesisVerification": {
+            "policy": config.genesis_policy,
+            "mode": None,
+            "rpcBlockVerified": False,
+            "prunedHistoryAccepted": False,
+        },
         "syncing": False,
         "finalized": False,
         "capabilities": {
@@ -1403,14 +1426,39 @@ def probe_endpoint(
         )
         if not report["chainId"]:
             raise RpcFailure("chain_mismatch", endpoint.name)
-        genesis = client.request_endpoint_retry(
-            endpoint, "eth_getBlockByNumber", ["0x0", False]
-        )
-        report["genesisHash"] = bool(
-            valid_block(genesis)
-            and genesis["number"].lower() == "0x0"
-            and genesis["hash"].lower() == config.genesis_hash
-        )
+        try:
+            genesis = client.request_endpoint_retry(
+                endpoint, "eth_getBlockByNumber", ["0x0", False]
+            )
+            report["genesisHash"] = bool(
+                valid_block(genesis)
+                and genesis["number"].lower() == "0x0"
+                and genesis["hash"].lower() == config.genesis_hash
+            )
+            if report["genesisHash"]:
+                report["genesisVerification"].update(
+                    {
+                        "mode": "rpc-block",
+                        "rpcBlockVerified": True,
+                    }
+                )
+        except RpcFailure as failure:
+            if (
+                allow_pruned_genesis
+                and config.genesis_policy == "allow-reth-pruned-history"
+                and failure.category == "pruned_history_unavailable"
+                and failure.error_code == 4444
+            ):
+                report["genesisHash"] = True
+                report["genesisVerification"].update(
+                    {
+                        "mode": "reth-pruned-history",
+                        "prunedHistoryAccepted": True,
+                        "rpcErrorCode": 4444,
+                    }
+                )
+            else:
+                raise
         if not report["genesisHash"]:
             raise RpcFailure("genesis_mismatch", endpoint.name)
         syncing = client.request_endpoint_retry(endpoint, "eth_syncing", [])
@@ -1486,6 +1534,7 @@ def readiness(
     *,
     frozen_pin: dict[str, Any] | None = None,
     selector_override: str | None = None,
+    fixed_range_identity: bool = False,
 ) -> dict[str, Any]:
     selector = (
         frozen_pin["numberHex"]
@@ -1501,6 +1550,7 @@ def readiness(
             selector,
             expected_pin,
             probe_witness=endpoint.role in WITNESS_ROLES,
+            allow_pruned_genesis=fixed_range_identity,
         )
         for endpoint in endpoints
     ]
@@ -1557,6 +1607,7 @@ def readiness(
         "expectedChain": {
             "chainId": config.chain_id,
             "genesisHash": config.genesis_hash,
+            "genesisPolicy": config.genesis_policy,
         },
         "canonicalQuorum": {
             "required": config.policy.canonical_quorum,
@@ -1670,6 +1721,7 @@ def readiness_fixed_range(
         client,
         frozen_pin=expected_anchor,
         selector_override=quantity(selection.end),
+        fixed_range_identity=True,
     )
     eligible_names = {
         report["name"]
