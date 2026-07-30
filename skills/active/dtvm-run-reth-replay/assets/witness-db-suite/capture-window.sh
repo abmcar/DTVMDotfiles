@@ -10,13 +10,17 @@ replayer_manifest="${CAPTURE_WINDOW_REPLAYER_MANIFEST:-}"
 dtvm_identity_manifest="${CAPTURE_WINDOW_DTVM_IDENTITY_MANIFEST:-}"
 reth_repository="${CAPTURE_WINDOW_RETH_REPOSITORY:-${experiment_root}/src/reth}"
 requested_tag="finalized"
+tag_explicit=false
+start_block=""
+end_block=""
+selection_mode="finalized_tail"
 count=16
 max_attempts=3
 output=""
 rpc_url="${RETH_RPC_URL:-}"
 
 usage() {
-    echo "usage: $0 [--tag finalized|safe|latest] [--count N] [--max-attempts N] --output DIRECTORY --dtvm-identity-manifest FILE [--replayer-manifest FILE] [RPC_URL]" >&2
+    echo "usage: $0 ([--tag finalized|safe|latest] | --start-block N --end-block N) [--count N] [--max-attempts N] --output DIRECTORY --dtvm-identity-manifest FILE [--replayer-manifest FILE] [RPC_URL]" >&2
 }
 
 while [[ "$#" -gt 0 ]]; do
@@ -24,6 +28,17 @@ while [[ "$#" -gt 0 ]]; do
         --tag)
             [[ "$#" -ge 2 ]] || { usage; exit 2; }
             requested_tag="$2"
+            tag_explicit=true
+            shift 2
+            ;;
+        --start-block)
+            [[ "$#" -ge 2 ]] || { usage; exit 2; }
+            start_block="$2"
+            shift 2
+            ;;
+        --end-block)
+            [[ "$#" -ge 2 ]] || { usage; exit 2; }
+            end_block="$2"
             shift 2
             ;;
         --count)
@@ -75,6 +90,39 @@ emit_failure() {
     local detail="$2"
     local attempts="${3:-0}"
     local last_category="${4:-null}"
+    if [[ "${selection_mode}" == "exact_fixed_range" ]]; then
+        jq -cn \
+            --arg category "${category}" \
+            --arg detail "${detail}" \
+            --arg start_text "${start_block}" \
+            --arg end_text "${end_block}" \
+            --arg count_text "${count}" \
+            --arg max_attempts_text "${max_attempts}" \
+            --argjson attempts "${attempts}" \
+            --arg last_category "${last_category}" \
+            '{
+                schema: "reth-dtvm.fixed-range-failure.v1",
+                status: "failure",
+                success: false,
+                failureCategory: $category,
+                detail: $detail,
+                requestedTag: null,
+                requestedSelection: {
+                    mode: "exact_fixed_range",
+                    startNumber: ($start_text | tonumber? // $start_text),
+                    endNumber: ($end_text | tonumber? // $end_text),
+                    count: ($count_text | tonumber? // $count_text)
+                },
+                maxAttempts:
+                    ($max_attempts_text | tonumber? // $max_attempts_text),
+                attemptCount: $attempts,
+                lastAttemptFailure:
+                    (if $last_category == "null" then null else $last_category end),
+                rpcUrlRecorded: false,
+                outputPublished: false
+            }'
+        return
+    fi
     jq -cn \
         --arg tag "${requested_tag}" \
         --arg category "${category}" \
@@ -100,6 +148,24 @@ emit_failure() {
         }'
 }
 
+if [[ -n "${start_block}" || -n "${end_block}" ]]; then
+    selection_mode="exact_fixed_range"
+fi
+if [[ "${selection_mode}" == "exact_fixed_range" ]]; then
+    if [[ "${tag_explicit}" == true ]]; then
+        emit_failure "invalid_arguments" "fixed_range_must_not_use_tag"
+        exit 2
+    fi
+    if [[ ! "${start_block}" =~ ^(0|[1-9][0-9]*)$ ||
+          ! "${end_block}" =~ ^(0|[1-9][0-9]*)$ ]]; then
+        emit_failure "invalid_arguments" "start_and_end_must_be_decimal_integers"
+        exit 2
+    fi
+    if (( end_block < start_block )); then
+        emit_failure "invalid_arguments" "invalid_fixed_range"
+        exit 2
+    fi
+fi
 if [[ "${requested_tag}" != "finalized" &&
       "${requested_tag}" != "safe" &&
       "${requested_tag}" != "latest" ]]; then
@@ -108,6 +174,11 @@ if [[ "${requested_tag}" != "finalized" &&
 fi
 if [[ ! "${count}" =~ ^[1-9][0-9]*$ ]] || (( count > 256 )); then
     emit_failure "invalid_arguments" "count_must_be_between_1_and_256"
+    exit 2
+fi
+if [[ "${selection_mode}" == "exact_fixed_range" ]] &&
+   (( end_block - start_block + 1 != count )); then
+    emit_failure "invalid_arguments" "start_end_count_mismatch"
     exit 2
 fi
 if [[ ! "${max_attempts}" =~ ^[1-9][0-9]*$ ]] || (( max_attempts > 10 )); then
@@ -345,6 +416,8 @@ run_attempt() {
     local rpc_error="${attempt_root}/rpc.stderr"
     local blocks_jsonl="${attempt_root}/blocks.jsonl"
     local meta_jsonl="${attempt_root}/block-meta.jsonl"
+    local pre_order_jsonl="${attempt_root}/pre-order.jsonl"
+    local post_order_jsonl="${attempt_root}/post-order.jsonl"
     local capture_started
     local pin_number_hex pin_number pin_hash start_number
     local previous_hash=""
@@ -353,11 +426,14 @@ run_attempt() {
     local transaction_count bundle_name bundle_path fetch_json verify_json
     local verify_number verify_hash verify_parent verify_raw_bytes verify_tx_count
     local bundle_sha capture_utc recheck_response recheck_hash
+    local pre_commitment post_commitment block_commitment
 
     attempt_failure=""
     mkdir -m 700 -- "${attempt_root}" "${bundles}"
     : >"${blocks_jsonl}"
     : >"${meta_jsonl}"
+    : >"${pre_order_jsonl}"
+    : >"${post_order_jsonl}"
     capture_started="$(date -u +%Y-%m-%dT%H:%M:%SZ)"
 
     if ! rpc_call "eth_chainId" '[]' "${chain_response}" "${rpc_error}"; then
@@ -369,31 +445,38 @@ run_attempt() {
         return
     fi
 
-    if ! rpc_block_by_number "${requested_tag}" "${pin_response}" "${rpc_error}"; then
-        fail_attempt "pin_rpc_failed"
-        return
+    if [[ "${selection_mode}" == "exact_fixed_range" ]]; then
+        start_number="${start_block}"
+        pin_number="${end_block}"
+        pin_number_hex="$(dec_to_hex "${pin_number}")"
+        pin_hash=""
+    else
+        if ! rpc_block_by_number "${requested_tag}" "${pin_response}" "${rpc_error}"; then
+            fail_attempt "pin_rpc_failed"
+            return
+        fi
+        if ! jq -e \
+            'def quantity:
+                 type == "string" and test("^0x(0|[1-9a-fA-F][0-9a-fA-F]*)$");
+             def hash:
+                 type == "string" and test("^0x[0-9a-fA-F]{64}$");
+             (.result | type == "object") and
+             (.result.number | quantity) and
+             (.result.hash | hash) and
+             (.result.parentHash | hash)' \
+            "${pin_response}" >/dev/null; then
+            fail_attempt "pin_block_missing_or_malformed"
+            return
+        fi
+        pin_number_hex="$(jq -r '.result.number | ascii_downcase' "${pin_response}")"
+        pin_hash="$(jq -r '.result.hash | ascii_downcase' "${pin_response}")"
+        if ! pin_number="$(hex_to_dec "${pin_number_hex}")" ||
+           (( pin_number + 1 < count )); then
+            fail_attempt "pin_height_too_low"
+            return
+        fi
+        start_number=$((pin_number - count + 1))
     fi
-    if ! jq -e \
-        'def quantity:
-             type == "string" and test("^0x(0|[1-9a-fA-F][0-9a-fA-F]*)$");
-         def hash:
-             type == "string" and test("^0x[0-9a-fA-F]{64}$");
-         (.result | type == "object") and
-         (.result.number | quantity) and
-         (.result.hash | hash) and
-         (.result.parentHash | hash)' \
-        "${pin_response}" >/dev/null; then
-        fail_attempt "pin_block_missing_or_malformed"
-        return
-    fi
-    pin_number_hex="$(jq -r '.result.number | ascii_downcase' "${pin_response}")"
-    pin_hash="$(jq -r '.result.hash | ascii_downcase' "${pin_response}")"
-    if ! pin_number="$(hex_to_dec "${pin_number_hex}")" ||
-       (( pin_number + 1 < count )); then
-        fail_attempt "pin_height_too_low"
-        return
-    fi
-    start_number=$((pin_number - count + 1))
 
     for ((height = start_number; height <= pin_number; height++)); do
         height_hex="$(dec_to_hex "${height}")"
@@ -437,8 +520,16 @@ run_attempt() {
         fi
         previous_hash="${block_hash}"
         jq -c '.result' "${header_response}" >>"${blocks_jsonl}"
+        jq -cn \
+            --argjson number "${block_number}" \
+            --arg number_hex "${block_number_hex}" \
+            --arg hash "${block_hash}" \
+            '{number: $number, numberHex: $number_hex, hash: $hash}' \
+            >>"${pre_order_jsonl}"
     done
-    if [[ "${previous_hash}" != "${pin_hash}" ]]; then
+    if [[ "${selection_mode}" == "exact_fixed_range" ]]; then
+        pin_hash="${previous_hash}"
+    elif [[ "${previous_hash}" != "${pin_hash}" ]]; then
         fail_attempt "pinned_head_changed_during_window_resolution"
         return
     fi
@@ -572,6 +663,12 @@ run_attempt() {
             fail_attempt "canonical_window_changed"
             return
         fi
+        jq -cn \
+            --argjson number "${block_number}" \
+            --arg number_hex "${block_number_hex}" \
+            --arg hash "${recheck_hash}" \
+            '{number: $number, numberHex: $number_hex, hash: $hash}' \
+            >>"${post_order_jsonl}"
     done <"${blocks_jsonl}"
 
     local manifest_tmp="${attempt_root}/manifest.json.tmp"
@@ -581,7 +678,98 @@ run_attempt() {
     source_identity_json >"${attempt_root}/source-identity.json"
     dtvm_identity_json >"${attempt_root}/dtvm-identity.json"
     replayer_identity_json >"${attempt_root}/replayer-identity.json"
-    jq -n \
+    if [[ "${selection_mode}" == "exact_fixed_range" ]]; then
+        jq -cS -s '.' "${pre_order_jsonl}" |
+            tr -d '\n' >"${attempt_root}/pre-order.json"
+        jq -cS -s '.' "${post_order_jsonl}" |
+            tr -d '\n' >"${attempt_root}/post-order.json"
+        jq -cS '[.[] | {number, hash}]' \
+            "${attempt_root}/blocks-array.json" |
+            tr -d '\n' >"${attempt_root}/block-order.json"
+        pre_commitment="$(
+            sha256sum "${attempt_root}/pre-order.json" | awk '{print $1}'
+        )"
+        post_commitment="$(
+            sha256sum "${attempt_root}/post-order.json" | awk '{print $1}'
+        )"
+        block_commitment="$(
+            sha256sum "${attempt_root}/block-order.json" | awk '{print $1}'
+        )"
+        jq -n \
+            --argjson count "${count}" \
+            --argjson start_number "${start_number}" \
+            --arg start_number_hex "$(dec_to_hex "${start_number}")" \
+            --argjson end_number "${pin_number}" \
+            --arg end_number_hex "${pin_number_hex}" \
+            --arg end_hash "${pin_hash}" \
+            --arg pre_commitment "${pre_commitment}" \
+            --arg post_commitment "${post_commitment}" \
+            --arg block_commitment "${block_commitment}" \
+            --slurpfile pre "${attempt_root}/pre-order.json" \
+            --slurpfile post "${attempt_root}/post-order.json" \
+            --slurpfile blocks "${attempt_root}/blocks-array.json" \
+            --slurpfile source "${attempt_root}/source-identity.json" \
+            --slurpfile dtvm "${attempt_root}/dtvm-identity.json" \
+            --slurpfile replayer "${attempt_root}/replayer-identity.json" \
+            '{
+                schema: "reth-dtvm.atomic-fixed-range-capture.v1",
+                status: "success",
+                success: true,
+                requestedTag: null,
+                requestedSelection: {
+                    mode: "exact_fixed_range",
+                    startNumber: $start_number,
+                    startNumberHex: $start_number_hex,
+                    endNumber: $end_number,
+                    endNumberHex: $end_number_hex,
+                    count: $count
+                },
+                chainId: "0x1",
+                count: $count,
+                range: {
+                    firstNumber: $start_number,
+                    firstNumberHex: $start_number_hex,
+                    lastNumber: $end_number,
+                    lastNumberHex: $end_number_hex
+                },
+                rangeAnchor: {
+                    number: $end_number,
+                    numberHex: $end_number_hex,
+                    hash: $end_hash
+                },
+                pinnedHead: null,
+                witness: {
+                    method: "debug_executionWitnessByBlockHash",
+                    mode: "canonical",
+                    policy: "production",
+                    addressMode: "by_hash",
+                    fetchesPerHashPerAttempt: 1
+                },
+                canonicalRecheck: {
+                    beforeCapture: {
+                        phase: "before_capture",
+                        checkedCount: $count,
+                        orderedHeightHashes: $pre[0],
+                        orderedCommitmentSha256: $pre_commitment
+                    },
+                    afterCapture: {
+                        phase: "after_capture",
+                        checkedCount: $count,
+                        orderedHeightHashes: $post[0],
+                        orderedCommitmentSha256: $post_commitment
+                    },
+                    allOrderedHashesUnchanged: ($pre[0] == $post[0])
+                },
+                orderedBlockCommitmentSha256: $block_commitment,
+                sourceIdentity: $source[0],
+                dtvmIdentity: $dtvm[0],
+                replayerIdentity: $replayer[0],
+                blocks: $blocks[0],
+                rpcUrlRecorded: false,
+                atomicPublication: true
+            }' >"${manifest_tmp}"
+    else
+        jq -n \
         --arg tag "${requested_tag}" \
         --argjson count "${count}" \
         --argjson attempt_count "${attempt}" \
@@ -640,6 +828,7 @@ run_attempt() {
             rpcUrlRecorded: false,
             atomicPublication: true
         }' >"${manifest_tmp}"
+    fi
     mv -- "${manifest_tmp}" "${attempt_root}/manifest.json"
 
     rm -f -- \
@@ -654,6 +843,11 @@ run_attempt() {
         "${attempt_root}/rpc.stderr" \
         "${blocks_jsonl}" \
         "${meta_jsonl}" \
+        "${pre_order_jsonl}" \
+        "${post_order_jsonl}" \
+        "${attempt_root}/pre-order.json" \
+        "${attempt_root}/post-order.json" \
+        "${attempt_root}/block-order.json" \
         "${attempt_root}/blocks-array.json" \
         "${attempt_root}/source-identity.json" \
         "${attempt_root}/dtvm-identity.json" \

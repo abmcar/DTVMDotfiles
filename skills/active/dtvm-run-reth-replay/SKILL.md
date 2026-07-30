@@ -1,6 +1,6 @@
 ---
 name: dtvm-run-reth-replay
-description: Operate a maintainable DTVM–Reth replay workflow from exact endpoint readiness through a frozen finalized block-window capture, offline strict DTVM replay, and checksummed evidence sealing. Use when Codex must validate primary/standby Reth witness endpoints, capture or resume current canonical blocks and transactions with execution witnesses, diagnose HA RPC or quorum failures, replay a frozen corpus without network time, or seal reusable DTVM replay evidence.
+description: Operate a maintainable DTVM–Reth replay workflow from exact endpoint readiness through a frozen finalized-tail or explicit fixed-range block capture, offline strict DTVM replay, and checksummed evidence sealing. Use when Codex must validate primary/standby Reth witness endpoints, capture or resume current or historical canonical blocks with execution witnesses, diagnose HA RPC or quorum failures, replay a frozen corpus without network time, or seal reusable DTVM replay evidence.
 ---
 
 # Run a frozen DTVM–Reth replay
@@ -51,8 +51,12 @@ Require these inputs:
 | endpoint URL/header variables | Values named by the config; inspect presence only |
 | `DTVM_RETH_OUTPUT` | New final corpus path |
 | `DTVM_RETH_STATE_DIR` | Private durable resume/metrics/seal directory |
+| fixed-range selection | Set both `DTVM_RETH_START_BLOCK` and `DTVM_RETH_END_BLOCK`; unset both for finalized-tail mode |
+| pruned-genesis policy | Keep `expectedChain.genesisPolicy` at `require-block` unless an exact fixed range is served by Reth nodes that return error code `4444` for block zero; only then set `allow-reth-pruned-history` |
 | `DTVM_IDENTITY_MANIFEST` | Frozen DTVM source-identity manifest |
 | `DTVM_REPLAYER_MANIFEST` | Sealed approval whose replayer realpath and SHA-256 are required at capture, replay, and seal |
+| `DTVM_VERIFY_WITNESS` | Explicit executable witness verifier passed into capture; never rely on a restored suite's relative build-directory default |
+| `DTVM_RETH_REPOSITORY` | Explicit frozen Reth Git checkout used only for capture source identity; never rely on a restored suite's relative source-directory default |
 | replay inputs | `DTVM_VERIFY_CORPUS_SCRIPT`, `DTVM_VERIFY_CORPUS_SHA256`, `DTVM_LIBRARY`, `DTVM_LIBRARY_SHA256`, `DTVM_REPLAY_OUTPUT`, and `DTVM_REPLAY_LABEL` |
 
 Never print, persist, interpolate into a command transcript, or report the
@@ -72,13 +76,21 @@ never assume the current working directory is the skill directory. Use
 network capture and offline replay as separate processes.
 
 1. Run `readiness`. Require exact chain ID and genesis, `eth_syncing == false`,
-   one finalized number/hash quorum, and two exact witness-ready Reth roles.
+   two exact witness-ready Reth roles, and either one finalized number/hash
+   quorum or a quorum-frozen ordered fixed range. The default requires the
+   genesis block over RPC. Exact fixed-range mode may instead accept Reth error
+   code `4444` only when `expectedChain.genesisPolicy` explicitly selects
+   `allow-reth-pruned-history`; it still requires Mainnet chain ID, quorum for
+   every requested number/hash, and both boundary witness probes. Never apply
+   that exception to finalized-tail readiness.
    Treat `-32601`, `-32602`, malformed responses, chain mismatch, genesis
    mismatch, syncing, hash drift, and quorum disagreement as not ready.
-2. Run `capture`. Freeze `finalized`, capture 16 contiguous heights through the
-   existing `capture-window.sh`, verify each bundle, recheck every height, and
-   publish only with an atomic no-replace directory rename. Resume only with a
-   matching config fingerprint, count, output and frozen pin.
+2. Run `capture`. In finalized-tail mode, freeze `finalized`. In fixed-range
+   mode, require explicit decimal start/end/count, freeze every ordered
+   height/hash before capture, and never resolve a moving tag. Use the same
+   `capture-window.sh`, verify each bundle, recheck every height, and publish
+   only with an atomic no-replace directory rename. Resume only with a matching
+   config fingerprint, selection, output and frozen identity.
 3. Run `replay`. Stop the gateway first. Remove all configured RPC variables
    from the replay child and require the fail-closed libseccomp launcher to
    deny socket and io_uring network paths. Require strict raw-block/witness
@@ -102,6 +114,20 @@ bash "$SKILL_ROOT/scripts/run-frozen-replay.sh" replay
 bash "$SKILL_ROOT/scripts/run-frozen-replay.sh" seal
 ```
 
+For an exact historical range, set both bounds for every readiness/capture
+invocation and keep them set for `all`:
+
+```bash
+export DTVM_RETH_START_BLOCK=25625000
+export DTVM_RETH_END_BLOCK=25625015
+export DTVM_RETH_BLOCK_COUNT=16
+bash "$SKILL_ROOT/scripts/run-frozen-replay.sh" readiness
+bash "$SKILL_ROOT/scripts/run-frozen-replay.sh" capture
+```
+
+Unset both bound variables for the backward-compatible finalized-tail v1
+workflow. Setting only one bound fails before the HA client runs.
+
 Run the complete sequence with `all` only after all replay inputs exist:
 
 ```bash
@@ -113,8 +139,16 @@ bash "$SKILL_ROOT/scripts/run-frozen-replay.sh" all
 Do not continue or weaken checks when any gate fails:
 
 - Use the hard-coded Mainnet chain ID and genesis hash exactly.
+- Keep genesis policy fail-closed by default. Permit Reth's exact pruned-history
+  error code `4444` only for an explicit fixed range with
+  `allow-reth-pruned-history`; do not accept another code, an invalid block, a
+  missing result, or the exception in finalized-tail mode.
 - Require one primary plus at least one standby self-hosted Reth.
 - Require the exact by-hash canonical witness response on both witness roles.
+- Require an explicit executable `DTVM_VERIFY_WITNESS` for capture so the
+  restored suite cannot silently depend on an unrelated relative build path.
+- Require an explicit `DTVM_RETH_REPOSITORY` and pass it only as the capture
+  source-identity checkout; do not infer a source tree from suite placement.
 - Require the sealed approved-replayer manifest and keep its binary realpath
   and SHA-256 continuous through capture, replay report, and seal.
 - Never use `eth_getProof`, a number-addressed witness, or a standard provider
@@ -124,7 +158,9 @@ Do not continue or weaken checks when any gate fails:
   result, partial public output, any symlinked corpus path component, or
   checksum mismatch.
 - Preserve the existing v1 capture manifest fields and one high-level fetch per
-  hash per whole-window attempt.
+  hash per whole-window attempt. Dispatch fixed capture only through
+  `reth-dtvm.atomic-fixed-range-capture.v1`; never reinterpret that schema as
+  finalized v1.
 - Keep retries bounded. Retry 429 with bounded `Retry-After`; retry/fail over
   timeout, transport and 5xx. Readiness and quorum retry one endpoint within
   budget before recording its single vote; stop authentication and identity
@@ -149,11 +185,12 @@ Do not continue or weaken checks when any gate fails:
 
 ## Recover from interruption
 
-Reuse the same config, output and state directory. The state machine revalidates
-the frozen historical hash on every available eligible source, requires the
-configured quorum, and reuses only
-checksummed immutable hash-addressed cache entries. A corrupt/truncated cache
-entry is ignored and atomically replaced.
+Reuse the same config, output, state directory and selection. The finalized
+state machine revalidates its frozen pin. The fixed-range v2 state machine
+revalidates its complete ordered height/hash vector and readiness checksum;
+neither schema may resume the other. Both require the configured quorum and
+reuse only checksummed immutable hash-addressed cache entries. A
+corrupt/truncated cache entry is ignored and atomically replaced.
 
 The workflow lock is non-blocking: another capture, replay, or seal using the
 same state directory returns `workflow_already_running`. After a successful
@@ -161,11 +198,11 @@ seal, retry only with the same state directory and inputs; the sealed fast path
 revalidates every input, pre-seal continuity, state checksum, report identity,
 and seal bytes before returning the existing document.
 
-If the config fingerprint, count or output changes, start a new state directory.
-If a frozen hash loses quorum or has reorged, do not rewrite the old state into
-a new claim; preserve it for diagnosis and start a new capture identity. Use an
-archive Reth when the resume may fall outside a full node's recent witness
-history window.
+If the config fingerprint, count, output, selection mode or fixed bound changes,
+start a new state directory. If any frozen hash loses quorum or has reorged, do
+not rewrite the old state into a new claim; preserve it for diagnosis and start
+a new capture identity. Use an archive Reth when the resume may fall outside a
+full node's recent witness history window.
 
 ## Verify before handoff
 

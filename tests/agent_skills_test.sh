@@ -2,6 +2,10 @@
 
 set -euo pipefail
 
+# Individual fixtures opt into release checks explicitly; do not inherit the
+# outer validation command's dry-run mode.
+unset RELEASE_CHECK
+
 TEST_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 REPO_DIR="$(cd "$TEST_DIR/.." && pwd)"
 TEST_TMP="$(mktemp -d)"
@@ -27,6 +31,7 @@ expected_active=(
     dtvm-compiler-path-analysis
     dtvm-dev-cycle
     dtvm-dev-workflow
+    dtvm-profile-reth-replay
     dtvm-run-reth-replay
     dtvm-worktree-bootstrap
     dtvm-write-report

@@ -157,6 +157,8 @@ Route current work to the personal replacements:
 - `dtvm-compiler-path-analysis`: map measured hotspots to current compiler source
 - `dtvm-compile-time-optimize`: explicitly invoked end-to-end optimization loop
 - `dtvm-run-reth-replay`: freeze, strictly replay, and seal a DTVM–Reth corpus
+- `dtvm-profile-reth-replay`: benchmark and profile paired real-block replay on
+  that frozen, strict-correct corpus
 - `dtvm-write-report`: write and lint decision-first reader-facing DTVM reports
 
 The two retired packages, `dmir-compiler-analysis` and `dtvm-perf-profile`,

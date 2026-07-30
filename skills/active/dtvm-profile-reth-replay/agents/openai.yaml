@@ -1,0 +1,4 @@
+interface:
+  display_name: "DTVM Reth Replay Performance"
+  short_description: "Profile frozen Reth block replay with paired evidence"
+  default_prompt: "Use $dtvm-profile-reth-replay to run a sealed paired performance profile on this frozen Reth replay corpus."

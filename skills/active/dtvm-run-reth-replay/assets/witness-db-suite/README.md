@@ -1,4 +1,4 @@
-# Finalized tip replay is automatic; moving tips remain reorg-aware
+# Finalized-tail and exact fixed-range capture are explicit
 
 This directory is restored output. Its versioned source is the
 `dtvm-run-reth-replay` skill in DTVMDotfiles. Use
@@ -18,6 +18,31 @@ secret-free schema in `config/reth-rpc-ha.schema.json`. The production
 architecture and operating commands are in `HA_RPC_OPERATIONS.md`. The
 existing scripts below remain the capture and strict-replay protocol behind
 that HA layer.
+
+`capture-window.sh` has two mutually exclusive selection modes. Existing
+`--tag finalized|safe|latest` behavior and the finalized v1 manifest remain
+unchanged. Supplying both `--start-block` and `--end-block` selects an exact
+decimal range; `--count` must equal `end - start + 1`. Fixed mode never resolves
+or records a moving tag and emits
+`reth-dtvm.atomic-fixed-range-capture.v1`, including the pre/post ordered
+height/hash vectors and their canonical JSON commitments.
+
+Use fixed mode only behind the HA gateway after it freezes the same range on
+the configured canonical quorum:
+
+```bash
+./capture-window.sh \
+  --start-block 25625000 \
+  --end-block 25625015 \
+  --count 16 \
+  --output /path/to/fixed-16-corpus \
+  --dtvm-identity-manifest /path/to/dtvm-identity.json \
+  --replayer-manifest /path/to/approved-replayer.json \
+  http://127.0.0.1:8545
+```
+
+Do not combine a tag with fixed bounds, infer one missing bound, or translate
+the fixed manifest into finalized v1.
 
 `replay-tip.sh` now captures and replays a Mainnet Reth chain tip without
 manually selecting a hash. It defaults to `finalized`, pins the tag's number

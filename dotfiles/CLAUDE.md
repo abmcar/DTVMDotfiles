@@ -65,6 +65,10 @@ DTVMDotfiles releases the following user-level skills from its own
 - **`dtvm-run-reth-replay`**: validate primary/standby Reth witness endpoints,
   freeze a finalized block window, run strict offline DTVM replay, and seal
   checksummed reusable evidence
+- **`dtvm-profile-reth-replay`**: use an already frozen, strict-correct Reth
+  window for paired full-window real-block replay benchmarks and process-wide
+  perf attribution; keep witness capture in `dtvm-run-reth-replay` and
+  one-shot compiler profiling in `dtvm-cold-compile-profile`
 
 When the user explicitly invokes the end-to-end optimization workflow, use
 `dtvm-compile-time-optimize`. It uses `dtvm-worktree-bootstrap` when isolated
@@ -259,7 +263,9 @@ Branch inside a `.worktrees/` worktree even when starting fresh from a clean
 - Cold compilation profiling: `dtvm-cold-compile-profile`; measured compiler
   path analysis: `dtvm-compiler-path-analysis`; verified optimization:
   `dtvm-compile-time-optimize`; Reth corpus capture and strict offline replay:
-  `dtvm-run-reth-replay`; reader-facing reports: `dtvm-write-report`.
+  `dtvm-run-reth-replay`; paired real-block replay performance and process-wide
+  profiling on a frozen corpus: `dtvm-profile-reth-replay`; reader-facing
+  reports: `dtvm-write-report`.
 
 ## Code Style
 

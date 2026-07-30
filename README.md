@@ -86,6 +86,7 @@ DTVMDotfiles/
 | `dtvm-compiler-path-analysis` | 从 bundle 把已测热点映射到当前 EVM → dMIR → CGIR → RA → MC/object 源码路径和最小 seam |
 | `dtvm-compile-time-optimize` | 仅在显式调用时编排 profile → 分析 → compiler-agent 最小实现 → 同条件配对 benchmark 与正确性验证 |
 | `dtvm-run-reth-replay` | 从 Reth endpoint 检查、冻结 finalized block window 到严格离线 DTVM replay 和证据封存 |
+| `dtvm-profile-reth-replay` | 在已冻结且严格正确的 Reth 区块窗口上运行成对全窗口回放 benchmark、进程级 perf 归因和可选冷编译诊断 |
 | `dtvm-write-report` | 把技术、性能和实验结果写成结论优先的读者报告，并用确定性 lint 阻止主次失衡、QA 标签泄漏和实验术语误用 |
 
 每个 skill 保持单一职责；详细 reference、script 或 asset 只在对应任务需要时
@@ -199,8 +200,8 @@ tail anchor 和用户级 links。`release.sh` 在任何部署写入前执行 Cla
 
 仓库中的 map 和 checked-in Claude adapter 表示下一次协调的目标策略；只提交
 这些文件不会改动当前机器的 live adapter。必须显式运行 `skills.sh sync`
-并完成 `release.sh`，目标四项策略和九个 active skill 才会进入本机派生状态。
-本集成分支尚未执行该 live release。
+并完成 `release.sh`，目标四项策略和十个 active skill 才会进入本机派生状态。
+本机已完成该 live release；其他机器仍需显式执行。
 
 项目级 `CLAUDE.md`、生成的 `AGENTS.md` 和 `GEMINI.md` 使用正向路由，把
 新任务交给上表中的个人 skills。旧 skill 仅可作为编写替代流程时的历史来源，

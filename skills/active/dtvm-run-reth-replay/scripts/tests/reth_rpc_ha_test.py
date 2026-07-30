@@ -37,6 +37,46 @@ OTHER_HASH = "0x" + "33" * 32
 THIRD_HASH = "0x" + "44" * 32
 TX_HASH = "0x" + "55" * 32
 SECRET = "fixture-secret"
+FIXED_START = 25_625_000
+FIXED_END = 25_625_015
+FIXED_COUNT = 16
+
+
+def fixed_hash(height: int, *, changed: bool = False) -> str:
+    prefix = 1 << 200 if changed else 0
+    return f"0x{prefix + height:064x}"
+
+
+def fixed_range_behavior(
+    request: dict[str, Any],
+    *,
+    changed_height: int | None = None,
+    broken_parent_height: int | None = None,
+) -> tuple[int, Any, dict[str, str], float]:
+    if request["method"] != "eth_getBlockByNumber":
+        return FakeRpc.default_behavior(request)
+    selector = request.get("params", [""])[0]
+    if selector == "0x0":
+        return FakeRpc.default_behavior(request)
+    height = int(selector, 16)
+    parent_height = height - 1
+    block_changed = changed_height == height
+    parent_changed = changed_height == parent_height
+    parent_hash = fixed_hash(parent_height, changed=parent_changed)
+    if broken_parent_height == height:
+        parent_hash = OTHER_HASH
+    return (
+        200,
+        {
+            "number": HA.quantity(height),
+            "hash": fixed_hash(height, changed=block_changed),
+            "parentHash": parent_hash,
+            "transactions": [],
+            "gasUsed": "0x0",
+        },
+        {},
+        0,
+    )
 
 
 def response_for(request: dict[str, Any], block_hash: str = FINAL_HASH) -> Any:
@@ -183,6 +223,7 @@ def write_config(
     quorum: int = 2,
     backoff_initial_ms: int = 0,
     backoff_max_ms: int = 0,
+    genesis_policy: str | None = None,
 ) -> Path:
     path = root / "config.json"
     value = {
@@ -221,6 +262,8 @@ def write_config(
             },
         ],
     }
+    if genesis_policy is not None:
+        value["expectedChain"]["genesisPolicy"] = genesis_policy
     path.write_text(json.dumps(value), encoding="utf-8")
     return path
 
@@ -266,6 +309,475 @@ class RethRpcHaTests(unittest.TestCase):
             report["witnessReadiness"]["readyEndpoints"], ["primary", "standby"]
         )
         self.assertFalse(report["secretMaterialRecorded"])
+
+    def test_fixed_selection_is_explicit_and_count_bound(self) -> None:
+        selection = HA.WindowSelection.fixed(
+            FIXED_START,
+            FIXED_END,
+            FIXED_COUNT,
+        )
+        self.assertEqual(
+            selection.as_json(),
+            {
+                "mode": "exact_fixed_range",
+                "startNumber": FIXED_START,
+                "startNumberHex": HA.quantity(FIXED_START),
+                "endNumber": FIXED_END,
+                "endNumberHex": HA.quantity(FIXED_END),
+                "count": FIXED_COUNT,
+            },
+        )
+        self.assertEqual(
+            HA.selection_from_json(selection.as_json()),
+            selection,
+        )
+        with self.assertRaisesRegex(
+            HA.ConfigError,
+            "fixed_range_count_mismatch",
+        ):
+            HA.WindowSelection.fixed(
+                FIXED_START,
+                FIXED_END,
+                FIXED_COUNT - 1,
+            )
+        with self.assertRaisesRegex(
+            HA.ConfigError,
+            "fixed_range_requires_start_and_end",
+        ):
+            HA.selection_from_args(
+                SimpleNamespace(
+                    start_block=FIXED_START,
+                    end_block=None,
+                    count=FIXED_COUNT,
+                )
+            )
+        finalized = HA.selection_from_args(
+            SimpleNamespace(start_block=None, end_block=None, count=16)
+        )
+        self.assertEqual(finalized.mode, HA.SELECTION_FINALIZED)
+
+    def test_fixed_corpus_binds_every_block_to_frozen_order(self) -> None:
+        start = FIXED_START
+        end = start + 1
+        selection = HA.WindowSelection.fixed(start, end, 2)
+        ordered = [
+            {
+                "number": height,
+                "numberHex": HA.quantity(height),
+                "hash": fixed_hash(height),
+            }
+            for height in range(start, end + 1)
+        ]
+        frozen = {
+            "requestedSelection": selection.as_json(),
+            "range": {
+                "firstNumber": start,
+                "firstNumberHex": HA.quantity(start),
+                "lastNumber": end,
+                "lastNumberHex": HA.quantity(end),
+            },
+            "rangeAnchor": {
+                "number": end,
+                "numberHex": HA.quantity(end),
+                "hash": fixed_hash(end),
+                "agreedEndpoints": ["primary", "standby"],
+            },
+            "orderedHeightHashes": ordered,
+            "orderedCommitmentSha256": HA.ordered_height_commitment(ordered),
+        }
+        stage = self.root / "fixed-corpus"
+        bundles = stage / "bundles"
+        bundles.mkdir(parents=True)
+        blocks = []
+        for height in range(start, end + 1):
+            relative = f"bundles/block-{height}.json"
+            bundle = stage / relative
+            bundle.write_text(json.dumps({"height": height}))
+            blocks.append(
+                {
+                    "number": height,
+                    "numberHex": HA.quantity(height),
+                    "hash": fixed_hash(height),
+                    "parentHash": fixed_hash(height - 1),
+                    "bundle": relative,
+                    "bundleSha256": HA.sha256_file(bundle),
+                }
+            )
+        expected_replayer = {
+            "role": "downstream_replayer_identity",
+            "manifestRealpath": "/approved-replayer.json",
+            "manifestSha256": "ab" * 32,
+            "replayer": {
+                "realpath": "/approved-replayer",
+                "sha256": "cd" * 32,
+            },
+        }
+        recheck = {
+            "phase": "before_capture",
+            "checkedCount": 2,
+            "orderedHeightHashes": ordered,
+            "orderedCommitmentSha256": HA.ordered_height_commitment(
+                ordered
+            ),
+        }
+        manifest = {
+            "schema": HA.SCHEMA_FIXED_MANIFEST,
+            "status": "success",
+            "success": True,
+            "requestedTag": None,
+            "requestedSelection": selection.as_json(),
+            "count": 2,
+            "range": frozen["range"],
+            "rangeAnchor": {
+                key: value
+                for key, value in frozen["rangeAnchor"].items()
+                if key != "agreedEndpoints"
+            },
+            "pinnedHead": None,
+            "witness": {
+                "method": "debug_executionWitnessByBlockHash",
+                "mode": "canonical",
+                "policy": "production",
+            },
+            "canonicalRecheck": {
+                "beforeCapture": recheck,
+                "afterCapture": {
+                    **recheck,
+                    "phase": "after_capture",
+                },
+                "allOrderedHashesUnchanged": True,
+            },
+            "orderedBlockCommitmentSha256": (
+                HA.ordered_block_commitment(ordered)
+            ),
+            "replayerIdentity": expected_replayer,
+            "blocks": blocks,
+            "rpcUrlRecorded": False,
+        }
+        manifest_path = stage / "manifest.json"
+        manifest_path.write_text(json.dumps(manifest))
+        HA.validate_and_checksum_corpus(
+            stage,
+            2,
+            expected_fixed_range=frozen,
+            expected_replayer=expected_replayer,
+        )
+
+        tampered = json.loads(json.dumps(manifest))
+        tampered["blocks"][0]["hash"] = OTHER_HASH
+        tampered["blocks"][1]["parentHash"] = OTHER_HASH
+        tampered["orderedBlockCommitmentSha256"] = (
+            HA.ordered_block_commitment(tampered["blocks"])
+        )
+        manifest_path.write_text(json.dumps(tampered))
+        with self.assertRaisesRegex(
+            HA.ConfigError,
+            "invalid_bundle_manifest_entry",
+        ):
+            HA.validate_and_checksum_corpus(
+                stage,
+                2,
+                expected_fixed_range=frozen,
+                expected_replayer=expected_replayer,
+            )
+
+    def test_fixed_readiness_freezes_exact_ordered_window(self) -> None:
+        behavior = lambda request: fixed_range_behavior(request)
+        selection = HA.WindowSelection.fixed(
+            FIXED_START,
+            FIXED_END,
+            FIXED_COUNT,
+        )
+        with fake_cluster([behavior, behavior, behavior]) as servers:
+            config, endpoints, _metrics, client = self.client(servers)
+            report = HA.readiness_fixed_range(
+                config,
+                endpoints,
+                client,
+                selection,
+            )
+        self.assertTrue(report["success"])
+        self.assertEqual(report["schema"], HA.SCHEMA_FIXED_READINESS)
+        self.assertIsNone(report["frozenPin"])
+        frozen = report["frozenRange"]
+        self.assertEqual(frozen["requestedSelection"], selection.as_json())
+        self.assertEqual(
+            [entry["number"] for entry in frozen["orderedHeightHashes"]],
+            list(range(FIXED_START, FIXED_END + 1)),
+        )
+        self.assertEqual(
+            frozen["rangeAnchor"]["hash"],
+            fixed_hash(FIXED_END),
+        )
+        self.assertEqual(
+            frozen["orderedCommitmentSha256"],
+            HA.ordered_height_commitment(
+                frozen["orderedHeightHashes"]
+            ),
+        )
+        oldest = report["oldestWitnessReadiness"]
+        self.assertEqual(oldest["number"], FIXED_START)
+        self.assertEqual(oldest["hash"], frozen["orderedHeightHashes"][0]["hash"])
+        self.assertEqual(oldest["readyEndpoints"], ["primary", "standby"])
+        self.assertTrue(oldest["satisfied"])
+        for server in servers[:2]:
+            self.assertTrue(
+                any(
+                    request["method"]
+                    == "debug_executionWitnessByBlockHash"
+                    and request["params"]
+                    == [fixed_hash(FIXED_START), "canonical"]
+                    for request in server.requests
+                )
+            )
+        self.assertFalse(report["secretMaterialRecorded"])
+
+    def test_fixed_readiness_explicitly_accepts_reth_pruned_genesis(self) -> None:
+        selection = HA.WindowSelection.fixed(
+            FIXED_START,
+            FIXED_END,
+            FIXED_COUNT,
+        )
+
+        def pruned_genesis(
+            request: dict[str, Any],
+        ) -> tuple[int, Any, dict[str, str], float]:
+            if (
+                request["method"] == "eth_getBlockByNumber"
+                and request.get("params", [None])[0] == "0x0"
+            ):
+                return (
+                    200,
+                    {
+                        "error": {
+                            "code": 4444,
+                            "message": "pruned history unavailable",
+                        }
+                    },
+                    {},
+                    0,
+                )
+            return fixed_range_behavior(request)
+
+        with fake_cluster(
+            [pruned_genesis, pruned_genesis, pruned_genesis]
+        ) as servers:
+            config, endpoints, _metrics, client = self.client(
+                servers,
+                genesis_policy="allow-reth-pruned-history",
+            )
+            fixed_report = HA.readiness_fixed_range(
+                config,
+                endpoints,
+                client,
+                selection,
+            )
+            finalized_report = HA.readiness(config, endpoints, client)
+        self.assertTrue(fixed_report["success"])
+        self.assertEqual(
+            fixed_report["expectedChain"]["genesisPolicy"],
+            "allow-reth-pruned-history",
+        )
+        for endpoint in fixed_report["endpoints"]:
+            self.assertTrue(endpoint["genesisHash"])
+            self.assertEqual(
+                endpoint["genesisVerification"],
+                {
+                    "policy": "allow-reth-pruned-history",
+                    "mode": "reth-pruned-history",
+                    "rpcBlockVerified": False,
+                    "prunedHistoryAccepted": True,
+                    "rpcErrorCode": 4444,
+                },
+            )
+        self.assertFalse(finalized_report["success"])
+        self.assertIn(
+            "pruned_history_unavailable",
+            finalized_report["failureCategories"],
+        )
+
+    def test_pruned_genesis_fails_closed_without_explicit_policy(self) -> None:
+        selection = HA.WindowSelection.fixed(
+            FIXED_START,
+            FIXED_END,
+            FIXED_COUNT,
+        )
+
+        def pruned_genesis(
+            request: dict[str, Any],
+        ) -> tuple[int, Any, dict[str, str], float]:
+            if (
+                request["method"] == "eth_getBlockByNumber"
+                and request.get("params", [None])[0] == "0x0"
+            ):
+                return (
+                    200,
+                    {"error": {"code": 4444, "message": "pruned"}},
+                    {},
+                    0,
+                )
+            return fixed_range_behavior(request)
+
+        with fake_cluster(
+            [pruned_genesis, pruned_genesis, pruned_genesis]
+        ) as servers:
+            config, endpoints, _metrics, client = self.client(servers)
+            report = HA.readiness_fixed_range(
+                config,
+                endpoints,
+                client,
+                selection,
+            )
+        self.assertFalse(report["success"])
+        self.assertIn(
+            "pruned_history_unavailable",
+            report["failureCategories"],
+        )
+
+    def test_fixed_readiness_fails_if_oldest_witness_role_fails(self) -> None:
+        selection = HA.WindowSelection.fixed(
+            FIXED_START,
+            FIXED_END,
+            FIXED_COUNT,
+        )
+
+        def oldest_missing(
+            request: dict[str, Any],
+        ) -> tuple[int, Any, dict[str, str], float]:
+            if (
+                request["method"]
+                == "debug_executionWitnessByBlockHash"
+                and request.get("params")
+                == [fixed_hash(FIXED_START), "canonical"]
+            ):
+                return (
+                    200,
+                    {
+                        "error": {
+                            "code": -32601,
+                            "message": "missing",
+                        }
+                    },
+                    {},
+                    0,
+                )
+            return fixed_range_behavior(request)
+
+        good = lambda request: fixed_range_behavior(request)
+        with fake_cluster([oldest_missing, good, good]) as servers:
+            config, endpoints, _metrics, client = self.client(servers)
+            report = HA.readiness_fixed_range(
+                config,
+                endpoints,
+                client,
+                selection,
+            )
+        self.assertFalse(report["success"])
+        oldest = report["oldestWitnessReadiness"]
+        self.assertEqual(oldest["hash"], fixed_hash(FIXED_START))
+        self.assertEqual(oldest["readyEndpoints"], ["standby"])
+        self.assertFalse(oldest["satisfied"])
+        self.assertEqual(
+            oldest["failures"],
+            [
+                {
+                    "name": "primary",
+                    "failureCategory": "capability_missing",
+                }
+            ],
+        )
+        self.assertIn(
+            "oldest_witness_quorum_unavailable",
+            report["failureCategories"],
+        )
+
+    def test_fixed_readiness_rejects_parent_break_and_resume_drift(self) -> None:
+        selection = HA.WindowSelection.fixed(
+            FIXED_START,
+            FIXED_END,
+            FIXED_COUNT,
+        )
+        good = lambda request: fixed_range_behavior(request)
+        with fake_cluster([good, good, good]) as servers:
+            config, endpoints, _metrics, client = self.client(servers)
+            frozen = HA.readiness_fixed_range(
+                config,
+                endpoints,
+                client,
+                selection,
+            )["frozenRange"]
+
+        broken = lambda request: fixed_range_behavior(
+            request,
+            broken_parent_height=FIXED_START + 8,
+        )
+        with fake_cluster([broken, broken, broken]) as servers:
+            config, endpoints, _metrics, client = self.client(servers)
+            report = HA.readiness_fixed_range(
+                config,
+                endpoints,
+                client,
+                selection,
+            )
+        self.assertFalse(report["success"])
+        self.assertIn(
+            "parent_hash_discontinuity",
+            report["failureCategories"],
+        )
+
+        drift = lambda request: fixed_range_behavior(
+            request,
+            changed_height=FIXED_START + 8,
+        )
+        with fake_cluster([drift, drift, drift]) as servers:
+            config, endpoints, _metrics, client = self.client(servers)
+            report = HA.readiness_fixed_range(
+                config,
+                endpoints,
+                client,
+                selection,
+                frozen_range=frozen,
+            )
+        self.assertFalse(report["success"])
+        self.assertIn(
+            "canonical_window_changed",
+            report["failureCategories"],
+        )
+
+    def test_fixed_readiness_tolerates_optional_aux_failure(self) -> None:
+        selection = HA.WindowSelection.fixed(
+            FIXED_START,
+            FIXED_END,
+            FIXED_COUNT,
+        )
+        good = lambda request: fixed_range_behavior(request)
+
+        def syncing(
+            request: dict[str, Any],
+        ) -> tuple[int, Any, dict[str, str], float]:
+            if request["method"] == "eth_syncing":
+                return (
+                    200,
+                    {"startingBlock": "0x1", "currentBlock": "0x2"},
+                    {},
+                    0,
+                )
+            return fixed_range_behavior(request)
+
+        with fake_cluster([good, good, syncing]) as servers:
+            config, endpoints, _metrics, client = self.client(servers)
+            report = HA.readiness_fixed_range(
+                config,
+                endpoints,
+                client,
+                selection,
+            )
+        self.assertTrue(report["success"])
+        self.assertIn("endpoint_syncing", report["failureCategories"])
+        self.assertEqual(
+            report["frozenRange"]["rangeAnchor"]["agreedEndpoints"],
+            ["primary", "standby"],
+        )
 
     def test_readiness_retries_each_endpoint_vote_without_double_counting(self) -> None:
         attempts = [0, 0]
@@ -589,6 +1101,100 @@ class RethRpcHaTests(unittest.TestCase):
                 for request in server.requests
             )
         )
+
+    def test_fixed_gateway_rejects_tags_outside_range_and_unknown_hashes(
+        self,
+    ) -> None:
+        behavior = lambda request: fixed_range_behavior(request)
+        selection = HA.WindowSelection.fixed(
+            FIXED_START,
+            FIXED_END,
+            FIXED_COUNT,
+        )
+        with fake_cluster([behavior, behavior, behavior]) as servers:
+            config, endpoints, metrics, client = self.client(servers)
+            report = HA.readiness_fixed_range(
+                config,
+                endpoints,
+                client,
+                selection,
+            )
+            gateway = HA.Gateway(client, report, metrics)
+            address = gateway.start()
+            try:
+                accepted = (
+                    (
+                        "eth_getBlockByNumber",
+                        [HA.quantity(FIXED_START), False],
+                    ),
+                    (
+                        "debug_executionWitnessByBlockHash",
+                        [fixed_hash(FIXED_START), "canonical"],
+                    ),
+                )
+                for request_id, (method, params) in enumerate(
+                    accepted,
+                    start=100,
+                ):
+                    request = urllib.request.Request(
+                        address,
+                        data=json.dumps(
+                            {
+                                "jsonrpc": "2.0",
+                                "id": request_id,
+                                "method": method,
+                                "params": params,
+                            }
+                        ).encode(),
+                        headers={"content-type": "application/json"},
+                    )
+                    with urllib.request.urlopen(request) as response:
+                        document = json.load(response)
+                    self.assertIn("result", document)
+                rejected = (
+                    (
+                        "eth_getBlockByNumber",
+                        ["finalized", False],
+                    ),
+                    (
+                        "eth_getBlockByNumber",
+                        [HA.quantity(FIXED_START - 1), False],
+                    ),
+                    (
+                        "debug_executionWitnessByBlockHash",
+                        [OTHER_HASH, "canonical"],
+                    ),
+                )
+                for request_id, (method, params) in enumerate(
+                    rejected,
+                    start=1,
+                ):
+                    with self.subTest(method=method, params=params):
+                        request = urllib.request.Request(
+                            address,
+                            data=json.dumps(
+                                {
+                                    "jsonrpc": "2.0",
+                                    "id": request_id,
+                                    "method": method,
+                                    "params": params,
+                                }
+                            ).encode(),
+                            headers={"content-type": "application/json"},
+                        )
+                        with self.assertRaises(
+                            urllib.error.HTTPError
+                        ) as raised:
+                            urllib.request.urlopen(request)
+                        with raised.exception:
+                            error = json.load(raised.exception)
+                        self.assertEqual(raised.exception.code, 503)
+                        self.assertEqual(
+                            error["error"]["message"],
+                            "method_parameters_not_allowed",
+                        )
+            finally:
+                gateway.stop()
 
     def test_gateway_excludes_endpoint_that_failed_readiness(self) -> None:
         def syncing(

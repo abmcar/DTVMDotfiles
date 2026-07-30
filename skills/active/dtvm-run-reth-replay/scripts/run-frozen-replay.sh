@@ -29,10 +29,34 @@ bash "${skill_root}/scripts/restore-reth-replay-suite.sh" \
 
 export PYTHONDONTWRITEBYTECODE=1
 
+selection_arguments() {
+    local start="${DTVM_RETH_START_BLOCK:-}"
+    local end="${DTVM_RETH_END_BLOCK:-}"
+    local count="${DTVM_RETH_BLOCK_COUNT:-16}"
+    if [[ (-n "${start}" && -z "${end}") ||
+          (-z "${start}" && -n "${end}") ]]; then
+        echo "DTVM_RETH_START_BLOCK and DTVM_RETH_END_BLOCK must be set together" >&2
+        return 2
+    fi
+    if [[ -n "${start}" ]]; then
+        printf '%s\n' \
+            --start-block "${start}" \
+            --end-block "${end}" \
+            --count "${count}"
+    else
+        printf '%s\n' --count "${count}"
+    fi
+}
+
 run_readiness() {
+    local -a selection
+    local selection_output
+    selection_output="$(selection_arguments)" || return
+    mapfile -t selection <<<"${selection_output}"
     python3 "${suite_root}/reth_rpc_ha.py" \
         --config "${config}" \
-        readiness
+        readiness \
+        "${selection[@]}"
 }
 
 require_capture_inputs() {
@@ -40,19 +64,27 @@ require_capture_inputs() {
     : "${DTVM_RETH_STATE_DIR:?set DTVM_RETH_STATE_DIR}"
     : "${DTVM_IDENTITY_MANIFEST:?set DTVM_IDENTITY_MANIFEST}"
     : "${DTVM_REPLAYER_MANIFEST:?set DTVM_REPLAYER_MANIFEST}"
+    : "${DTVM_VERIFY_WITNESS:?set DTVM_VERIFY_WITNESS}"
+    : "${DTVM_RETH_REPOSITORY:?set DTVM_RETH_REPOSITORY}"
 }
 
 run_capture() {
     require_capture_inputs
+    local -a selection
+    local selection_output
+    selection_output="$(selection_arguments)" || return
+    mapfile -t selection <<<"${selection_output}"
+    CAPTURE_WINDOW_RETH_REPOSITORY="${DTVM_RETH_REPOSITORY}" \
     python3 "${suite_root}/reth_rpc_ha.py" \
         --config "${config}" \
         capture \
-        --count "${DTVM_RETH_BLOCK_COUNT:-16}" \
+        "${selection[@]}" \
         --capture-attempts "${DTVM_RETH_CAPTURE_ATTEMPTS:-3}" \
         --output "${DTVM_RETH_OUTPUT}" \
         --state-dir "${DTVM_RETH_STATE_DIR}" \
         --dtvm-identity-manifest "${DTVM_IDENTITY_MANIFEST}" \
-        --replayer-manifest "${DTVM_REPLAYER_MANIFEST}"
+        --replayer-manifest "${DTVM_REPLAYER_MANIFEST}" \
+        --verify-witness "${DTVM_VERIFY_WITNESS}"
 }
 
 require_replay_inputs() {

@@ -1,4 +1,4 @@
 interface:
   display_name: "DTVM Reth Frozen Replay"
-  short_description: "Freeze Reth blocks and seal strict DTVM replay evidence"
-  default_prompt: "Use $dtvm-run-reth-replay to check Reth endpoint readiness, capture a frozen finalized window, replay it strictly, and seal the evidence."
+  short_description: "Freeze finalized or fixed Reth blocks for strict replay"
+  default_prompt: "Use $dtvm-run-reth-replay to check Reth readiness, capture a finalized-tail or explicit fixed block range, replay it strictly, and seal the evidence."
