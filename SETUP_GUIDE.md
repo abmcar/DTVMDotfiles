@@ -183,6 +183,7 @@ dtvm-compile-time-optimize
 dtvm-compiler-path-analysis
 dtvm-dev-cycle
 dtvm-dev-workflow
+dtvm-profile-reth-replay
 dtvm-run-reth-replay
 dtvm-worktree-bootstrap
 dtvm-write-report

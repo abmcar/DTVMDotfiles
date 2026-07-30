@@ -32,7 +32,7 @@ location, or lifetime of DTVM worktrees.
 other keys in `.claude/settings.json` remain project configuration. Any map
 ownership value other than `legacy-repo` fails before writes.
 
-Project guidance routes new work to these nine active personal skills:
+Project guidance routes new work to these ten active personal skills:
 
 - `dtvm-archive`
 - `dtvm-worktree-bootstrap`
@@ -41,6 +41,7 @@ Project guidance routes new work to these nine active personal skills:
 - `dtvm-compiler-path-analysis`
 - `dtvm-dev-cycle`
 - `dtvm-dev-workflow`
+- `dtvm-profile-reth-replay`
 - `dtvm-run-reth-replay`
 - `dtvm-write-report`
 
@@ -300,6 +301,8 @@ and `GEMINI.md`. It routes:
   `dtvm-compile-time-optimize`;
 - frozen Reth corpus capture and strict offline replay to
   `dtvm-run-reth-replay`;
+- paired full-window real-block replay measurement and process-wide perf
+  attribution on that frozen corpus to `dtvm-profile-reth-replay`;
 - reader-facing technical and performance artifacts to `dtvm-write-report`.
 
 The old tracked skills are historical sources that may be inspected while
@@ -336,7 +339,7 @@ authoring the replacements. They are not workflow entry points.
    links, not copied skill trees.
 3. **Lifecycle visibility**: only immediate children of `skills/active/` are
    exposed. `incubator` and `retired` are versioned but undiscoverable.
-4. **Focused names**: the nine active names do not shadow the four suppressed
+4. **Focused names**: the ten active names do not shadow the four suppressed
    tracked skill names. The two retired packages remain undiscoverable.
 5. **Per-skill ownership**: reconciliation may create, update, or remove only
    links that it can prove belong to this DTVMDotfiles skill set. It never owns
@@ -427,6 +430,13 @@ are not treated as current evidence.
 Owns endpoint readiness, a frozen finalized block-window capture, strict
 offline DTVM replay, and checksummed evidence sealing. It does not treat the
 manifest-verified adapter slice as a standalone Rust workspace.
+
+### `dtvm-profile-reth-replay`
+
+Owns paired fresh-process performance measurement and process-wide perf
+attribution on an already frozen, strict-correct Reth witness window. It does
+not capture witnesses, and delegates one-shot compiler evidence to
+`dtvm-cold-compile-profile`.
 
 ### `dtvm-write-report`
 
@@ -615,7 +625,7 @@ home configuration.
 
 ## Rollout
 
-1. [x] Complete review of all nine active and two retired skill packages on
+1. [x] Complete review of all ten active and two retired skill packages on
    the local DTVMDotfiles integration branch.
 2. [x] Pass the publishing gate, registered skill tests, validation hooks,
    shell syntax checks, and final diff review.
@@ -623,7 +633,7 @@ home configuration.
    DTVMDotfiles origin; do not publish them to the DTVM origin.
 4. [ ] Pull that DTVMDotfiles revision on one machine and explicitly run
    sync/release.
-5. [ ] Verify nine links in both discovery roots, both four-name client
+5. [ ] Verify ten links in both discovery roots, both four-name client
    policies, positive routing, and a newly created test worktree.
 6. [ ] Start fresh Claude and Codex sessions and smoke-test explicit invocation
    of each personal skill.
@@ -658,9 +668,9 @@ change never enters the DTVM origin.
 
 - [x] Confirm the DTVMDotfiles/DTVM origin boundary.
 - [x] Define lifecycle states, skill names, interfaces, and invariants.
-- [x] Stage nine active focused skill packages and two retired historical
+- [x] Stage ten active focused skill packages and two retired historical
   packages in the local integration branch.
-- [x] Complete the cross-skill review of all nine active packages.
+- [x] Complete the cross-skill review of all ten active packages.
 
 ### Phase 2: Reconciliation
 
@@ -683,7 +693,7 @@ change never enters the DTVM origin.
   old-manifest removal, generated aliases, and the full `worktree-init` seam.
 - [x] Validate the cold-profile helper's sealed bundle, bundled rerun,
   identity guards, symlink rejection, and no-index-write dry run.
-- [x] Pass strict package validation for all nine active skills, every
+- [x] Pass strict package validation for all ten active skills, every
   registered script-bearing-skill hook, and the explicit repository test
   registry on the integrated branch.
 - [ ] Merge the verified implementation in DTVMDotfiles, then update this
